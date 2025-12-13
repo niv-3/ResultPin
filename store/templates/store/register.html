@@ -26,7 +26,7 @@
 
         {% if messages %}
             {% for msg in messages %}
-                <div class="alert alert-{{ msg.tags|default:'info' }} text-center">
+                <div class="alert alert-danger text-center fw-bold mt-3">
                     {{ msg }}
                 </div>
             {% endfor %}
@@ -43,12 +43,12 @@
                 </div>
             </div>
 
-            <input type="text" name="phone" class="form-control mb-3" placeholder="Phone Number (e.g 08012345678)" required>
+            <input type="text" name="phone" class="form-control mb-3" placeholder="Phone Number (optional, for future SMS)" required>
             <input type="email" name="email" class="form-control mb-3" placeholder="Email Address" required>
             <input type="password" name="password" class="form-control mb-3" placeholder="Create Password" required>
             <input type="password" name="password2" class="form-control mb-4" placeholder="Confirm Password" required>
 
-            <button type="submit" class="btn btn-success btn-lg w-100">Send OTP to Phone</button>
+            <button type="submit" class="btn btn-success btn-lg w-100">Send OTP to Email</button>
         </form>
 
         <p class="text-center mt-3">
