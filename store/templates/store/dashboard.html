@@ -1,31 +1,234 @@
+<!-- templates/store/dashboard.html -->
 {% load static %}
 <!DOCTYPE html>
-<html><head><title>Dashboard - ResultPin.ng</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<style>body{background:#f8f9fa; padding:40px 0}</style>
-</head><body>
-<div class="container">
-  <div class="card shadow-lg border-0">
-    <div class="card-header bg-success text-white text-center py-4">
-      <h2>Welcome, {{ user.username }}!</h2>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard – ResultPin.ng</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --green: #008751;
+            --green-dark: #006b40;
+            --dark: #0b2c3d;
+            --light: #f7f9f8;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0b2c3d, #008751);
+            min-height: 100vh;
+            padding: 40px 0;
+        }
+
+        .dashboard-card {
+            max-width: 980px;
+            margin: auto;
+            background: #fff;
+            border-radius: 26px;
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--green), var(--green-dark));
+            color: #fff;
+            padding: 2.5rem 2rem;
+            text-align: center;
+        }
+
+        .dashboard-header h2 {
+            font-weight: 800;
+            margin-bottom: 0.3rem;
+        }
+
+        .dashboard-header p {
+            opacity: 0.9;
+            margin-bottom: 0;
+        }
+
+        .dashboard-body {
+            padding: 3rem 2.5rem;
+            text-align: center;
+        }
+
+        .balance-card {
+            background: var(--light);
+            border-radius: 20px;
+            padding: 2.2rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .balance-card h1 {
+            font-weight: 800;
+            color: var(--green);
+            font-size: 3.2rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .stat-box {
+            background: #fff;
+            border-radius: 18px;
+            padding: 1.8rem;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
+            height: 100%;
+        }
+
+        .stat-box h4 {
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .stat-box p {
+            margin-bottom: 0;
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .referral-box {
+            background: #f8faf9;
+            border-radius: 18px;
+            padding: 2rem;
+            margin-top: 2.5rem;
+        }
+
+        .referral-box h5 {
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 1rem;
+        }
+
+        .input-group input {
+            border-radius: 14px 0 0 14px;
+            padding: 14px;
+            font-size: 0.9rem;
+        }
+
+        .input-group button {
+            border-radius: 0 14px 14px 0;
+            background: var(--green);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+            padding: 0 24px;
+        }
+
+        .input-group button:hover {
+            background: var(--green-dark);
+        }
+
+        .action-buttons {
+            margin-top: 3rem;
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn-main {
+            padding: 14px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .btn-outline-main {
+            border: 2px solid var(--green);
+            color: var(--green);
+        }
+
+        .btn-outline-main:hover {
+            background: var(--green);
+            color: #fff;
+        }
+
+        .btn-danger {
+            border-radius: 50px;
+            padding: 14px 30px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-card">
+
+    <!-- Header -->
+    <div class="dashboard-header">
+        <h2>Welcome, {{ user.username }} 👋</h2>
+        <p>Your ResultPin.ng dashboard</p>
     </div>
-    <div class="card-body text-center p-5">
-      <h1 class="display-4 text-success">₦{{ user.balance|floatformat:0 }}</h1>
-      <p class="lead">Wallet Balance</p>
-      <hr>
-      <h4>Referral Earnings: ₦{{ referral_earnings }}</h4>
-      <p>You have {{ total_referrals }} successful referrals</p>
-      <hr>
-      <h5>Your Referral Link</h5>
-      <div class="input-group mb-3" style="max-width:500px;margin:auto">
-        <input type="text" value="https://yourdomain.com/?ref={{ user.referral_code }}" class="form-control" id="reflink">
-        <button class="btn btn-success" onclick="navigator.clipboard.writeText(document.getElementById('reflink').value)">Copy</button>
-      </div>
-      <p>Earn ₦150 instantly per referral!</p>
-      <hr>
-      <a href="{% url 'home' %}" class="btn btn-outline-success btn-lg">Continue Shopping</a>
-      <a href="{% url 'logout' %}" class="btn btn-danger btn-lg ms-3">Logout</a>
+
+    <!-- Body -->
+    <div class="dashboard-body">
+
+        <!-- Wallet Balance -->
+        <div class="balance-card">
+            <h1>₦{{ user.balance|floatformat:0 }}</h1>
+            <p class="text-muted fw-semibold">Wallet Balance</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <div class="stat-box">
+                    <h4>₦{{ referral_earnings }}</h4>
+                    <p>Total Referral Earnings</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="stat-box">
+                    <h4>{{ total_referrals }}</h4>
+                    <p>Successful Referrals</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Referral -->
+        <div class="referral-box">
+            <h5>Your Referral Link</h5>
+            <div class="input-group mb-3" style="max-width: 520px; margin: auto;">
+                <input type="text"
+                       id="reflink"
+                       class="form-control"
+                       value="https://yourdomain.com/?ref={{ user.referral_code }}"
+                       readonly>
+                <button onclick="copyRef()">Copy</button>
+            </div>
+            <p class="small text-muted">
+                Earn <strong>₦150 instantly</strong> for every successful referral
+            </p>
+        </div>
+
+        <!-- Actions -->
+        <div class="action-buttons">
+            <a href="{% url 'home' %}" class="btn btn-outline-main btn-main">
+                Continue Shopping
+            </a>
+            <a href="{% url 'logout' %}" class="btn btn-danger btn-main">
+                Logout
+            </a>
+        </div>
+
     </div>
-  </div>
 </div>
-</body></html>
+
+<script>
+    function copyRef() {
+        const input = document.getElementById("reflink");
+        input.select();
+        input.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(input.value);
+        alert("Referral link copied!");
+    }
+</script>
+
+</body>
+</html>

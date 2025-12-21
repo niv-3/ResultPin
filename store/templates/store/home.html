@@ -27,14 +27,17 @@
         /* ================= HERO ================= */
         .hero {
             position: relative;
-            min-height: 60vh;
-            background: url("{% static 'store/images/banner.jpg' %}") center top / contain no-repeat;
+            min-height: 90vh;
+            background-image: url("{% static 'store/images/banner.jpg' %}");
+            background-position: center top;
+            background-repeat: no-repeat;
+            background-size: contain;
             background-color: var(--dark);
             color: #fff;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 20px 0;
+            padding: 40px 0;
         }
 
         .hero::after {
@@ -43,8 +46,8 @@
             inset: 0;
             background: linear-gradient(
                 to bottom,
-                rgba(11, 44, 61, 0.7),
-                rgba(11, 44, 61, 0.85)
+                rgba(11, 44, 61, 0.65),
+                rgba(11, 44, 61, 0.9)
             );
             z-index: 1;
         }
@@ -53,7 +56,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            width: 100%;
             padding: 0 24px;
             position: relative;
             z-index: 2;
@@ -65,10 +67,52 @@
             display: flex;
             gap: 15px;
             align-items: center;
-            margin-left: auto;
         }
 
-        .hero-links .about-btn { margin-right: auto; }
+        /* ===== LEFT HERO CONTENT ===== */
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 640px;
+            padding-left: 60px;
+            animation: heroFadeUp 6s ease-in-out infinite;
+        }
+
+        .hero-content h1 {
+            font-size: 3.1rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+
+        .hero-content p {
+            font-size: 1.25rem;
+            opacity: 0.95;
+            margin-bottom: 2rem;
+        }
+
+        .hero-cta {
+            background: var(--accent);
+            color: #fff;
+            padding: 16px 44px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-block;
+            transition: 0.3s ease;
+        }
+
+        .hero-cta:hover {
+            background: #ff8c1a;
+            transform: scale(1.06);
+        }
+
+        @keyframes heroFadeUp {
+            0% { opacity: 0; transform: translateY(30px); }
+            15% { opacity: 1; transform: translateY(0); }
+            70% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-25px); }
+        }
 
         /* ================= MARQUEE ================= */
         .marquee-container {
@@ -120,12 +164,12 @@
         }
 
         .exam-logo {
-            height: 80px;
-            max-width: 220px;
+            height: 140px;
+            max-width: 300px;
             object-fit: contain;
             margin: 1.5rem auto;
             background: #fff;
-            padding: 10px;
+            padding: 12px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
@@ -149,16 +193,6 @@
         .feature-icon { font-size: 3.5rem; color: var(--green); }
 
         .section-title { color: var(--green); font-weight: 800; }
-
-        .about-img {
-            width: 100%;
-            max-height: 340px;
-            object-fit: contain;
-            background: #fff;
-            padding: 15px;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
 
         footer {
             background: var(--dark);
@@ -193,6 +227,13 @@
         </div>
     </div>
 
+    <!-- LEFT HERO CONTENT -->
+    <div class="hero-content">
+        <h1>Buy JAMB, WAEC & NECO Result PINs Instantly</h1>
+        <p>Fast • Secure • Instant SMS & Email Delivery • Trusted Nationwide</p>
+        <a href="#home" class="hero-cta">Buy Exam PIN Now</a>
+    </div>
+
     <div class="marquee-container">
         <div class="marquee">
             Instant Delivery • Secure Paystack Payments • 24/7 Support • Over 50,000+ Happy Students
@@ -208,11 +249,11 @@
         <div class="col-lg-4 col-md-6">
             <div class="product-card h-100 text-center p-4">
                 {% if "JAMB" in product.name %}
-                    <img src="{% static 'store/images/jamb.png' %}" class="exam-logo">
+                    <img src="{% static 'store/images/jamb-logo.png' %}" class="exam-logo">
                 {% elif "WAEC" in product.name %}
-                    <img src="{% static 'store/images/waec.png' %}" class="exam-logo">
+                    <img src="{% static 'store/images/waec-logo.png' %}" class="exam-logo">
                 {% elif "NECO" in product.name %}
-                    <img src="{% static 'store/images/neco.png' %}" class="exam-logo">
+                    <img src="{% static 'store/images/neco-logo.png' %}" class="exam-logo">
                 {% endif %}
                 <h4 class="fw-bold mt-3">{{ product.name }}</h4>
                 <div class="price my-3">₦{{ product.sell_price|floatformat:0 }}</div>
@@ -291,19 +332,23 @@ function payWithPaystack(productId, amount, productDbId) {
     let phone = document.getElementById('phone-' + productId).value;
     if (!email || !phone) return alert("Please enter both email and phone");
 
-    PaystackPop.setup({
-        key: '{{ paystack_public_key|escapejs }}',
-        email: email,
-        amount: amount * 100,
-        currency: 'NGN',
-        ref: 'RES-' + Math.floor(Math.random() * 1000000000),
-        metadata: { custom_fields: [
-            { display_name: "Phone", value: phone },
-            { display_name: "Product ID", value: productDbId }
-        ]},
-        callback: r => window.location.href = '/payment-success/?reference=' + r.reference,
-        onClose: () => alert('Payment cancelled')
-    }).openIframe();
+    fetch(`/initiate-payment/${productDbId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({email: email, phone: phone})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status && data.authorization_url) {
+            window.location.href = data.authorization_url;
+        } else {
+            alert(data.message || "Payment initiation failed.");
+        }
+    })
+    .catch(err => alert("Payment initiation error: " + err));
 }
 
 document.querySelectorAll('.faq-item h5').forEach(h =>
