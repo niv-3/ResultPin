@@ -3,28 +3,55 @@ from . import views
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
-    # ======================
-    # MAIN
-    # ======================
-    path('', views.home, name='home'),
-    path('initiate-payment/<int:product_id>/', views.initiate_payment, name='initiate_payment'),
-    path('payment-success/', views.payment_success, name='payment_success'),
 
     # ======================
-    # REVIEW FLOW
+    # MAIN PAGES
+    # ======================
+    path('', views.home, name='home'),
+    path('dashboard/', views.dashboard, name='dashboard'),
+
+    # ======================
+    # SERVICES (DASHBOARD FLOW)
+    # ======================
+    path(
+    'services/<slug:slug>/',
+    views.service_dashboard,
+    name='service_dashboard'
+),
+    path(
+        'services/<slug:category>/<int:provider_id>/',
+        views.provider_plans,
+        name='provider_plans'
+    ),
+
+    # ======================
+    # PAYMENTS (EXAMS ONLY)
+    # ======================
+    path(
+        'initiate-payment/<int:product_id>/',
+        views.initiate_payment,
+        name='initiate_payment'
+    ),
+    path(
+        'payment-success/',
+        views.payment_success,
+        name='payment_success'
+    ),
+
+    # ======================
+    # REVIEWS
     # ======================
     path('submit-review/', views.submit_review, name='submit_review'),
     path('review-thank-you/', views.review_thank_you, name='review_thank_you'),
 
     # ======================
-    # AUTH
+    # AUTHENTICATION
     # ======================
     path('register/', views.register, name='register'),
-    path('verify-otp/', views.verify_otp, name='verify_otp'),
-    path('resend-otp/', views.resend_otp, name='resend_otp'),
     path('login/', views.custom_login, name='login'),
     path('logout/', views.custom_logout, name='logout'),
-    path('dashboard/', views.dashboard, name='dashboard'),
+    path('verify-otp/', views.verify_otp, name='verify_otp'),
+    path('resend-otp/', views.resend_otp, name='resend_otp'),
 
     # ======================
     # PASSWORD RESET
@@ -63,7 +90,4 @@ urlpatterns = [
     # ======================
     path('blog/', views.blog_list, name='blog_list'),
     path('blog/<slug:slug>/', views.blog_detail, name='blog_detail'),
-    # urls.py
-    path('services/<slug:slug>/', views.service_detail, name='service_detail'),
-
 ]

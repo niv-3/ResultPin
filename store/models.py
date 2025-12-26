@@ -3,6 +3,7 @@ from django.db import models
 import uuid
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.urls import reverse
+from decimal import Decimal
 
 class User(AbstractUser):
     phone = models.CharField(max_length=15, unique=True, null=True, blank=True)
@@ -29,8 +30,6 @@ class Vendor(models.Model):
     def __str__(self):
         return self.name
 
-from django.db import models
-
 class Product(models.Model):
     name = models.CharField(max_length=50)
     vendor_product_id = models.CharField(max_length=50)
@@ -38,6 +37,15 @@ class Product(models.Model):
     sell_price = models.DecimalField(max_digits=10, decimal_places=2)
     image = models.ImageField(upload_to='products/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
+
+    # NEW FIELD - Add this for Check Result button
+    result_checker_url = models.URLField(
+        max_length=300,
+        blank=True,
+        null=True,
+        verbose_name="Result Checker URL",
+        help_text="Official link to check results (e.g., WAEC, NECO, JAMB). Leave blank if not applicable."
+    )
 
     def __str__(self):
         return self.name
@@ -90,20 +98,6 @@ class BlogPost(models.Model):
 
     def get_absolute_url(self):
         return reverse("blog_detail", kwargs={"slug": self.slug})
-
-
-
-# models.py
-class HeroBanner(models.Model):
-    title = models.CharField(max_length=200)
-    subtitle = models.TextField()
-    cta_text = models.CharField(max_length=100, default="Buy Now")
-    cta_link = models.CharField(max_length=200, default="#home")
-    background_image = models.ImageField(upload_to="hero_banners/")
-    is_active = models.BooleanField(default=True)
-
-    def __str__(self):
-        return self.title
 
 class Review(models.Model):
     name = models.CharField(max_length=100)
@@ -162,14 +156,69 @@ class ServiceProvider(models.Model):
     def __str__(self):
         return f"{self.name} ({self.category.name})"
 
+
+
+from decimal import Decimal
+
 class ServicePlan(models.Model):
-    provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='plans')
-    name = models.CharField(max_length=100)  # 1GB Daily, GOtv Jolli, etc
-    code = models.CharField(max_length=50)  # internal/vendor code
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    provider = models.ForeignKey(
+        ServiceProvider,
+        on_delete=models.CASCADE,
+        related_name="plans"
+    )
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=50, blank=True)
+
+    buy_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        null=True,
+        blank=True
+    )
+
+    sell_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        null=True,
+        blank=True
+    )
+
+    discount_percent = models.PositiveIntegerField(
+        default=0,
+        blank=True
+    )
+
+    description = models.CharField(max_length=255, blank=True)
     validity = models.CharField(max_length=50, blank=True)
     is_active = models.BooleanField(default=True)
 
-    def __str__(self):
-        return f"{self.provider.name} - {self.name}"
+    class Meta:
+        ordering = ["provider__order", "sell_price"]  # temporarily remove "sell_price" if it causes error
 
+    def __str__(self):
+        return f"{self.provider.name} – {self.name}"
+
+class HeroBanner(models.Model):
+    PAGE_CHOICES = (
+        ('home', 'Home'),
+        ('airtime', 'Airtime'),
+        ('data', 'Data'),
+        ('exams', 'Exams'),
+    )
+
+    title = models.CharField(max_length=200)
+    subtitle = models.TextField()
+    cta_text = models.CharField(max_length=100, default="Buy Now")
+    cta_link = models.CharField(max_length=200, default="#home")
+    background_image = models.ImageField(upload_to="hero_banners/")
+    is_active = models.BooleanField(default=True)
+    page = models.CharField(
+        max_length=50,
+        choices=PAGE_CHOICES,
+        default='home'
+    )
+
+    def __str__(self):
+        return f"{self.title} ({self.page})"

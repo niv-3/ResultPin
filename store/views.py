@@ -27,6 +27,8 @@ from .models import (
     HeroBanner,
     FAQ,
     ServiceCategory,
+    ServiceProvider,
+    ServicePlan,
 )
 
 
@@ -117,27 +119,26 @@ def generate_request_id():
 # HOME
 # ==============================
 
-# views.py
 def home(request):
-    hero = HeroBanner.objects.filter(is_active=True).first()
-    products = Product.objects.filter(is_active=True)
-    blog_posts = BlogPost.objects.filter(published=True)
-    reviews = Review.objects.all()
+    hero = HeroBanner.objects.filter(
+        page="home",
+        is_active=True
+    ).first()
+
+    products = Product.objects.filter(is_active=True)   # ✅ exams
     faq_list = FAQ.objects.filter(is_active=True)
 
-    # ✅ THIS WAS MISSING
-    services = ServiceCategory.objects.filter(is_active=True).order_by('order')
+    services = ServiceCategory.objects.filter(
+        is_active=True
+    ).order_by('order')   # ✅ airtime, data, tv, electricity
 
     return render(request, 'store/home.html', {
         'hero': hero,
-        'products': products,
-        'services': services,  # ✅ ADD THIS
-        'blog_posts': blog_posts,
-        'reviews': reviews,
+        'products': products,     # exams section (UNCHANGED)
+        'services': services,     # service cards
         'faq_list': faq_list,
         'quantity_options': range(1, 11),
     })
-
 
 
 # ==============================
@@ -318,14 +319,30 @@ def dashboard(request):
         "referral_earnings": referral_earnings
     })
 
-def service_detail(request, slug):
-    service = get_object_or_404(ServiceCategory, slug=slug, is_active=True)
-    providers = service.providers.filter(is_active=True)
 
-    return render(request, 'store/service_detail.html', {
-        'service': service,
-        'providers': providers
-    })
+def service_dashboard(request, slug):
+    category = get_object_or_404(ServiceCategory, slug=slug, is_active=True)
+
+    providers = ServiceProvider.objects.filter(
+        category=category,
+        is_active=True
+    )
+
+    plans = ServicePlan.objects.filter(
+        provider__in=providers,
+        is_active=True
+    ).select_related('provider')
+
+    return render(
+        request,
+        'store/service_dashboard.html',
+        {
+            'category': category,
+            'providers': providers,
+            'plans': plans
+        }
+    )
+
 
 
 # ==============================
@@ -530,3 +547,39 @@ def blog_detail(request, slug):
 
 def review_thank_you(request):
     return render(request, "store/review_thank_you.html")
+
+
+def provider_plans(request, category, provider):
+    banner = HeroBanner.objects.filter(
+        page=category,
+        is_active=True
+    ).first()
+
+    category_obj = ServiceCategory.objects.filter(
+        slug=category,
+        is_active=True
+    ).first()
+
+    provider_obj = None
+    plans = []
+
+    if category_obj:
+        provider_obj = ServiceProvider.objects.filter(
+            category=category_obj,
+            name__iexact=provider,
+            is_active=True
+        ).first()
+
+        if provider_obj:
+            plans = ServicePlan.objects.filter(
+                provider=provider_obj,
+                is_active=True
+            )
+
+    return render(request, 'store/provider_plans.html', {
+        'banner': banner,
+        'category': category_obj,
+        'provider': provider_obj,
+        'plans': plans,
+    })
+

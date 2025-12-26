@@ -1,0 +1,178 @@
+{% extends "store/base.html" %}
+{% load static %}
+
+{% block title %}
+Buy {{ category.name }} | ResultPin.ng
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid my-5 px-lg-5">
+
+    <!-- ================= PAGE HEADER ================= -->
+    <div class="text-center mb-5">
+        <h1 class="fw-bold display-6">
+            {{ category.name }} Dashboard
+        </h1>
+        <p class="text-muted fs-5">
+            Choose a plan, enter your phone number, and buy instantly
+        </p>
+    </div>
+
+    <!-- ================= VTU DASHBOARD CARD ================= -->
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-4 p-lg-5">
+
+            <div class="table-responsive">
+
+                <table class="table table-hover align-middle text-center w-100">
+
+                    <thead class="table-light">
+                        <tr class="fs-6">
+                            <th class="py-3">Provider</th>
+                            <th class="py-3">Plan</th>
+                            <th class="py-3">Price</th>
+                            <th class="py-3">Discount</th>
+                            <th class="py-3">Phone Number</th>
+                            <th class="py-3">Email (optional)</th>
+                            <th class="py-3">Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for plan in plans %}
+                        <tr class="fs-6">
+
+                            <!-- PROVIDER -->
+                            <td class="py-4">
+                                <div class="d-flex flex-column align-items-center gap-2">
+                                    {% if plan.provider and plan.provider.logo %}
+                                        <img src="{{ plan.provider.logo.url }}"
+                                             alt="{{ plan.provider.name }}"
+                                             style="height:50px; object-fit:contain;">
+                                    {% endif %}
+                                    <strong>
+                                        {{ plan.provider.name|default:"—" }}
+                                    </strong>
+                                </div>
+                            </td>
+
+                            <!-- PLAN -->
+                            <td class="py-4 text-start">
+                                <strong class="d-block">
+                                    {{ plan.name }}
+                                </strong>
+
+                                {% if plan.description %}
+                                    <small class="text-muted d-block">
+                                        {{ plan.description }}
+                                    </small>
+                                {% endif %}
+
+                                {% if plan.validity %}
+                                    <small class="text-muted d-block">
+                                        Validity: {{ plan.validity }}
+                                    </small>
+                                {% endif %}
+                            </td>
+
+                            <!-- PRICE -->
+                            <td class="py-4 fw-bold text-success fs-5">
+                                ₦{{ plan.sell_price|floatformat:0 }}
+                            </td>
+
+                            <!-- DISCOUNT -->
+                            <td class="py-4">
+                                {% if plan.discount_percent is not None and plan.discount_percent > 0 %}
+                                    <span class="badge bg-success fs-6 px-3 py-2">
+                                        {{ plan.discount_percent }}% OFF
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- PHONE -->
+                            <td class="py-4">
+                                <input type="tel"
+                                       class="form-control form-control-lg"
+                                       placeholder="080xxxxxxxx"
+                                       id="phone-{{ plan.id }}">
+                            </td>
+
+                            <!-- EMAIL -->
+                            <td class="py-4">
+                                <input type="email"
+                                       class="form-control form-control-lg"
+                                       placeholder="optional"
+                                       id="email-{{ plan.id }}">
+                            </td>
+
+                            <!-- BUY BUTTON -->
+                            <td class="py-4">
+                                <button class="btn btn-success btn-lg w-100 fw-semibold"
+                                        onclick="payForService('{{ plan.id }}', '{{ plan.sell_price }}')">
+                                    BUY
+                                </button>
+                            </td>
+
+                        </tr>
+
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="py-5 text-muted fs-5 text-center">
+                                No plans available for this service.
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- ================= PAYSTACK SCRIPT ================= -->
+<script src="https://js.paystack.co/v1/inline.js"></script>
+
+<script>
+function payForService(planId, amount) {
+
+    const phone = document.getElementById('phone-' + planId).value;
+    const email = document.getElementById('email-' + planId).value || "guest@resultpin.ng";
+
+    if (!phone) {
+        alert("Phone number is required");
+        return;
+    }
+
+    fetch(`/initiate-service-payment/${planId}/`, {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": "{{ csrf_token }}",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            phone: phone,
+            email: email
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status && data.authorization_url) {
+            window.location.href = data.authorization_url;
+        } else {
+            alert(data.message || "Payment failed");
+        }
+    })
+    .catch(() => alert("Network error"));
+}
+</script>
+
+{% endblock %}

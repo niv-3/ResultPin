@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- SEO -->
+    <!-- ================= SEO ================= -->
     <title>{% block title %}ResultPin.ng - Buy WAEC, JAMB & NECO PINs Instantly{% endblock %}</title>
 
     <meta name="description" content="{% block meta_description %}
@@ -33,6 +33,7 @@ Buy WAEC, JAMB & NECO PINs instantly.
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 
+    <!-- ================= GLOBAL STYLES ================= -->
     <style>
         :root {
             --green: #008751;
@@ -50,50 +51,42 @@ Buy WAEC, JAMB & NECO PINs instantly.
             flex-direction: column;
         }
 
-        /* CONTAINER */
+        main {
+            flex: 1;
+        }
+
+        /* ================= LAYOUT ================= */
         .container-custom {
             max-width: 1320px;
             margin: 0 auto;
             padding: 0 1rem;
         }
 
-        /* NAVBAR */
-.navbar {
-    background: var(--dark);
-    box-shadow: 0 6px 20px rgba(0,0,0,.15);
-}
+        /* ================= NAVBAR ================= */
+        .navbar {
+            background: var(--dark);
+            box-shadow: 0 6px 20px rgba(0,0,0,.15);
+        }
 
-/* 🔑 FIX: make custom container behave like Bootstrap container */
-.navbar .container-custom {
-    display: flex;
-    align-items: center;
-}
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.6rem;
+            color: #fff !important;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
 
-/* BRAND */
-.navbar-brand {
-    font-weight: 800;
-    font-size: 1.6rem;
-    color: #fff !important;
-    gap: .5rem;
-}
+        .nav-link {
+            font-weight: 600;
+            color: #fff !important;
+        }
 
-.navbar-brand img {
-    border-radius: 6px;
-}
+        .nav-link:hover {
+            color: var(--accent) !important;
+        }
 
-/* LINKS */
-.nav-link {
-    font-weight: 600;
-    color: #fff !important;
-    padding: .5rem .75rem;
-    position: relative;
-}
-
-.nav-link:hover {
-    color: var(--accent) !important;
-}
-
-        /* BUTTONS */
+        /* ================= BUTTONS ================= */
         .btn-login {
             border: 2px solid #fff;
             color: #fff !important;
@@ -113,27 +106,175 @@ Buy WAEC, JAMB & NECO PINs instantly.
             background: #ff812f;
         }
 
-        /* MAIN */
-        main {
-            flex: 1;
+        /* ================= UNIFIED CARD SYSTEM ================= */
+        .card-ui {
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+            transition: all 0.35s ease;
+            height: 100%;
         }
 
-        /* GLOBAL BLOG CARD EFFECT */
-        .card {
-            transition: all .35s ease;
+        .card-ui:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.18);
         }
 
-        .card:hover {
+        /* ================= SERVICE CARDS ================= */
+        .service-card {
+            min-height: 320px;
+        }
+
+        .service-icon {
+            height: 90px;
+            object-fit: contain;
+        }
+
+        /* ================= HERO / BANNER (FULL WIDTH) ================= */
+        .hero-banner {
+            position: relative;
+            width: 100%;
+            height: 420px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 3rem;
+        }
+
+        .hero-banner img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .hero-content {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                to right,
+                rgba(0,0,0,0.65),
+                rgba(0,0,0,0.15)
+            );
+            color: #fff;
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .hero-content h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+        }
+
+        .hero-content p {
+            font-size: 1.25rem;
+            max-width: 520px;
+        }
+
+        /* ================= NETWORK TILES (NOT CARDS) ================= */
+        .network-tile {
+            display: block;
+            text-align: center;
+            background: #fff;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .network-tile:hover {
             transform: translateY(-8px);
-            box-shadow: 0 18px 45px rgba(0,0,0,.15);
+            box-shadow: 0 20px 45px rgba(0,0,0,0.15);
         }
 
-        /* FOOTER */
+        .network-tile img {
+            height: 70px;
+            object-fit: contain;
+            margin-bottom: .5rem;
+        }
+
+        /* ================= FOOTER ================= */
         footer {
             background: var(--dark);
             color: #fff;
             padding: 3rem 0 2rem;
         }
+
+
+        /* ================= AIRTIME HERO ================= */
+
+.airtime-hero-banner {
+    position: relative;
+    width: 100%;
+    height: 420px;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 3rem;
+}
+
+.airtime-hero-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.airtime-hero-content {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to right,
+        rgba(0,0,0,0.7),
+        rgba(0,0,0,0.2)
+    );
+    color: #fff;
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.airtime-hero-content h1 {
+    font-size: 2.8rem;
+    font-weight: 800;
+}
+
+.airtime-hero-content p {
+    font-size: 1.25rem;
+    max-width: 520px;
+}
+
+/* ================= NETWORK TILE ================= */
+
+.network-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.1);
+    transition: .3s;
+    text-decoration: none;
+    color: #000;
+}
+
+.network-tile:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 45px rgba(0,0,0,.18);
+}
+
+.network-tile img {
+    height: 60px;
+    object-fit: contain;
+    margin-bottom: 1rem;
+}
+
+.network-tile span {
+    font-weight: 700;
+}
+
 
         footer a {
             color: var(--green);
@@ -149,11 +290,10 @@ Buy WAEC, JAMB & NECO PINs instantly.
             color: var(--accent);
         }
 
-        /* RESPONSIVE FIXES */
+        /* ================= RESPONSIVE ================= */
         @media (max-width: 768px) {
-            .navbar-nav {
-                gap: 1rem !important;
-                padding-top: 1rem;
+            .hero-content h1 {
+                font-size: 2rem;
             }
         }
     </style>
@@ -161,10 +301,11 @@ Buy WAEC, JAMB & NECO PINs instantly.
 
 <body>
 
-<!-- NAVBAR -->
+
+<!-- ================= NAVBAR ================= -->
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container-fluid px-4">
-        <a class="navbar-brand d-flex align-items-center me-auto" href="{% url 'home' %}">
+        <a class="navbar-brand" href="{% url 'home' %}">
             <img src="{% static 'store/images/logo.jpg' %}" height="42" alt="ResultPin">
             ResultPin.ng
         </a>
@@ -174,25 +315,25 @@ Buy WAEC, JAMB & NECO PINs instantly.
         </button>
 
         <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto d-flex align-items-center gap-3">
-                <li class="nav-item"><a class="nav-link" href="{% url 'home' %}">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'blog_list' %}">Blog</a></li>
-                <li class="nav-item"><a class="nav-link" href="#contact-section">Contact</a></li>
+            <ul class="navbar-nav ms-auto gap-3 align-items-center">
+                <li><a class="nav-link" href="{% url 'home' %}">Home</a></li>
+                <li><a class="nav-link" href="{% url 'blog_list' %}">Blog</a></li>
+                <li><a class="nav-link" href="#contact-section">Contact</a></li>
 
                 {% if user.is_authenticated %}
-                    <li class="nav-item">
+                    <li>
                         <a class="btn btn-light fw-bold" href="{% url 'dashboard' %}">
                             Dashboard (₦{{ user.balance|default:"0" }})
                         </a>
                     </li>
-                    <li class="nav-item">
+                    <li>
                         <a class="btn btn-outline-light fw-bold" href="{% url 'logout' %}">Logout</a>
                     </li>
                 {% else %}
-                    <li class="nav-item">
+                    <li>
                         <a class="btn btn-login fw-bold" href="{% url 'login' %}">Login</a>
                     </li>
-                    <li class="nav-item">
+                    <li>
                         <a class="btn btn-register fw-bold" href="{% url 'register' %}">Register</a>
                     </li>
                 {% endif %}
@@ -201,13 +342,12 @@ Buy WAEC, JAMB & NECO PINs instantly.
     </div>
 </nav>
 
-
-<!-- MAIN -->
+<!-- ================= MAIN ================= -->
 <main class="container-custom py-4">
     {% block content %}{% endblock %}
 </main>
 
-<!-- FOOTER -->
+<!-- ================= FOOTER ================= -->
 <footer id="contact-section">
     <div class="container-custom text-center">
         <p class="mb-3 fs-5 fw-semibold">

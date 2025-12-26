@@ -125,7 +125,6 @@ class WalletTransactionAdmin(admin.ModelAdmin):
     search_fields = ('user__email',)
     ordering = ('-created_at',)
 
-
 # ==============================
 # REFERRALS
 # ==============================
@@ -188,10 +187,21 @@ class ServiceProviderAdmin(admin.ModelAdmin):
 # ==============================
 @admin.register(ServicePlan)
 class ServicePlanAdmin(admin.ModelAdmin):
-    list_display = ('name', 'provider', 'price', 'is_active')
-    list_filter = ('provider', 'is_active')
-    list_editable = ('is_active',)
-    search_fields = ('name',)
+    list_display = (
+        'provider',
+        'name',
+        'discount_percent',
+        'is_active',
+    )
+    list_filter = (
+        'provider',
+        'is_active',
+    )
+    search_fields = (
+        'name',
+        'code',
+        'provider__name',
+    )
 
 
 # ==============================
