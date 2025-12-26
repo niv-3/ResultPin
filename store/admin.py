@@ -5,9 +5,15 @@ from .models import (
     Transaction,
     User,
     WalletTransaction,
-    Referral
+    Referral,
+    BlogPost,
+    HeroBanner,
+    ServiceCategory,
+    ServiceProvider,
+    ServicePlan,
+    FAQ,
+    Review,
 )
-
 
 # ==============================
 # PRODUCT ADMIN
@@ -18,6 +24,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_editable = ('sell_price', 'buy_price', 'is_active')
     search_fields = ('name',)
     list_filter = ('is_active',)
+    ordering = ('name',)
 
 
 # ==============================
@@ -28,10 +35,11 @@ class VendorAdmin(admin.ModelAdmin):
     list_display = ('name', 'api_url', 'is_active', 'priority')
     list_filter = ('is_active',)
     search_fields = ('name',)
+    ordering = ('priority',)
 
 
 # ==============================
-# TRANSACTION ADMIN (VERY IMPORTANT)
+# TRANSACTION ADMIN
 # ==============================
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
@@ -43,21 +51,17 @@ class TransactionAdmin(admin.ModelAdmin):
         'payment_method',
         'created_at',
     )
-
     list_filter = (
         'status',
         'payment_method',
         'created_at',
     )
-
     search_fields = (
         'reference',
         'pin_token',
         'user__email',
         'user__phone',
     )
-
-    # 🔒 PROTECT CRITICAL FIELDS
     readonly_fields = (
         'reference',
         'user',
@@ -86,7 +90,7 @@ class TransactionAdmin(admin.ModelAdmin):
                 'profit',
             )
         }),
-        ('PIN Details (Read-Only)', {
+        ('PIN Details (Read Only)', {
             'fields': (
                 'pin_token',
                 'pin_serial',
@@ -105,9 +109,10 @@ class TransactionAdmin(admin.ModelAdmin):
 # ==============================
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('email', 'phone', 'is_active', 'date_joined')
-    search_fields = ('email', 'phone')
+    list_display = ('username', 'email', 'phone', 'is_active', 'date_joined')
+    search_fields = ('email', 'phone', 'username')
     list_filter = ('is_active',)
+    ordering = ('-date_joined',)
 
 
 # ==============================
@@ -118,6 +123,7 @@ class WalletTransactionAdmin(admin.ModelAdmin):
     list_display = ('user', 'amount', 'transaction_type', 'created_at')
     list_filter = ('transaction_type',)
     search_fields = ('user__email',)
+    ordering = ('-created_at',)
 
 
 # ==============================
@@ -125,10 +131,84 @@ class WalletTransactionAdmin(admin.ModelAdmin):
 # ==============================
 @admin.register(Referral)
 class ReferralAdmin(admin.ModelAdmin):
-    # Use correct field name from your model
-    list_display = ('referrer', 'get_referred_user', 'created_at')
-    search_fields = ('referrer__email', 'user__email')
+    list_display = ('referrer', 'referred', 'amount_earned', 'paid', 'created_at')
+    search_fields = ('referrer__email', 'referred__email')
+    list_filter = ('paid',)
+    ordering = ('-created_at',)
 
-    def get_referred_user(self, obj):
-        return obj.user  # Replace 'user' if your model uses a different field
-    get_referred_user.short_description = "Referred User"
+
+# ==============================
+# BLOG POSTS
+# ==============================
+@admin.register(BlogPost)
+class BlogPostAdmin(admin.ModelAdmin):
+    list_display = ('title', 'author', 'created_at', 'published')
+    list_filter = ('published', 'created_at')
+    search_fields = ('title', 'content')
+    prepopulated_fields = {'slug': ('title',)}
+    ordering = ('-created_at',)
+
+
+# ==============================
+# HERO BANNER
+# ==============================
+@admin.register(HeroBanner)
+class HeroBannerAdmin(admin.ModelAdmin):
+    list_display = ('title', 'is_active')
+    list_editable = ('is_active',)
+    search_fields = ('title',)
+
+
+# ==============================
+# SERVICE CATEGORY
+# ==============================
+@admin.register(ServiceCategory)
+class ServiceCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'is_active', 'order')
+    list_editable = ('is_active', 'order')
+    prepopulated_fields = {'slug': ('name',)}
+    search_fields = ('name',)
+    ordering = ('order',)
+
+
+# ==============================
+# SERVICE PROVIDER
+# ==============================
+@admin.register(ServiceProvider)
+class ServiceProviderAdmin(admin.ModelAdmin):
+    list_display = ('name', 'category', 'is_active', 'order')
+    list_filter = ('category', 'is_active')
+    list_editable = ('is_active', 'order')
+    search_fields = ('name',)
+    ordering = ('order',)
+
+
+# ==============================
+# SERVICE PLANS
+# ==============================
+@admin.register(ServicePlan)
+class ServicePlanAdmin(admin.ModelAdmin):
+    list_display = ('name', 'provider', 'price', 'is_active')
+    list_filter = ('provider', 'is_active')
+    list_editable = ('is_active',)
+    search_fields = ('name',)
+
+
+# ==============================
+# FAQ
+# ==============================
+@admin.register(FAQ)
+class FAQAdmin(admin.ModelAdmin):
+    list_display = ('question', 'is_active')
+    list_editable = ('is_active',)
+    search_fields = ('question',)
+
+
+# ==============================
+# REVIEW
+# ==============================
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ('name', 'rating', 'created_at')
+    search_fields = ('name', 'comment')
+    ordering = ('-created_at',)

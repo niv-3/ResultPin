@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'store',
     'django.contrib.humanize',
     'rest_framework',
+    'crispy_forms',
+    'crispy_bootstrap5',
 ]
 
 
@@ -160,14 +162,14 @@ TERMII_SENDER_ID = os.getenv('TERMII_SENDER_ID', 'ResultPin')
 
 
 # ==============================
-# VTPASS (SOUNDBOX) – WAEC PINS
+# VTPASS (SANDBOX) – WAEC PINS
 # ==============================
-VTPASS_API_KEY = os.getenv('VTPASS_API_KEY')
-VTPASS_PUBLIC_KEY = os.getenv('VTPASS_PUBLIC_KEY')
-VTPASS_SECRET_KEY = os.getenv('VTPASS_SECRET_KEY')
+VTPASS_API_KEY = "31776810f5c6873b50a50e72a65313a3"
+VTPASS_PUBLIC_KEY = "PK_153c4b2d250a1135d25d4bc209baf1e201dea7a7925"
+VTPASS_SECRET_KEY = "SK_82749e1802a0c5d9b2019ebeb230c9eecbbb0953ba5"
 
 # Sandbox toggle (VERY IMPORTANT)
-VTPASS_TEST_MODE = os.getenv('VTPASS_TEST_MODE', 'True') == 'True'
+VTPASS_TEST_MODE = True
 
 
 # ==============================
@@ -191,3 +193,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"

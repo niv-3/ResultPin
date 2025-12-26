@@ -22,7 +22,7 @@
             font-family: 'Segoe UI', sans-serif;
         }
         .success-card {
-            max-width: 600px;
+            max-width: 700px;
             margin: auto;
             background: white;
             color: #333;
@@ -43,12 +43,12 @@
         .pin-box {
             background: #f0fdf4;
             color: var(--green);
-            padding: 2.5rem;
+            padding: 1.5rem;
             border-radius: 20px;
-            font-size: 2.2rem;
-            font-weight: 800;
-            margin: 2rem 0;
-            border: 3px dashed var(--green);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 1rem 0;
+            border: 2px dashed var(--green);
         }
         .btn-home {
             background: var(--green);
@@ -68,17 +68,19 @@
     <div class="success-header">
         <i class="fas fa-check-circle"></i>
         <h1 class="fw-bold">Payment Successful!</h1>
-        <p class="lead">Your {{ txn.product.name }} e-PIN is ready</p>
+        <p class="lead">Your {{ txn.product.name }} e-PIN(s) are ready</p>
     </div>
 
     <div class="card-body p-5 text-center">
+        {% for single_pin in pins %}
         <div class="pin-box">
-            <strong>{{ pin|default:"1234-5678-9012-3456" }}</strong>
+            <strong>{{ single_pin.pin }}</strong>
         </div>
+        {% endfor %}
 
         <p class="text-muted mb-4">
-            PIN has been sent to your email and phone.<br>
-            Use it immediately on the official portal.
+            PIN(s) have been sent to your email and phone.<br>
+            Use them immediately on the official portal.
         </p>
 
         <a href="{% url 'home' %}" class="btn btn-home text-white btn-lg">

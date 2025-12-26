@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 import uuid
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.urls import reverse
 
 class User(AbstractUser):
     phone = models.CharField(max_length=15, unique=True, null=True, blank=True)
@@ -27,28 +29,34 @@ class Vendor(models.Model):
     def __str__(self):
         return self.name
 
+from django.db import models
+
 class Product(models.Model):
     name = models.CharField(max_length=50)
-    vendor_product_id = models.CharField(max_length=50)  # e.g., 'waecdirect' for epins
+    vendor_product_id = models.CharField(max_length=50)
     buy_price = models.DecimalField(max_digits=10, decimal_places=2)
     sell_price = models.DecimalField(max_digits=10, decimal_places=2)
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
 
+
 class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     vendor_used = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True)
-    pin_serial = models.CharField(max_length=50, blank=True)
-    pin_token = models.CharField(max_length=30, blank=True)
+    pin_serial = models.TextField(blank=True)  # Changed from CharField(50)
+    pin_token = models.TextField(blank=True)   # Changed from CharField(30)
+    quantity = models.PositiveIntegerField(default=1)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
     profit = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    payment_method = models.CharField(max_length=20, blank=True)  # 'opay', 'card', etc.
+    payment_method = models.CharField(max_length=20, blank=True)
     status = models.CharField(max_length=20, default='pending')
     reference = models.CharField(max_length=100, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
 
 class Referral(models.Model):
     referrer = models.ForeignKey(User, related_name='given_referrals', on_delete=models.CASCADE)
@@ -63,3 +71,105 @@ class WalletTransaction(models.Model):
     transaction_type = models.CharField(max_length=10)  # 'credit' or 'debit'
     description = models.CharField(max_length=200)
     created_at = models.DateTimeField(auto_now_add=True)
+
+class BlogPost(models.Model):
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(unique=True)
+    image = models.ImageField(upload_to='blog/', blank=True, null=True)
+    content = models.TextField()
+    author = models.CharField(max_length=100, default="ResultPin Team")
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_time = models.CharField(max_length=20, default="5 min read")
+    published = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+    def get_absolute_url(self):
+        return reverse("blog_detail", kwargs={"slug": self.slug})
+
+
+
+# models.py
+class HeroBanner(models.Model):
+    title = models.CharField(max_length=200)
+    subtitle = models.TextField()
+    cta_text = models.CharField(max_length=100, default="Buy Now")
+    cta_link = models.CharField(max_length=200, default="#home")
+    background_image = models.ImageField(upload_to="hero_banners/")
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.title
+
+class Review(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    location = models.CharField(max_length=100, blank=True)
+    rating = models.PositiveIntegerField(
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.rating}⭐)"
+
+class FAQ(models.Model):
+    question = models.CharField(max_length=200)
+    answer = models.TextField()
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return self.question
+
+# models.py
+class ServiceCategory(models.Model):
+    name = models.CharField(max_length=50)  # Airtime, Data, TV, Electricity
+    slug = models.SlugField(unique=True)
+    icon = models.ImageField(upload_to='services/icons/')
+    short_description = models.CharField(max_length=100, blank=True)
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return self.name
+
+
+class ServiceProvider(models.Model):
+    category = models.ForeignKey(ServiceCategory, on_delete=models.CASCADE, related_name='providers')
+    name = models.CharField(max_length=50)
+    logo = models.ImageField(upload_to='services/providers/')
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.name} ({self.category.name})"
+
+class ServicePlan(models.Model):
+    provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='plans')
+    name = models.CharField(max_length=100)  # 1GB Daily, GOtv Jolli, etc
+    code = models.CharField(max_length=50)  # internal/vendor code
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    validity = models.CharField(max_length=50, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.provider.name} - {self.name}"
+

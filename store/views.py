@@ -3,8 +3,10 @@ import uuid
 import random
 import time
 import json
-from django.http import JsonResponse
+from datetime import datetime
+import pytz
 from decimal import Decimal
+from django.http import JsonResponse
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.conf import settings
@@ -14,8 +16,18 @@ from django.core.mail import send_mail
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-
-from .models import Product, Transaction, Vendor, User
+from django.views.decorators.http import require_POST
+from .models import (
+    Product,
+    Transaction,
+    Vendor,
+    User,
+    BlogPost,
+    Review,
+    HeroBanner,
+    FAQ,
+    ServiceCategory,
+)
 
 
 # ==============================
@@ -25,6 +37,43 @@ PAYSTACK_HEADERS = {
     "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
     "Content-Type": "application/json"
 }
+
+# ==============================
+# UI / UX CONTENT (BLOG + REVIEWS)  ✅ ADDED
+# ==============================
+def get_blog_posts():
+    return [
+        {
+            "title": "How to Buy WAEC Result Checker PIN Online",
+            "excerpt": "Learn how to safely and instantly purchase your WAEC result checker PIN online.",
+            "author": "ResultPin Team",
+            "date": "December 2025",
+            "slug": "buy-waec-pin-online",
+        },
+        {
+            "title": "Difference Between WAEC, NECO & JAMB",
+            "excerpt": "A simple breakdown to help students and parents understand each exam body.",
+            "author": "Education Desk",
+            "date": "December 2025",
+            "slug": "waec-neco-jamb-difference",
+        },
+        {
+            "title": "Why ResultPin Is Trusted Nationwide",
+            "excerpt": "Fast delivery, secure payment, and instant email confirmation.",
+            "author": "Admin",
+            "date": "December 2025",
+            "slug": "why-resultpin-is-trusted",
+        },
+    ]
+
+
+def get_customer_reviews():
+    return [
+        {"name": "Chinedu O.", "rating": 5, "comment": "Got my WAEC PIN instantly.", "location": "Lagos"},
+        {"name": "Aisha M.", "rating": 5, "comment": "Very smooth payment process.", "location": "Abuja"},
+        {"name": "Samuel K.", "rating": 4, "comment": "Fast delivery and email alert.", "location": "Port Harcourt"},
+        {"name": "Blessing E.", "rating": 5, "comment": "Trusted platform. Highly recommended.", "location": "Enugu"},
+    ]
 
 # ==============================
 # HELPERS
@@ -57,15 +106,38 @@ def normalize_phone(phone):
     return '+234' + phone
 
 
+def generate_request_id():
+    lagos_tz = pytz.timezone('Africa/Lagos')
+    now = datetime.now(lagos_tz)
+    date_str = now.strftime("%Y%m%d%H%M")
+    random_str = uuid.uuid4().hex[:7]
+    return date_str + random_str
+
 # ==============================
 # HOME
 # ==============================
+
+# views.py
 def home(request):
+    hero = HeroBanner.objects.filter(is_active=True).first()
     products = Product.objects.filter(is_active=True)
+    blog_posts = BlogPost.objects.filter(published=True)
+    reviews = Review.objects.all()
+    faq_list = FAQ.objects.filter(is_active=True)
+
+    # ✅ THIS WAS MISSING
+    services = ServiceCategory.objects.filter(is_active=True).order_by('order')
+
     return render(request, 'store/home.html', {
+        'hero': hero,
         'products': products,
-        'paystack_public_key': settings.PAYSTACK_PUBLIC_KEY,
+        'services': services,  # ✅ ADD THIS
+        'blog_posts': blog_posts,
+        'reviews': reviews,
+        'faq_list': faq_list,
+        'quantity_options': range(1, 11),
     })
+
 
 
 # ==============================
@@ -246,34 +318,50 @@ def dashboard(request):
         "referral_earnings": referral_earnings
     })
 
+def service_detail(request, slug):
+    service = get_object_or_404(ServiceCategory, slug=slug, is_active=True)
+    providers = service.providers.filter(is_active=True)
+
+    return render(request, 'store/service_detail.html', {
+        'service': service,
+        'providers': providers
+    })
+
 
 # ==============================
-# PLACEHOLDER FOR INITIATE PAYMENT (JS handles actual flow)
+# INITIATE PAYMENT
 # ==============================
 @csrf_exempt
 def initiate_payment(request, product_id):
     product = get_object_or_404(Product, id=product_id, is_active=True)
 
     if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            email = data.get('email', '').strip()
-            phone = data.get('phone', '').strip()
-        except Exception:
-            return JsonResponse({"status": False, "message": "Invalid request."})
+        if request.content_type == "application/json":
+            try:
+                data = json.loads(request.body)
+                email = data.get('email', '').strip()
+                phone = normalize_phone(data.get('phone', '').strip())
+                quantity = int(data.get('quantity', 1))
+            except Exception:
+                return JsonResponse({"status": False, "message": "Invalid JSON."})
+        else:
+            email = request.POST.get('email', '').strip()
+            phone = normalize_phone(request.POST.get('phone', '').strip())
+            quantity = int(request.POST.get('quantity', 1))
 
         if not email or not phone:
             return JsonResponse({"status": False, "message": "Email and phone required."})
 
-        amount = int(product.sell_price * 100)
+        amount = int(product.sell_price * quantity * 100)
         reference = f"RES-{uuid.uuid4().hex[:12].upper()}"
 
         txn = Transaction.objects.create(
             user=request.user if request.user.is_authenticated else None,
             product=product,
-            amount_paid=product.sell_price,
-            profit=product.sell_price - product.buy_price,
+            amount_paid=product.sell_price * quantity,
+            profit=(product.sell_price - product.buy_price) * quantity,
             reference=reference,
+            quantity=quantity,
             status='pending'
         )
 
@@ -285,29 +373,29 @@ def initiate_payment(request, product_id):
             "metadata": {
                 "product_id": product.id,
                 "phone": phone,
+                "quantity": quantity
             }
         }
 
-        try:
-            response = requests.post(
-                "https://api.paystack.co/transaction/initialize",
-                json=payload,
-                headers=PAYSTACK_HEADERS,
-                timeout=15
-            )
-            res_data = response.json()
-        except Exception:
-            return JsonResponse({"status": False, "message": "Payment initialization failed."})
+        response = requests.post(
+            "https://api.paystack.co/transaction/initialize",
+            json=payload,
+            headers=PAYSTACK_HEADERS,
+            timeout=15
+        )
 
-        if res_data.get("status") and res_data.get("data"):
+        res_data = response.json()
+
+        if res_data.get("status"):
             return JsonResponse({
                 "status": True,
                 "authorization_url": res_data["data"]["authorization_url"]
             })
 
-        return JsonResponse({"status": False, "message": res_data.get("message", "Payment init failed.")})
+        return JsonResponse({"status": False, "message": res_data.get("message")})
 
     return JsonResponse({"status": False, "message": "Invalid request method."})
+
 
 # ==============================
 # PAYMENT SUCCESS + VTPASS PIN
@@ -319,7 +407,6 @@ def payment_success(request):
         return redirect('home')
 
     try:
-        # Verify payment with Paystack
         response = requests.get(
             f"https://api.paystack.co/transaction/verify/{ref}",
             headers=PAYSTACK_HEADERS,
@@ -340,68 +427,106 @@ def payment_success(request):
 
         product = txn.product
         email = data['data']['customer']['email']
-        phone = data['data']['metadata'].get('phone')
+        phone = normalize_phone(data['data']['metadata'].get('phone'))
+        quantity = int(data['data']['metadata'].get('quantity', 1))
 
-        # ================= VTPASS SANDBOX / LIVE =================
-        if getattr(settings, "VTPASS_TEST_MODE", True):
-            pin_token = f"TEST-WAEC-{random.randint(1000,9999)}"
-            pin_serial = f"TEST-SERIAL-{random.randint(100000,999999)}"
-        else:
-            vtpass_url = "https://api.vtpass.com/api/pay"
-            vtpass_payload = {
-                "serviceID": product.vendor_product_id or "waec",
-                "request_id": ref,
-                "amount": int(product.buy_price),
-                "phone": phone
-            }
+        request_id = generate_request_id()
+        pins_list = []
 
-            vtpass_headers = {
-                "apikey": settings.VTPASS_API_KEY,
-                "secretkey": settings.VTPASS_SECRET_KEY,
-                "Content-Type": "application/json"
-            }
-
+        for i in range(quantity):
             vtpass_response = requests.post(
-                vtpass_url,
-                json=vtpass_payload,
-                headers=vtpass_headers,
+                "https://sandbox.vtpass.com/api/pay",
+                json={
+                    "request_id": request_id,
+                    "serviceID": product.vendor_product_id or "waec",
+                    "amount": int(product.buy_price),
+                    "phone": phone,
+                    "quantity": 1
+                },
+                headers={
+                    "apikey": settings.VTPASS_API_KEY,
+                    "secretkey": settings.VTPASS_SECRET_KEY,
+                    "Content-Type": "application/json"
+                },
                 timeout=20
             )
 
             vtpass_data = vtpass_response.json()
 
             if vtpass_data.get("code") != "000":
-                messages.error(request, "PIN purchase failed. Please contact support.")
-                return redirect('home')
+                continue
 
             card = vtpass_data["content"]["cards"][0]
-            pin_token = card["Pin"]
-            pin_serial = card.get("Serial", "")
+            pins_list.append({
+                "pin": card["Pin"],
+                "serial": card.get("Serial", "")
+            })
 
-        # Save PIN info
-        txn.pin_token = pin_token
-        txn.pin_serial = pin_serial
+        if not pins_list:
+            messages.error(request, "No pins generated.")
+            return redirect('home')
+
+        txn.pin_token = ",".join(p["pin"] for p in pins_list)
+        txn.pin_serial = ",".join(p["serial"] for p in pins_list)
         txn.save()
 
-        # Send email
         send_mail(
-            subject=f"Your {product.name} e-PIN",
-            message=(
-                f"Hello,\n\n"
-                f"Your {product.name} e-PIN is:\n\n"
-                f"{pin_token}\n\n"
-                "Thank you for choosing ResultPin."
-            ),
+            subject=f"Your {product.name} e-PIN(s)",
+            message="\n".join(p["pin"] for p in pins_list),
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[email],
-            fail_silently=True
         )
 
         return render(request, 'store/payment_successful.html', {
             'txn': txn,
-            'pin': pin_token
+            'pins': pins_list
         })
 
     except Exception as e:
-        print("Payment success error:", e)
+        messages.error(request, "Unexpected error.")
         return redirect('home')
+@require_POST
+@login_required
+def submit_review(request):
+    rating = request.POST.get("rating")
+    comment = request.POST.get("comment")
+    location = request.POST.get("location", "")
+
+    if not rating or not comment:
+        messages.error(request, "Rating and comment are required.")
+        return redirect("home")
+
+    Review.objects.create(
+        name=request.user.get_full_name() or request.user.username,
+        email=request.user.email,
+        location=location,
+        rating=int(rating),
+        comment=comment,
+    )
+
+    return redirect("review_thank_you")
+
+
+def review_thank_you(request):
+    return render(request, "store/review_thank_you.html")
+
+
+def blog_list(request):
+    posts = BlogPost.objects.filter(published=True).order_by('-created_at')
+    return render(request, "blog/blog_list.html", {   # ← Changed to blog/...
+        "posts": posts
+    })
+
+
+def blog_detail(request, slug):
+    post = get_object_or_404(BlogPost, slug=slug, published=True)
+    return render(request, "blog/blog_detail.html", {   # ← Changed to blog/...
+        "post": post
+    })
+
+    return render(request, "store/blog_detail.html", {
+        "post": post
+    })
+
+def review_thank_you(request):
+    return render(request, "store/review_thank_you.html")
