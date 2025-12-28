@@ -3,24 +3,24 @@ import uuid
 import random
 import time
 import json
-from datetime import datetime
 import pytz
+from datetime import datetime
 from decimal import Decimal
-from django.http import JsonResponse
 
+from django.http import JsonResponse
+from django.urls import reverse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.conf import settings
-from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.views.decorators.http import require_POST
+
 from .models import (
     Product,
-    Transaction,
-    Vendor,
     User,
     BlogPost,
     Review,
@@ -29,58 +29,69 @@ from .models import (
     ServiceCategory,
     ServiceProvider,
     ServicePlan,
+    ExamTransaction,
+    AirtimeTransaction,
+    ServiceTransaction,
 )
 
 
 # ==============================
-# PAYSTACK HEADERS
+# PAYSTACK CONFIG
 # ==============================
 PAYSTACK_HEADERS = {
     "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
 }
 
-# ==============================
-# UI / UX CONTENT (BLOG + REVIEWS)  ✅ ADDED
-# ==============================
-def get_blog_posts():
-    return [
-        {
-            "title": "How to Buy WAEC Result Checker PIN Online",
-            "excerpt": "Learn how to safely and instantly purchase your WAEC result checker PIN online.",
-            "author": "ResultPin Team",
-            "date": "December 2025",
-            "slug": "buy-waec-pin-online",
-        },
-        {
-            "title": "Difference Between WAEC, NECO & JAMB",
-            "excerpt": "A simple breakdown to help students and parents understand each exam body.",
-            "author": "Education Desk",
-            "date": "December 2025",
-            "slug": "waec-neco-jamb-difference",
-        },
-        {
-            "title": "Why ResultPin Is Trusted Nationwide",
-            "excerpt": "Fast delivery, secure payment, and instant email confirmation.",
-            "author": "Admin",
-            "date": "December 2025",
-            "slug": "why-resultpin-is-trusted",
-        },
-    ]
-
-
-def get_customer_reviews():
-    return [
-        {"name": "Chinedu O.", "rating": 5, "comment": "Got my WAEC PIN instantly.", "location": "Lagos"},
-        {"name": "Aisha M.", "rating": 5, "comment": "Very smooth payment process.", "location": "Abuja"},
-        {"name": "Samuel K.", "rating": 4, "comment": "Fast delivery and email alert.", "location": "Port Harcourt"},
-        {"name": "Blessing E.", "rating": 5, "comment": "Trusted platform. Highly recommended.", "location": "Enugu"},
-    ]
 
 # ==============================
-# HELPERS
+# PAYSTACK HELPERS (MUST BE DEFINED EARLY)
 # ==============================
-def send_otp(phone, email, otp):
+def verify_paystack(reference: str):
+    """Verify a Paystack transaction. Returns data dict if successful, else None."""
+    try:
+        url = f"https://api.paystack.co/transaction/verify/{reference}"
+        response = requests.get(url, headers=PAYSTACK_HEADERS, timeout=10)
+        res = response.json()
+
+        if not res.get("status"):
+            return None
+
+        data = res.get("data")
+        if data.get("status") == "success":
+            return data
+        return None
+    except Exception:
+        return None
+
+
+def initialize_paystack(email: str, amount_naira, reference: str, callback_url: str, metadata: dict = None):
+    """Helper to initialize Paystack payment."""
+    payload = {
+        "email": email,
+        "amount": int(Decimal(amount_naira) * 100),
+        "reference": reference,
+        "callback_url": callback_url,
+        "metadata": metadata or {},
+    }
+
+    try:
+        response = requests.post(
+            "https://api.paystack.co/transaction/initialize",
+            json=payload,
+            headers=PAYSTACK_HEADERS,
+            timeout=15,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return {"status": False, "message": "Payment gateway error"}
+
+
+# ==============================
+# GENERAL HELPERS
+# ==============================
+def send_otp(phone: str, email: str, otp: int) -> bool:
     try:
         send_mail(
             subject="Your ResultPin Verification Code",
@@ -88,7 +99,7 @@ def send_otp(phone, email, otp):
                 f"Hi! Your 6-digit OTP is {otp}.\n\n"
                 "Valid for 10 minutes. Use it to complete registration.\n\n"
                 "If you didn't request this, ignore this email.\n\n"
-                "Thanks, ResultPin Team"
+                "Thanks,\nResultPin Team"
             ),
             from_email=settings.EMAIL_HOST_USER,
             recipient_list=[email],
@@ -99,62 +110,51 @@ def send_otp(phone, email, otp):
         return False
 
 
-def normalize_phone(phone):
+def normalize_phone(phone: str) -> str:
     phone = phone.strip()
-    if phone.startswith('+'):
+    if phone.startswith("+"):
         return phone
-    if phone.startswith('0'):
-        return '+234' + phone.lstrip('0')
-    return '+234' + phone
+    if phone.startswith("0"):
+        return "+234" + phone[1:]
+    return "+234" + phone
 
-
-def generate_request_id():
-    lagos_tz = pytz.timezone('Africa/Lagos')
-    now = datetime.now(lagos_tz)
-    date_str = now.strftime("%Y%m%d%H%M")
-    random_str = uuid.uuid4().hex[:7]
-    return date_str + random_str
 
 # ==============================
-# HOME
+# VIEWS
 # ==============================
-
 def home(request):
-    hero = HeroBanner.objects.filter(
-        page="home",
-        is_active=True
-    ).first()
-
-    products = Product.objects.filter(is_active=True)   # ✅ exams
+    hero = HeroBanner.objects.filter(page="home", is_active=True).first()
+    products = Product.objects.filter(is_active=True)
     faq_list = FAQ.objects.filter(is_active=True)
+    services = ServiceCategory.objects.filter(is_active=True).order_by("order")
 
-    services = ServiceCategory.objects.filter(
-        is_active=True
-    ).order_by('order')   # ✅ airtime, data, tv, electricity
+    return render(
+        request,
+        "store/home.html",
+        {
+            "hero": hero,
+            "products": products,
+            "services": services,
+            "faq_list": faq_list,
+            "quantity_options": range(1, 11),
+        },
+    )
 
-    return render(request, 'store/home.html', {
-        'hero': hero,
-        'products': products,     # exams section (UNCHANGED)
-        'services': services,     # service cards
-        'faq_list': faq_list,
-        'quantity_options': range(1, 11),
-    })
 
-
-# ==============================
-# REGISTER + OTP
-# ==============================
+# ------------------------------
+# AUTHENTICATION
+# ------------------------------
 def register(request):
     if request.method == "POST":
         first_name = request.POST.get("first_name", "").strip()
         last_name = request.POST.get("last_name", "").strip()
         phone_raw = request.POST.get("phone", "").strip()
         email = request.POST.get("email", "").strip().lower()
-        password = request.POST.get("password", "")
-        password2 = request.POST.get("password2", "")
+        password = request.POST.get("password")
+        password2 = request.POST.get("password2")
 
         if not all([first_name, last_name, phone_raw, email, password, password2]):
-            messages.error(request, "Please fill in all required fields.")
+            messages.error(request, "All fields are required.")
             return redirect("register")
 
         if password != password2:
@@ -164,16 +164,13 @@ def register(request):
         phone = normalize_phone(phone_raw)
 
         if User.objects.filter(email__iexact=email).exists():
-            messages.error(request, "Email already exists.")
+            messages.error(request, "Email already in use.")
             return redirect("register")
-
         if User.objects.filter(phone=phone).exists():
-            messages.error(request, "Phone already exists.")
+            messages.error(request, "Phone number already registered.")
             return redirect("register")
 
         otp = random.randint(100000, 999999)
-        now_ts = int(time.time())
-
         request.session["reg_data"] = {
             "first_name": first_name,
             "last_name": last_name,
@@ -181,18 +178,18 @@ def register(request):
             "email": email,
             "password": password,
             "otp": otp,
-            "otp_created_at": now_ts,
+            "otp_created_at": int(time.time()),
             "resend_count": 0,
             "otp_attempts": 0,
         }
 
         if send_otp(phone, email, otp):
-            messages.success(request, f"OTP sent to {email}.")
+            messages.success(request, f"OTP sent to {email}")
             return redirect("verify_otp")
-
-        request.session.pop("reg_data", None)
-        messages.error(request, "Failed to send OTP.")
-        return redirect("register")
+        else:
+            request.session.pop("reg_data", None)
+            messages.error(request, "Failed to send OTP. Try again.")
+            return redirect("register")
 
     return render(request, "store/register.html")
 
@@ -201,28 +198,26 @@ def verify_otp(request):
     if request.method == "POST":
         otp_input = request.POST.get("otp", "").strip()
         data = request.session.get("reg_data")
-
         if not data:
-            messages.error(request, "Session expired.")
+            messages.error(request, "Session expired. Please register again.")
             return redirect("register")
 
         if int(time.time()) - data["otp_created_at"] > 600:
             request.session.pop("reg_data", None)
-            messages.error(request, "OTP expired.")
+            messages.error(request, "OTP has expired.")
             return redirect("register")
 
         if otp_input != str(data["otp"]):
             data["otp_attempts"] += 1
             request.session["reg_data"] = data
-
             if data["otp_attempts"] >= 5:
                 request.session.pop("reg_data", None)
-                messages.error(request, "Too many attempts.")
+                messages.error(request, "Too many incorrect attempts.")
                 return redirect("register")
-
-            messages.error(request, "Incorrect OTP.")
+            messages.error(request, "Invalid OTP.")
             return redirect("verify_otp")
 
+        # Create user
         user = User.objects.create_user(
             username=data["email"],
             email=data["email"],
@@ -230,12 +225,11 @@ def verify_otp(request):
             first_name=data["first_name"],
             last_name=data["last_name"],
             password=data["password"],
-            is_active=True
+            is_active=True,
         )
-
         login(request, user)
         request.session.pop("reg_data", None)
-        messages.success(request, "Account created & verified!")
+        messages.success(request, "Registration successful!")
         return redirect("dashboard")
 
     return render(request, "store/verify_otp.html")
@@ -246,54 +240,47 @@ def resend_otp(request):
     if not data:
         return redirect("register")
 
-    now = int(time.time())
-    if now - data["otp_created_at"] < 30:
-        messages.error(request, "Please wait before resending OTP.")
+    if int(time.time()) - data["otp_created_at"] < 30:
+        messages.error(request, "Please wait 30 seconds before resending.")
         return redirect("verify_otp")
 
     if data["resend_count"] >= 5:
         request.session.pop("reg_data", None)
-        messages.error(request, "Too many resend attempts.")
+        messages.error(request, "Max resend attempts reached.")
         return redirect("register")
 
-    data.update({
-        "otp": random.randint(100000, 999999),
-        "otp_created_at": now,
-        "resend_count": data["resend_count"] + 1,
-        "otp_attempts": 0
-    })
+    new_otp = random.randint(100000, 999999)
+    data.update(
+        {
+            "otp": new_otp,
+            "otp_created_at": int(time.time()),
+            "resend_count": data["resend_count"] + 1,
+            "otp_attempts": 0,
+        }
+    )
     request.session["reg_data"] = data
 
-    send_otp(data["phone"], data["email"], data["otp"])
-    messages.success(request, "New OTP sent.")
+    send_otp(data["phone"], data["email"], new_otp)
+    messages.success(request, "New OTP sent!")
     return redirect("verify_otp")
 
 
-# ==============================
-# LOGIN / LOGOUT
-# ==============================
 def custom_login(request):
     if request.method == "POST":
         identifier = request.POST.get("username", "").strip()
-        password = request.POST.get("password", "").strip()
+        password = request.POST.get("password")
 
-        user = User.objects.filter(
-            Q(email__iexact=identifier) | Q(phone=identifier)
-        ).first()
-
+        user = User.objects.filter(Q(email__iexact=identifier) | Q(phone=identifier)).first()
         if not user:
             messages.error(request, "Invalid login details.")
             return redirect("login")
 
-        auth_user = authenticate(
-            request, username=user.username, password=password
-        )
-        if not auth_user:
-            messages.error(request, "Invalid credentials.")
-            return redirect("login")
-
-        login(request, auth_user)
-        return redirect("dashboard")
+        auth_user = authenticate(request, username=user.username, password=password)
+        if auth_user:
+            login(request, auth_user)
+            return redirect("dashboard")
+        messages.error(request, "Incorrect password.")
+        return redirect("login")
 
     return render(request, "store/login.html")
 
@@ -304,282 +291,198 @@ def custom_logout(request):
     return redirect("home")
 
 
-# ==============================
-# DASHBOARD
-# ==============================
 @login_required
 def dashboard(request):
-    total_referrals = User.objects.filter(
-        referred_by=request.user
-    ).count()
-    referral_earnings = total_referrals * 150
+    referrals = User.objects.filter(referred_by=request.user).count()
+    earnings = referrals * 150
 
-    return render(request, "store/dashboard.html", {
-        "total_referrals": total_referrals,
-        "referral_earnings": referral_earnings
-    })
+    return render(request, "store/dashboard.html", {"total_referrals": referrals, "referral_earnings": earnings})
 
 
+# ------------------------------
+# SERVICES
+# ------------------------------
 def service_dashboard(request, slug):
     category = get_object_or_404(ServiceCategory, slug=slug, is_active=True)
+    providers = ServiceProvider.objects.filter(category=category, is_active=True)
 
-    providers = ServiceProvider.objects.filter(
-        category=category,
-        is_active=True
-    )
-
-    plans = ServicePlan.objects.filter(
-        provider__in=providers,
-        is_active=True
-    ).select_related('provider')
+    provider_id = request.GET.get("provider")
+    plans = ServicePlan.objects.none()
+    if provider_id:
+        plans = ServicePlan.objects.filter(provider_id=provider_id, is_active=True).select_related("provider")
 
     return render(
         request,
-        'store/service_dashboard.html',
+        "store/service_dashboard.html",
         {
-            'category': category,
-            'providers': providers,
-            'plans': plans
-        }
+            "category": category,
+            "providers": providers,
+            "plans": plans,
+            "selected_provider": provider_id,
+        },
     )
 
 
+def airtime_buy(request, plan_id):
+    plan = get_object_or_404(ServicePlan, id=plan_id, is_active=True)
+    return render(
+        request,
+        "store/airtime_buy.html",
+        {
+            "plan": plan,
+            "provider": plan.provider,
+            "category": plan.provider.category,
+        },
+    )
 
-# ==============================
-# INITIATE PAYMENT
-# ==============================
+
+# ------------------------------
+# PAYMENT FLOWS
+# ------------------------------
 @csrf_exempt
-def initiate_payment(request, product_id):
-    product = get_object_or_404(Product, id=product_id, is_active=True)
-
-    if request.method == "POST":
-        if request.content_type == "application/json":
-            try:
-                data = json.loads(request.body)
-                email = data.get('email', '').strip()
-                phone = normalize_phone(data.get('phone', '').strip())
-                quantity = int(data.get('quantity', 1))
-            except Exception:
-                return JsonResponse({"status": False, "message": "Invalid JSON."})
-        else:
-            email = request.POST.get('email', '').strip()
-            phone = normalize_phone(request.POST.get('phone', '').strip())
-            quantity = int(request.POST.get('quantity', 1))
-
-        if not email or not phone:
-            return JsonResponse({"status": False, "message": "Email and phone required."})
-
-        amount = int(product.sell_price * quantity * 100)
-        reference = f"RES-{uuid.uuid4().hex[:12].upper()}"
-
-        txn = Transaction.objects.create(
-            user=request.user if request.user.is_authenticated else None,
-            product=product,
-            amount_paid=product.sell_price * quantity,
-            profit=(product.sell_price - product.buy_price) * quantity,
-            reference=reference,
-            quantity=quantity,
-            status='pending'
-        )
-
-        payload = {
-            "email": email,
-            "amount": amount,
-            "reference": reference,
-            "callback_url": request.build_absolute_uri('/payment-success/'),
-            "metadata": {
-                "product_id": product.id,
-                "phone": phone,
-                "quantity": quantity
-            }
-        }
-
-        response = requests.post(
-            "https://api.paystack.co/transaction/initialize",
-            json=payload,
-            headers=PAYSTACK_HEADERS,
-            timeout=15
-        )
-
-        res_data = response.json()
-
-        if res_data.get("status"):
-            return JsonResponse({
-                "status": True,
-                "authorization_url": res_data["data"]["authorization_url"]
-            })
-
-        return JsonResponse({"status": False, "message": res_data.get("message")})
-
-    return JsonResponse({"status": False, "message": "Invalid request method."})
-
-
-# ==============================
-# PAYMENT SUCCESS + VTPASS PIN
-# ==============================
-@csrf_exempt
-def payment_success(request):
-    ref = request.GET.get('reference') or request.GET.get('trxref')
-    if not ref:
-        return redirect('home')
+@require_POST
+def initiate_service_payment(request, plan_id):
+    plan = get_object_or_404(ServicePlan, id=plan_id, is_active=True)
 
     try:
-        response = requests.get(
-            f"https://api.paystack.co/transaction/verify/{ref}",
-            headers=PAYSTACK_HEADERS,
-            timeout=10
-        )
-        data = response.json()
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"status": False, "message": "Invalid JSON"})
 
-        if not (data.get('status') and data['data']['status'] == 'success'):
-            messages.error(request, "Payment verification failed.")
-            return redirect('home')
+    phone = normalize_phone(data.get("phone", "").strip())
+    if not phone:
+        return JsonResponse({"status": False, "message": "Phone number required"})
 
-        txn = Transaction.objects.get(reference=ref)
+    reference = f"AIR_{plan.id}_{int(time.time())}_{uuid.uuid4().hex[:6].upper()}"
+    amount_kobo = int(plan.selling_price * 100)
 
-        if txn.status != 'completed':
-            txn.status = 'completed'
-            txn.payment_method = data['data']['channel']
-            txn.save()
+    email = request.user.email if request.user.is_authenticated and request.user.email else "customer@resultpin.ng"
 
-        product = txn.product
-        email = data['data']['customer']['email']
-        phone = normalize_phone(data['data']['metadata'].get('phone'))
-        quantity = int(data['data']['metadata'].get('quantity', 1))
+    # Create pending transaction
+    AirtimeTransaction.objects.create(
+        user=request.user if request.user.is_authenticated else None,
+        phone=phone,
+        service_plan=plan,
+        amount_paid=plan.selling_price,
+        reference=reference,
+        status="pending",
+    )
 
-        request_id = generate_request_id()
-        pins_list = []
+    payload = initialize_paystack(
+        email=email,
+        amount_naira=plan.selling_price,
+        reference=reference,
+        callback_url=request.build_absolute_uri(reverse("verify_service_payment")),
+        metadata={"phone": phone, "plan_id": plan.id, "type": "airtime"},
+    )
 
-        for i in range(quantity):
-            vtpass_response = requests.post(
-                "https://sandbox.vtpass.com/api/pay",
-                json={
-                    "request_id": request_id,
-                    "serviceID": product.vendor_product_id or "waec",
-                    "amount": int(product.buy_price),
-                    "phone": phone,
-                    "quantity": 1
-                },
-                headers={
-                    "apikey": settings.VTPASS_API_KEY,
-                    "secretkey": settings.VTPASS_SECRET_KEY,
-                    "Content-Type": "application/json"
-                },
-                timeout=20
-            )
+    if payload.get("status"):
+        return JsonResponse(payload)
 
-            vtpass_data = vtpass_response.json()
+    # Cleanup on failure
+    AirtimeTransaction.objects.filter(reference=reference).delete()
+    return JsonResponse({"status": False, "message": payload.get("message", "Initialization failed")})
 
-            if vtpass_data.get("code") != "000":
-                continue
 
-            card = vtpass_data["content"]["cards"][0]
-            pins_list.append({
-                "pin": card["Pin"],
-                "serial": card.get("Serial", "")
-            })
+def verify_service_payment(request):
+    reference = request.GET.get("reference") or request.GET.get("trxref")
+    if not reference:
+        messages.error(request, "No payment reference found.")
+        return redirect("home")
 
-        if not pins_list:
-            messages.error(request, "No pins generated.")
-            return redirect('home')
+    # Find transaction
+    txn = None
+    expected_amount = Decimal("0.00")
 
-        txn.pin_token = ",".join(p["pin"] for p in pins_list)
-        txn.pin_serial = ",".join(p["serial"] for p in pins_list)
+    if reference.startswith("AIR_"):
+        txn = AirtimeTransaction.objects.filter(reference=reference).first()
+    if not txn:
+        txn = ExamTransaction.objects.filter(reference=reference).first()
+
+    if not txn:
+        messages.error(request, "Transaction not found.")
+        return redirect("home")
+
+    expected_amount = txn.amount_paid
+
+    # Verify with Paystack
+    paystack_data = verify_paystack(reference)
+    if not paystack_data:
+        txn.status = "failed"
+        txn.save()
+        messages.error(request, "Payment verification failed.")
+        return redirect("home")
+
+    # Amount check
+    paid_amount = Decimal(paystack_data["amount"]) / 100
+    if paid_amount != expected_amount:
+        txn.status = "failed"
+        txn.save()
+        messages.error(request, "Payment amount mismatch.")
+        return redirect("home")
+
+    # Success
+    if txn.status != "success":
+        txn.status = "success"
         txn.save()
 
-        send_mail(
-            subject=f"Your {product.name} e-PIN(s)",
-            message="\n".join(p["pin"] for p in pins_list),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[email],
-        )
+    messages.success(request, "Payment successful! Service will be delivered shortly.")
+    return redirect(reverse("payment_success") + f"?reference={reference}")
 
-        return render(request, 'store/payment_successful.html', {
-            'txn': txn,
-            'pins': pins_list
-        })
 
-    except Exception as e:
-        messages.error(request, "Unexpected error.")
-        return redirect('home')
+def payment_success(request):
+    reference = request.GET.get("reference")
+    if not reference:
+        return redirect("home")
+
+    if reference.startswith("AIR_"):
+        txn = get_object_or_404(AirtimeTransaction, reference=reference, status="success")
+    else:
+        txn = get_object_or_404(ExamTransaction, reference=reference, status="success")
+
+    return render(request, "store/payment_successful.html", {"txn": txn})
+
+
+# ------------------------------
+# BLOG & REVIEWS
+# ------------------------------
+def blog_list(request):
+    posts = BlogPost.objects.filter(published=True).order_by("-created_at")
+    return render(request, "blog/blog_list.html", {"posts": posts})
+
+
+def blog_detail(request, slug):
+    post = get_object_or_404(BlogPost, slug=slug, published=True)
+    return render(request, "blog/blog_detail.html", {"post": post})
+
+
+def review_thank_you(request):
+    return render(request, "store/review_thank_you.html")
+
+
 @require_POST
-@login_required
 def submit_review(request):
+    name = request.POST.get("name")
+    email = request.POST.get("email")
     rating = request.POST.get("rating")
-    comment = request.POST.get("comment")
+    comment = request.POST.get("comment", "").strip()
     location = request.POST.get("location", "")
 
     if not rating or not comment:
         messages.error(request, "Rating and comment are required.")
         return redirect("home")
 
+    if not request.user.is_authenticated and (not name or not email):
+        messages.error(request, "Name and email required for guest reviews.")
+        return redirect("home")
+
     Review.objects.create(
-        name=request.user.get_full_name() or request.user.username,
-        email=request.user.email,
+        name=name or (request.user.get_full_name() if request.user.is_authenticated else "Anonymous"),
+        email=email or (request.user.email if request.user.is_authenticated else ""),
         location=location,
         rating=int(rating),
         comment=comment,
     )
 
+    messages.success(request, "Thank you for your review!")
     return redirect("review_thank_you")
-
-
-def review_thank_you(request):
-    return render(request, "store/review_thank_you.html")
-
-
-def blog_list(request):
-    posts = BlogPost.objects.filter(published=True).order_by('-created_at')
-    return render(request, "blog/blog_list.html", {   # ← Changed to blog/...
-        "posts": posts
-    })
-
-
-def blog_detail(request, slug):
-    post = get_object_or_404(BlogPost, slug=slug, published=True)
-    return render(request, "blog/blog_detail.html", {   # ← Changed to blog/...
-        "post": post
-    })
-
-    return render(request, "store/blog_detail.html", {
-        "post": post
-    })
-
-def review_thank_you(request):
-    return render(request, "store/review_thank_you.html")
-
-
-def provider_plans(request, category, provider):
-    banner = HeroBanner.objects.filter(
-        page=category,
-        is_active=True
-    ).first()
-
-    category_obj = ServiceCategory.objects.filter(
-        slug=category,
-        is_active=True
-    ).first()
-
-    provider_obj = None
-    plans = []
-
-    if category_obj:
-        provider_obj = ServiceProvider.objects.filter(
-            category=category_obj,
-            name__iexact=provider,
-            is_active=True
-        ).first()
-
-        if provider_obj:
-            plans = ServicePlan.objects.filter(
-                provider=provider_obj,
-                is_active=True
-            )
-
-    return render(request, 'store/provider_plans.html', {
-        'banner': banner,
-        'category': category_obj,
-        'provider': provider_obj,
-        'plans': plans,
-    })
-

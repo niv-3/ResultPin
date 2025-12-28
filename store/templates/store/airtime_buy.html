@@ -1,0 +1,119 @@
+{% extends "store/base.html" %}
+
+{% block title %}
+Buy Airtime | {{ plan.provider.name }} | ResultPin.ng
+{% endblock %}
+
+{% block content %}
+<div class="container my-5" style="max-width:600px;">
+
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-4">
+
+            <h4 class="fw-bold mb-4 text-center">
+                Buy {{ plan.provider.name }} Airtime
+            </h4>
+
+            <!-- ================= PLAN SUMMARY ================= -->
+            <div class="border rounded-3 p-3 mb-4">
+
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Network</span>
+                    <strong>{{ plan.provider.name }}</strong>
+                </div>
+
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Plan</span>
+                    <strong>{{ plan.name }}</strong>
+                </div>
+
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Price</span>
+                    <strong class="text-success">
+                        ₦{{ plan.selling_price|floatformat:0 }}
+                    </strong>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Discount</span>
+                    {% if plan.discount_amount > 0 %}
+                        <span class="badge bg-success-subtle text-success fw-semibold px-3 py-2">
+                            Save ₦{{ plan.discount_amount|floatformat:0 }}
+                        </span>
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </div>
+
+            </div>
+
+            <!-- ================= PHONE INPUT ================= -->
+            <div class="mb-4">
+                <label class="form-label fw-semibold">
+                    Phone Number
+                </label>
+                <input
+                    type="tel"
+                    id="phone"
+                    class="form-control form-control-lg"
+                    placeholder="08012345678"
+                    required
+                >
+            </div>
+
+            <!-- ================= ACTION ================= -->
+            <div class="mt-4">
+                <button
+                    type="button"
+                    class="btn btn-success btn-lg w-100 fw-semibold"
+                    onclick="initiateServicePayment({{ plan.id }})"
+                >
+                    Continue to Payment
+                </button>
+
+                <div class="text-center text-muted small mt-3">
+                    You will be redirected to payment
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ================= CSRF TOKEN ================= -->
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+
+<!-- ================= PAYMENT SCRIPT ================= -->
+<script>
+function initiateServicePayment(planId) {
+    const phone = document.getElementById("phone").value.trim();
+    const csrfToken = document.getElementById("csrf-token").value;
+
+    if (!phone) {
+        alert("Please enter phone number");
+        return;
+    }
+
+    fetch(`/initiate-service-payment/${planId}/`, {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": csrfToken,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ phone })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === true && data.data && data.data.authorization_url) {
+            window.location.href = data.data.authorization_url;
+        } else {
+            alert(data.message || "Unable to initiate payment");
+        }
+    })
+    .catch(() => {
+        alert("Network error. Please try again.");
+    });
+}
+</script>
+
+{% endblock %}

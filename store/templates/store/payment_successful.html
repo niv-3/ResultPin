@@ -1,97 +1,26 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Successful - ResultPin.ng</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --green: #008751;
-            --green-dark: #006400;
-            --light: #f8f9fa;
-        }
-        body {
-            background: linear-gradient(135deg, #0b2c3d, var(--green));
-            color: white;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            font-family: 'Segoe UI', sans-serif;
-        }
-        .success-card {
-            max-width: 700px;
-            margin: auto;
-            background: white;
-            color: #333;
-            border-radius: 24px;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.3);
-            overflow: hidden;
-        }
-        .success-header {
-            background: linear-gradient(135deg, var(--green), var(--green-dark));
-            padding: 3rem 2rem;
-            text-align: center;
-            color: white;
-        }
-        .success-header i {
-            font-size: 5rem;
-            margin-bottom: 1rem;
-        }
-        .pin-box {
-            background: #f0fdf4;
-            color: var(--green);
-            padding: 1.5rem;
-            border-radius: 20px;
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin: 1rem 0;
-            border: 2px dashed var(--green);
-        }
-        .btn-home {
-            background: var(--green);
-            border: none;
-            border-radius: 50px;
-            padding: 14px 40px;
-            font-weight: 600;
-        }
-        .btn-home:hover {
-            background: var(--green-dark);
-        }
-    </style>
-</head>
-<body>
+{% extends "store/base.html" %}
 
-<div class="success-card">
-    <div class="success-header">
-        <i class="fas fa-check-circle"></i>
-        <h1 class="fw-bold">Payment Successful!</h1>
-        <p class="lead">Your {{ txn.product.name }} e-PIN(s) are ready</p>
-    </div>
+{% block title %}Payment Successful | ResultPin.ng{% endblock %}
 
-    <div class="card-body p-5 text-center">
-        {% for single_pin in pins %}
-        <div class="pin-box">
-            <strong>{{ single_pin.pin }}</strong>
+{% block content %}
+<div class="container my-5 text-center" style="max-width:600px;">
+
+    <div class="card shadow-sm border-0 rounded-4 p-5">
+
+        <div class="mb-4">
+            <i class="bi bi-check-circle-fill text-success" style="font-size:4rem;"></i>
         </div>
-        {% endfor %}
 
+        <h4 class="fw-bold mb-2">Payment Successful</h4>
         <p class="text-muted mb-4">
-            PIN(s) have been sent to your email and phone.<br>
-            Use them immediately on the official portal.
+            Your payment has been received.
+            Airtime delivery will begin shortly.
         </p>
 
-        <a href="{% url 'home' %}" class="btn btn-home text-white btn-lg">
-            Buy Another PIN
+        <a href="{% url 'home' %}" class="btn btn-success fw-semibold px-4">
+            Back to Home
         </a>
 
-        <p class="mt-4 small text-muted">
-            <i class="fas fa-lock me-1"></i> Secure transaction powered by Paystack
-        </p>
     </div>
 </div>
-
-</body>
-</html>
+{% endblock %}
