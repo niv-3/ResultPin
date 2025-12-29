@@ -138,7 +138,7 @@ def home(request):
             "faq_list": faq_list,
             "quantity_options": range(1, 11),
         },
-    )
+    )  
 
 
 # ------------------------------
@@ -309,7 +309,11 @@ def service_dashboard(request, slug):
     provider_id = request.GET.get("provider")
     plans = ServicePlan.objects.none()
     if provider_id:
-        plans = ServicePlan.objects.filter(provider_id=provider_id, is_active=True).select_related("provider")
+        try:
+            provider_id = int(provider_id)  # ← THIS LINE FIXES IT: convert to int
+            plans = ServicePlan.objects.filter(provider_id=provider_id, is_active=True).select_related("provider")
+        except (ValueError, TypeError):
+            plans = ServicePlan.objects.none()  # invalid ID → no plans
 
     return render(
         request,
@@ -318,10 +322,9 @@ def service_dashboard(request, slug):
             "category": category,
             "providers": providers,
             "plans": plans,
-            "selected_provider": provider_id,
+            "selected_provider": provider_id,  # now it's int or None
         },
     )
-
 
 def airtime_buy(request, plan_id):
     plan = get_object_or_404(ServicePlan, id=plan_id, is_active=True)
@@ -359,7 +362,7 @@ def initiate_service_payment(request, plan_id):
     email = request.user.email if request.user.is_authenticated and request.user.email else "customer@resultpin.ng"
 
     # Create pending transaction
-    AirtimeTransaction.objects.create(
+    txn = AirtimeTransaction.objects.create(
         user=request.user if request.user.is_authenticated else None,
         phone=phone,
         service_plan=plan,
@@ -392,8 +395,6 @@ def verify_service_payment(request):
 
     # Find transaction
     txn = None
-    expected_amount = Decimal("0.00")
-
     if reference.startswith("AIR_"):
         txn = AirtimeTransaction.objects.filter(reference=reference).first()
     if not txn:
@@ -407,6 +408,7 @@ def verify_service_payment(request):
 
     # Verify with Paystack
     paystack_data = verify_paystack(reference)
+
     if not paystack_data:
         txn.status = "failed"
         txn.save()
@@ -421,7 +423,7 @@ def verify_service_payment(request):
         messages.error(request, "Payment amount mismatch.")
         return redirect("home")
 
-    # Success
+    # Mark as success only once
     if txn.status != "success":
         txn.status = "success"
         txn.save()
@@ -430,6 +432,9 @@ def verify_service_payment(request):
     return redirect(reverse("payment_success") + f"?reference={reference}")
 
 
+    # ------------------------------
+# PAYMENT SUCCESS PAGE
+# ------------------------------
 def payment_success(request):
     reference = request.GET.get("reference")
     if not reference:
@@ -444,7 +449,7 @@ def payment_success(request):
 
 
 # ------------------------------
-# BLOG & REVIEWS
+# BLOG & REVIEWS (keep these at the very end)
 # ------------------------------
 def blog_list(request):
     posts = BlogPost.objects.filter(published=True).order_by("-created_at")

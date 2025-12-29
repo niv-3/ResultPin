@@ -1,148 +1,94 @@
 {% extends "store/base.html" %}
 {% load static %}
 
-{% block title %}
-Buy {{ category.name }} | ResultPin.ng
-{% endblock %}
-
-{% block extra_css %}
-<style>
-.provider-card {
-    transition: transform .3s ease;
-}
-.provider-card:hover {
-    transform: translateY(-4px);
-}
-.provider-logo img {
-    transition: transform .3s ease;
-}
-.provider-logo:hover img {
-    transform: scale(1.08);
-}
-</style>
-{% endblock %}
+{% block title %}{{ category.name }} | ResultPin.ng{% endblock %}
 
 {% block content %}
-<div class="container my-5">
+<div class="container my-5 pb-5">
 
-    <!-- ================= PAGE HEADER ================= -->
-    <div class="text-center mb-5">
-        <h1 class="fw-bold display-6">{{ category.name }}</h1>
-        <p class="text-muted fs-5">
-            Select a network, choose a plan, and buy instantly
-        </p>
-    </div>
-
-    <!-- ================= PROVIDERS ================= -->
-    <div class="d-flex justify-content-center flex-wrap gap-4 mb-5">
-        {% for provider in providers %}
-        <div class="provider-card text-center p-3 rounded-4 shadow-sm" style="width:150px;">
-
-            <div class="provider-logo mb-2">
-                <img src="{{ provider.logo.url }}"
-                     alt="{{ provider.name }}"
-                     style="height:50px; object-fit:contain;">
+    <!-- Provider Selection -->
+    {% if providers %}
+        <div class="mb-5">
+            <h4 class="fw-bold text-center mb-4">Select Network Provider</h4>
+            <div class="row g-4 justify-content-center">
+                {% for provider in providers %}
+                    <div class="col-lg-3 col-md-4 col-sm-6">
+                        <a href="?provider={{ provider.id }}" class="text-decoration-none">
+                            <div class="card text-center p-4 border-0 shadow-sm hover-lift {% if selected_provider == provider.id %}border border-success border-4{% endif %}">
+                                {% if provider.logo %}
+                                    <img src="{{ provider.logo.url }}" alt="{{ provider.name }}" class="mx-auto mb-3" style="height: 80px; object-fit: contain;">
+                                {% endif %}
+                                <h6 class="fw-bold mt-2">{{ provider.name }}</h6>
+                            </div>
+                        </a>
+                    </div>
+                {% endfor %}
             </div>
-
-            <div class="fw-semibold text-dark mb-2">
-                {{ provider.name }}
-            </div>
-
-            <!-- FILTER PLANS BY PROVIDER -->
-            <a href="{% url 'service_dashboard' category.slug %}?provider={{ provider.id }}"
-               class="btn btn-success btn-sm px-4 fw-semibold">
-                Buy
-            </a>
-
         </div>
-        {% endfor %}
-    </div>
-
-    <!-- ================= PLAN LIST ================= -->
-    {% if plans %}
-    <div class="card shadow-sm border-0 rounded-4">
-        <div class="card-body p-4">
-
-            <div class="table-responsive">
-                <table class="table align-middle w-100">
-
-                    <thead class="table-light text-center">
-                        <tr>
-                            <th class="text-start">Plan</th>
-                            <th>Price</th>
-                            <th>Discount</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        {% for plan in plans %}
-                        <tr>
-
-                            <!-- PLAN INFO -->
-                            <td>
-                                <div class="fw-semibold">{{ plan.name }}</div>
-
-                                {% if plan.description %}
-                                <div class="small text-muted">
-                                    {{ plan.description }}
-                                </div>
-                                {% endif %}
-
-                                {% if plan.validity %}
-                                <div class="small text-muted">
-                                    Validity: {{ plan.validity }}
-                                </div>
-                                {% endif %}
-                            </td>
-
-                            <!-- PRICE -->
-                            <td class="text-center">
-                                <div class="fw-bold text-success fs-5">
-                                    ₦{{ plan.selling_price|floatformat:0 }}
-                                </div>
-
-                                {% if plan.discount_amount > 0 %}
-                                <div class="small text-muted text-decoration-line-through">
-                                    ₦{{ plan.cost_price|floatformat:0 }}
-                                </div>
-                                {% endif %}
-                            </td>
-
-                            <!-- DISCOUNT (SIMPLE LOGIC) -->
-                            <td class="text-center">
-                                {% if plan.discount_amount > 0 %}
-                                <span class="badge bg-success-subtle text-success px-3 py-2 fw-semibold">
-                                    Save ₦{{ plan.discount_amount|floatformat:0 }}
-                                </span>
-                                {% else %}
-                                <span class="text-muted">—</span>
-                                {% endif %}
-                            </td>
-
-                            <!-- ACTION -->
-                            <td class="text-center">
-                                <a href="{% url 'airtime_buy' plan.id %}"
-                                   class="btn btn-success btn-lg fw-semibold px-4">
-                                    Buy
-                                </a>
-                            </td>
-
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-
-                </table>
-            </div>
-
-        </div>
-    </div>
-
-    {% else %}
-    <div class="text-center text-muted fs-5 py-5">
-        Select a network above to view available plans
-    </div>
     {% endif %}
 
+    <!-- Available Plans Table -->
+    {% if plans %}
+        <div class="card border-0 shadow">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">Plan</th>
+                                <th class="text-center">Price</th>
+                                <th class="text-center">You Save</th>
+                                <th class="text-end pe-4"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plan in plans %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold">{{ plan.name }}</div>
+                                        {% if plan.description %}
+                                            <small class="text-muted">{{ plan.description }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <!-- Discounted price on top (big & green) -->
+                                        <div class="fw-bold text-success fs-4 mb-1">
+                                            ₦{{ plan.selling_price|floatformat:0 }}
+                                        </div>
+                                        <!-- Original price crossed out below -->
+                                        <div class="text-muted text-decoration-line-through">
+                                            ₦{{ plan.cost_price|floatformat:0 }}
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if plan.discount_amount > 0 %}
+                                            <span class="badge bg-success fs-6 px-3 py-2">
+                                                Save ₦{{ plan.discount_amount|floatformat:0 }}
+                                            </span>
+                                        {% else %}
+                                            <small class="text-muted">—</small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <a href="{% url 'airtime_buy' plan.id %}" class="btn btn-success px-4">
+                                            Buy
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% elif selected_provider %}
+        <div class="text-center py-5">
+            <p class="text-muted fs-4">No active plans available for this provider.</p>
+        </div>
+    {% elif providers %}
+        <div class="text-center py-5">
+            <p class="text-muted fs-4">Select a provider above to view plans</p>
+        </div>
+    {% endif %}
 </div>
 {% endblock %}
