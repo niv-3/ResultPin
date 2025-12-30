@@ -99,6 +99,8 @@ class ServiceProvider(models.Model):
     def __str__(self):
         return f"{self.name} ({self.category.name})"
 
+from decimal import Decimal
+from django.db import models
 
 class ServicePlan(models.Model):
     provider = models.ForeignKey(
@@ -108,9 +110,10 @@ class ServicePlan(models.Model):
     )
 
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=50, blank=True)
+    code = models.CharField(max_length=50, unique=True)
 
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    market_price = models.DecimalField(max_digits=10, decimal_places=2)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
 
     description = models.CharField(max_length=255, blank=True)
@@ -119,22 +122,13 @@ class ServicePlan(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        ordering = ["provider__order", "selling_price"]
-
-    def __str__(self):
-        return f"{self.provider.name} – {self.name}"
+    @property
+    def profit_amount(self):
+        return self.selling_price - self.cost_price
 
     @property
     def discount_amount(self):
-        return max(self.cost_price - self.selling_price, Decimal("0.00"))
-
-    @property
-    def discount_percent(self):
-        if self.cost_price > 0:
-            return int((self.discount_amount / self.cost_price) * 100)
-        return 0
-
+        return self.market_price - self.selling_price
 
 # =========================
 # BASE TRANSACTION (ABSTRACT)

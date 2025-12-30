@@ -201,7 +201,7 @@ class ServiceProviderAdmin(admin.ModelAdmin):
 # ==================================================
 @admin.register(ServicePlan)
 class ServicePlanAdmin(admin.ModelAdmin):
-    list_display = ("provider", "name", "discount_percent", "is_active")
+    list_display = ("provider", "name", "selling_price", "is_active")
     list_filter = ("provider", "is_active")
     search_fields = ("name", "code", "provider__name")
 

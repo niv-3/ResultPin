@@ -5,6 +5,7 @@
 
 {% block content %}
 <div class="container my-5">
+
     <!-- Back Button -->
     <div class="mb-4">
         <a href="{% url 'service_dashboard' category.slug %}{% if selected_provider %}?provider={{ selected_provider }}{% endif %}" 
@@ -16,74 +17,108 @@
     <!-- Page Header -->
     <div class="text-center mb-5">
         <h1 class="fw-bold display-5">Complete Your Purchase</h1>
-        <p class="text-muted fs-4">Enter phone number to receive {{ plan.name }} instantly</p>
+        <p class="text-muted fs-4">
+            Enter phone number to receive {{ plan.name }} instantly
+        </p>
     </div>
 
-    <!-- Plan Summary Card -->
+    <!-- ========================= -->
+    <!-- PLAN SUMMARY -->
+    <!-- ========================= -->
     <div class="row justify-content-center mb-5">
         <div class="col-lg-6">
             <div class="card shadow-sm border-0 rounded-4">
                 <div class="card-body text-center p-5">
-                    {% if provider.logo %}
-                        <img src="{{ provider.logo.url }}" alt="{{ provider.name }}" class="mb-4" style="height:70px; object-fit:contain;">
-                    {% endif %}
-                    <h4 class="fw-bold mb-2">{{ plan.name }}</h4>
-                    <p class="text-muted mb-4">{{ provider.name }} • {{ category.name }}</p>
 
+                    {% if provider.logo %}
+                        <img src="{{ provider.logo.url }}"
+                             alt="{{ provider.name }}"
+                             class="mb-4"
+                             style="height:70px; object-fit:contain;">
+                    {% endif %}
+
+                    <h4 class="fw-bold mb-2">{{ plan.name }}</h4>
+                    <p class="text-muted mb-4">
+                        {{ provider.name }} • {{ category.name }}
+                    </p>
+
+                    <!-- SELLING PRICE -->
                     <div class="fs-2 fw-bold text-success mb-3">
                         ₦{{ plan.selling_price|floatformat:0 }}
                     </div>
 
+                    <!-- DISCOUNT / MARKET PRICE -->
                     {% if plan.discount_amount > 0 %}
-                        <span class="badge bg-success fs-5 mb-3">Save ₦{{ plan.discount_amount|floatformat:0 }}</span>
+                        <span class="badge bg-success fs-5 mb-3">
+                            Save ₦{{ plan.discount_amount|floatformat:0 }}
+                        </span>
                         <p class="text-muted text-decoration-line-through small">
-                            ₦{{ plan.cost_price|floatformat:0 }}
+                            ₦{{ plan.market_price|floatformat:0 }}
                         </p>
                     {% endif %}
 
                     {% if plan.validity %}
-                        <p class="small text-muted mt-3">Validity: {{ plan.validity }}</p>
+                        <p class="small text-muted mt-3">
+                            Validity: {{ plan.validity }}
+                        </p>
                     {% endif %}
+
                     {% if plan.description %}
-                        <p class="small text-muted">{{ plan.description }}</p>
+                        <p class="small text-muted">
+                            {{ plan.description }}
+                        </p>
                     {% endif %}
+
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Phone Number Form -->
+    <!-- ========================= -->
+    <!-- PHONE NUMBER FORM -->
+    <!-- ========================= -->
     <div class="row justify-content-center">
         <div class="col-lg-5">
             <div class="card shadow-sm border-0 rounded-4">
                 <div class="card-body p-5">
+
                     <form id="purchase-form" novalidate>
                         {% csrf_token %}
+
                         <div class="mb-4">
-                            <label for="phone" class="form-label fw-bold fs-5">Recipient Phone Number</label>
-                            <input type="tel" 
-                                   id="phone" 
-                                   name="phone" 
-                                   class="form-control form-control-lg text-center" 
-                                   placeholder="e.g. 08012345678" 
+                            <label for="phone" class="form-label fw-bold fs-5">
+                                Recipient Phone Number
+                            </label>
+
+                            <input type="tel"
+                                   id="phone"
+                                   name="phone"
+                                   class="form-control form-control-lg text-center"
+                                   placeholder="e.g. 08012345678"
                                    maxlength="11"
                                    pattern="^0[789][01]\d{8}$"
                                    required
                                    autofocus>
-                            <div class="form-text mt-2">Airtime/Data will be delivered instantly to this number</div>
+
+                            <div class="form-text mt-2">
+                                Airtime/Data will be delivered instantly to this number
+                            </div>
+
                             <div class="invalid-feedback text-center mt-2">
-                                Please enter a valid 11-digit Nigerian phone number (e.g. 08012345678)
+                                Please enter a valid 11-digit Nigerian phone number
                             </div>
                         </div>
 
-                        <!-- Pay button now has onclick -->
-                        <button type="button" 
+                        <!-- PAY BUTTON -->
+                        <button type="button"
                                 id="pay-button"
                                 class="btn btn-success btn-lg w-100 fw-bold py-4 fs-5"
                                 onclick="initiatePayment({{ plan.id }})">
                             Pay ₦{{ plan.selling_price|floatformat:0 }} with Paystack
                         </button>
+
                     </form>
+
                 </div>
             </div>
         </div>
@@ -94,7 +129,6 @@
 {% block extra_js %}
 <script src="https://js.paystack.co/v1/inline.js"></script>
 <script>
-// Get CSRF token from the hidden input in the form
 function getCsrfToken() {
     return document.querySelector('[name=csrfmiddlewaretoken]').value;
 }
@@ -104,17 +138,14 @@ function initiatePayment(planId) {
     const phone = phoneInput.value.trim();
     const payButton = document.getElementById('pay-button');
 
-    // Reset validation state
     phoneInput.classList.remove('is-invalid');
 
-    // Validate Nigerian 11-digit number
     if (!/^0[789][01]\d{8}$/.test(phone)) {
         phoneInput.classList.add('is-invalid');
         phoneInput.focus();
         return;
     }
 
-    // Disable button and show loading
     payButton.disabled = true;
     payButton.innerHTML = 'Processing... Please wait';
 
@@ -131,21 +162,20 @@ function initiatePayment(planId) {
         if (data.status && data.data && data.data.authorization_url) {
             window.location.href = data.data.authorization_url;
         } else {
-            alert(data.message || "Payment could not be initiated. Please try again.");
+            alert(data.message || "Payment could not be initiated.");
             payButton.disabled = false;
             payButton.innerHTML = `Pay ₦{{ plan.selling_price|floatformat:0 }} with Paystack`;
         }
     })
     .catch(err => {
-        console.error('Payment error:', err);
-        alert("Network error. Please check your connection and try again.");
+        console.error(err);
+        alert("Network error. Please try again.");
         payButton.disabled = false;
         payButton.innerHTML = `Pay ₦{{ plan.selling_price|floatformat:0 }} with Paystack`;
     });
 }
 
-// Remove red border when typing
-document.getElementById('phone').addEventListener('input', function() {
+document.getElementById('phone').addEventListener('input', function () {
     this.classList.remove('is-invalid');
 });
 </script>

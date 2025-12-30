@@ -17,7 +17,12 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.db.models import Q, Sum
+from django.views.decorators.csrf import csrf_protect
+
+from django.contrib.auth import get_user_model
+import re
+
 
 from .models import (
     Product,
@@ -32,6 +37,8 @@ from .models import (
     ExamTransaction,
     AirtimeTransaction,
     ServiceTransaction,
+    WalletTransaction,   # ← ADD THIS
+    Referral, 
 )
 
 
@@ -137,6 +144,7 @@ def home(request):
             "services": services,
             "faq_list": faq_list,
             "quantity_options": range(1, 11),
+            "wallet_balance": getattr(request.user, "balance", 0),
         },
     )  
 
@@ -144,125 +152,160 @@ def home(request):
 # ------------------------------
 # AUTHENTICATION
 # ------------------------------
+
+User = get_user_model()
+
+
+def password_is_strong(password: str) -> bool:
+    return (
+        len(password) >= 8
+        and re.search(r"[A-Z]", password)
+        and re.search(r"[a-z]", password)
+        and re.search(r"[0-9]", password)
+        and re.search(r"[!@#$%^&*()_+=\-{}[\]:;\"'<>,.?/]", password)
+    )
+
+
+@csrf_protect
 def register(request):
     if request.method == "POST":
         first_name = request.POST.get("first_name", "").strip()
         last_name = request.POST.get("last_name", "").strip()
-        phone_raw = request.POST.get("phone", "").strip()
+        phone = request.POST.get("phone", "").strip()
         email = request.POST.get("email", "").strip().lower()
         password = request.POST.get("password")
         password2 = request.POST.get("password2")
 
-        if not all([first_name, last_name, phone_raw, email, password, password2]):
-            messages.error(request, "All fields are required.")
+        # Basic validation
+        if not all([first_name, last_name, email, password, password2]):
+            messages.error(request, "All required fields must be filled.")
             return redirect("register")
 
         if password != password2:
             messages.error(request, "Passwords do not match.")
             return redirect("register")
 
-        phone = normalize_phone(phone_raw)
+        if not password_is_strong(password):
+            messages.error(
+                request,
+                "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.",
+            )
+            return redirect("register")
 
         if User.objects.filter(email__iexact=email).exists():
-            messages.error(request, "Email already in use.")
-            return redirect("register")
-        if User.objects.filter(phone=phone).exists():
-            messages.error(request, "Phone number already registered.")
+            messages.error(request, "An account with this email already exists.")
             return redirect("register")
 
+        # Generate OTP
         otp = random.randint(100000, 999999)
-        request.session["reg_data"] = {
+
+        # Store ONLY in session (NOT DB)
+        request.session["pending_registration"] = {
             "first_name": first_name,
             "last_name": last_name,
             "phone": phone,
             "email": email,
-            "password": password,
+            "password": password,  # temporary, hashed later
             "otp": otp,
-            "otp_created_at": int(time.time()),
-            "resend_count": 0,
-            "otp_attempts": 0,
+            "created_at": int(time.time()),
+            "attempts": 0,
         }
 
-        if send_otp(phone, email, otp):
-            messages.success(request, f"OTP sent to {email}")
-            return redirect("verify_otp")
-        else:
-            request.session.pop("reg_data", None)
-            messages.error(request, "Failed to send OTP. Try again.")
-            return redirect("register")
+        # Send OTP (email/SMS)
+        send_otp(phone, email, otp)
+
+        messages.success(request, "OTP sent to your email.")
+        return redirect("verify_otp")
 
     return render(request, "store/register.html")
 
 
+def resend_otp(request):
+    data = request.session.get("pending_registration")
+
+    if not data:
+        messages.error(request, "Session expired. Please register again.")
+        return redirect("register")
+
+    # Rate limit: 30 seconds
+    if int(time.time()) - data["created_at"] < 30:
+        messages.error(request, "Please wait before requesting another OTP.")
+        return redirect("verify_otp")
+
+    # Max resend limit
+    if data.get("resend_count", 0) >= 5:
+        request.session.pop("pending_registration", None)
+        messages.error(request, "Too many OTP requests. Please start again.")
+        return redirect("register")
+
+    # Generate new OTP
+    new_otp = random.randint(100000, 999999)
+
+    data.update({
+        "otp": new_otp,
+        "created_at": int(time.time()),
+        "resend_count": data.get("resend_count", 0) + 1,
+        "attempts": 0,
+    })
+
+    request.session["pending_registration"] = data
+
+    send_otp(data["phone"], data["email"], new_otp)
+
+    messages.success(request, "A new OTP has been sent.")
+    return redirect("verify_otp")
+
+
+
+@csrf_protect
 def verify_otp(request):
+    data = request.session.get("pending_registration")
+
+    if not data:
+        messages.error(request, "Session expired. Please register again.")
+        return redirect("register")
+
+    # OTP expires after 10 minutes
+    if int(time.time()) - data["created_at"] > 600:
+        request.session.pop("pending_registration", None)
+        messages.error(request, "OTP expired. Please register again.")
+        return redirect("register")
+
     if request.method == "POST":
         otp_input = request.POST.get("otp", "").strip()
-        data = request.session.get("reg_data")
-        if not data:
-            messages.error(request, "Session expired. Please register again.")
-            return redirect("register")
-
-        if int(time.time()) - data["otp_created_at"] > 600:
-            request.session.pop("reg_data", None)
-            messages.error(request, "OTP has expired.")
-            return redirect("register")
 
         if otp_input != str(data["otp"]):
-            data["otp_attempts"] += 1
-            request.session["reg_data"] = data
-            if data["otp_attempts"] >= 5:
-                request.session.pop("reg_data", None)
-                messages.error(request, "Too many incorrect attempts.")
+            data["attempts"] += 1
+            request.session["pending_registration"] = data
+
+            if data["attempts"] >= 5:
+                request.session.pop("pending_registration", None)
+                messages.error(request, "Too many failed attempts. Start over.")
                 return redirect("register")
+
             messages.error(request, "Invalid OTP.")
             return redirect("verify_otp")
 
-        # Create user
+        # ✅ OTP VERIFIED — NOW CREATE USER
         user = User.objects.create_user(
             username=data["email"],
             email=data["email"],
-            phone=data["phone"],
             first_name=data["first_name"],
             last_name=data["last_name"],
+            phone=data["phone"],
             password=data["password"],
             is_active=True,
         )
+
         login(request, user)
-        request.session.pop("reg_data", None)
-        messages.success(request, "Registration successful!")
-        return redirect("dashboard")
+
+        # Cleanup session
+        request.session.pop("pending_registration", None)
+
+        messages.success(request, "Account verified successfully!")
+        return redirect("wallet")
 
     return render(request, "store/verify_otp.html")
-
-
-def resend_otp(request):
-    data = request.session.get("reg_data")
-    if not data:
-        return redirect("register")
-
-    if int(time.time()) - data["otp_created_at"] < 30:
-        messages.error(request, "Please wait 30 seconds before resending.")
-        return redirect("verify_otp")
-
-    if data["resend_count"] >= 5:
-        request.session.pop("reg_data", None)
-        messages.error(request, "Max resend attempts reached.")
-        return redirect("register")
-
-    new_otp = random.randint(100000, 999999)
-    data.update(
-        {
-            "otp": new_otp,
-            "otp_created_at": int(time.time()),
-            "resend_count": data["resend_count"] + 1,
-            "otp_attempts": 0,
-        }
-    )
-    request.session["reg_data"] = data
-
-    send_otp(data["phone"], data["email"], new_otp)
-    messages.success(request, "New OTP sent!")
-    return redirect("verify_otp")
 
 
 def custom_login(request):
@@ -278,7 +321,7 @@ def custom_login(request):
         auth_user = authenticate(request, username=user.username, password=password)
         if auth_user:
             login(request, auth_user)
-            return redirect("dashboard")
+            return redirect("wallet")
         messages.error(request, "Incorrect password.")
         return redirect("login")
 
@@ -292,11 +335,31 @@ def custom_logout(request):
 
 
 @login_required
-def dashboard(request):
-    referrals = User.objects.filter(referred_by=request.user).count()
-    earnings = referrals * 150
+def wallet(request):
+    # Wallet transactions
+    transactions = WalletTransaction.objects.filter(
+        user=request.user
+    ).order_by("-created_at")[:20]
 
-    return render(request, "store/dashboard.html", {"total_referrals": referrals, "referral_earnings": earnings})
+    # Referrals
+    total_referrals = Referral.objects.filter(
+        referrer=request.user
+    ).count()
+
+    referral_earnings = Referral.objects.filter(
+        referrer=request.user,
+        paid=True
+    ).aggregate(
+        total=Sum("amount_earned")
+    )["total"] or 0
+
+    context = {
+        "transactions": transactions,
+        "total_referrals": total_referrals,
+        "referral_earnings": referral_earnings,
+    }
+
+    return render(request, "store/wallet.html", context)
 
 
 # ------------------------------
@@ -335,6 +398,7 @@ def airtime_buy(request, plan_id):
             "plan": plan,
             "provider": plan.provider,
             "category": plan.provider.category,
+            #"PAYSTACK_PUBLIC_KEY":settings.pk_test_dc6959e07821e0c96082a88b21fd63f5a690a1f2,
         },
     )
 

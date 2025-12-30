@@ -169,7 +169,7 @@
                 <a href="{% url 'blog_list' %}" class="nav-link">Blog</a>
                 {% if user.is_authenticated %}
                     <a href="{% url 'dashboard' %}" class="btn btn-dashboard btn-sm">
-                        Dashboard (₦{{ user.balance|default:"0" }})
+                       wallet (₦{{ user.balance|default:"0" }})
                     </a>
                     <a href="{% url 'logout' %}" class="nav-link">Logout</a>
                 {% else %}

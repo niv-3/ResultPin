@@ -6,7 +6,9 @@
 {% block content %}
 <div class="container my-5 pb-5">
 
-    <!-- Provider Selection -->
+    <!-- ========================= -->
+    <!-- PROVIDER SELECTION -->
+    <!-- ========================= -->
     {% if providers %}
         <div class="mb-5">
             <h4 class="fw-bold text-center mb-4">Select Network Provider</h4>
@@ -14,9 +16,16 @@
                 {% for provider in providers %}
                     <div class="col-lg-3 col-md-4 col-sm-6">
                         <a href="?provider={{ provider.id }}" class="text-decoration-none">
-                            <div class="card text-center p-4 border-0 shadow-sm hover-lift {% if selected_provider == provider.id %}border border-success border-4{% endif %}">
+                            <div class="card text-center p-4 border-0 shadow-sm hover-lift
+                                {% if selected_provider == provider.id %}
+                                    border border-success border-4
+                                {% endif %}
+                            ">
                                 {% if provider.logo %}
-                                    <img src="{{ provider.logo.url }}" alt="{{ provider.name }}" class="mx-auto mb-3" style="height: 80px; object-fit: contain;">
+                                    <img src="{{ provider.logo.url }}"
+                                         alt="{{ provider.name }}"
+                                         class="mx-auto mb-3"
+                                         style="height: 80px; object-fit: contain;">
                                 {% endif %}
                                 <h6 class="fw-bold mt-2">{{ provider.name }}</h6>
                             </div>
@@ -27,7 +36,9 @@
         </div>
     {% endif %}
 
-    <!-- Available Plans Table -->
+    <!-- ========================= -->
+    <!-- AVAILABLE PLANS -->
+    <!-- ========================= -->
     {% if plans %}
         <div class="card border-0 shadow">
             <div class="card-body p-0">
@@ -44,22 +55,30 @@
                         <tbody>
                             {% for plan in plans %}
                                 <tr>
+                                    <!-- PLAN INFO -->
                                     <td class="ps-4">
                                         <div class="fw-bold">{{ plan.name }}</div>
                                         {% if plan.description %}
-                                            <small class="text-muted">{{ plan.description }}</small>
+                                            <small class="text-muted">
+                                                {{ plan.description }}
+                                            </small>
                                         {% endif %}
                                     </td>
+
+                                    <!-- PRICE -->
                                     <td class="text-center">
-                                        <!-- Discounted price on top (big & green) -->
+                                        <!-- SELLING PRICE -->
                                         <div class="fw-bold text-success fs-4 mb-1">
                                             ₦{{ plan.selling_price|floatformat:0 }}
                                         </div>
-                                        <!-- Original price crossed out below -->
+
+                                        <!-- MARKET PRICE (CROSSED OUT) -->
                                         <div class="text-muted text-decoration-line-through">
-                                            ₦{{ plan.cost_price|floatformat:0 }}
+                                            ₦{{ plan.market_price|floatformat:0 }}
                                         </div>
                                     </td>
+
+                                    <!-- SAVINGS -->
                                     <td class="text-center">
                                         {% if plan.discount_amount > 0 %}
                                             <span class="badge bg-success fs-6 px-3 py-2">
@@ -69,8 +88,11 @@
                                             <small class="text-muted">—</small>
                                         {% endif %}
                                     </td>
+
+                                    <!-- ACTION -->
                                     <td class="text-end pe-4">
-                                        <a href="{% url 'airtime_buy' plan.id %}" class="btn btn-success px-4">
+                                        <a href="{% url 'airtime_buy' plan.id %}"
+                                           class="btn btn-success px-4">
                                             Buy
                                         </a>
                                     </td>
@@ -81,13 +103,19 @@
                 </div>
             </div>
         </div>
+
     {% elif selected_provider %}
         <div class="text-center py-5">
-            <p class="text-muted fs-4">No active plans available for this provider.</p>
+            <p class="text-muted fs-4">
+                No active plans available for this provider.
+            </p>
         </div>
+
     {% elif providers %}
         <div class="text-center py-5">
-            <p class="text-muted fs-4">Select a provider above to view plans</p>
+            <p class="text-muted fs-4">
+                Select a provider above to view plans.
+            </p>
         </div>
     {% endif %}
 </div>

@@ -1,40 +1,84 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Verify OTP - ResultPin.ng</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <style>
-        body { background: linear-gradient(135deg, #008751, #fff, #008751); min-height: 100vh; display: flex; align-items: center; }
-        .card { max-width: 450px; margin: auto; border-radius: 20px; }
+        body {
+            background: linear-gradient(135deg, #008751, #ffffff, #008751);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            max-width: 450px;
+            width: 100%;
+            border-radius: 20px;
+        }
     </style>
 </head>
 <body>
+
 <div class="card shadow-lg">
     <div class="card-body p-5 text-center">
 
-        <h2 class="text-white bg-success py-3 rounded-top mb-4">Verify Your Phone</h2>
+        <h2 class="text-white bg-success py-3 rounded mb-4">
+            Verify Your Phone
+        </h2>
 
         {% if messages %}
             {% for msg in messages %}
-                <div class="alert alert-{{ msg.tags|default:'danger' }} text-center fw-bold">
+                <div class="alert alert-{{ msg.tags|default:'danger' }} fw-bold">
                     {{ msg }}
                 </div>
             {% endfor %}
         {% endif %}
 
-        <p class="text-muted">We sent a 6-digit code to your phone</p>
+        <p class="text-muted mb-4">
+            We sent a 6-digit verification code to your email/phone
+        </p>
 
-        <form method="post">
+        <!-- ✅ CORRECT FORM -->
+        <form method="post" action="{% url 'verify_otp' %}">
             {% csrf_token %}
-            <input type="text" name="otp" class="form-control text-center fs-3 mb-4" maxlength="6" 
-                   placeholder="000000" style="letter-spacing: 10px; font-size: 2rem;" required autofocus>
-            <button type="submit" class="btn btn-success btn-lg w-100">Verify & Login</button>
+
+            <input
+                type="text"
+                name="otp"
+                class="form-control text-center fs-3 mb-4"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                placeholder="000000"
+                style="letter-spacing: 10px;"
+                required
+                autofocus
+            >
+
+            <button type="submit" class="btn btn-success btn-lg w-100">
+                Verify & Login
+            </button>
         </form>
 
         <div class="mt-4">
-            <p id="countdown" class="fs-5 fw-bold text-danger">Time left: 10:00</p>
-            <p><a href="{% url 'resend_otp' %}" class="text-decoration-none">Resend OTP</a> | 
-               <a href="{% url 'register' %}" class="text-decoration-none">← Change Number</a></p>
+            <p id="countdown" class="fs-5 fw-bold text-danger">
+                Time left: 10:00
+            </p>
+
+            <p>
+                <a href="{% url 'resend_otp' %}" class="text-decoration-none">
+                    Resend OTP
+                </a>
+                |
+                <a href="{% url 'register' %}" class="text-decoration-none">
+                    ← Change Number
+                </a>
+            </p>
         </div>
 
     </div>
@@ -42,16 +86,25 @@
 
 <script>
     let seconds = 600; // 10 minutes
+
     const timer = setInterval(() => {
         seconds--;
+
         const min = String(Math.floor(seconds / 60)).padStart(2, '0');
         const sec = String(seconds % 60).padStart(2, '0');
-        document.getElementById('countdown').innerText = `Time left: ${min}:${sec}`;
+
+        const countdown = document.getElementById("countdown");
+
         if (seconds <= 0) {
             clearInterval(timer);
-            document.getElementById('countdown').innerText = "OTP expired – please request a new one";
+            countdown.innerText = "OTP expired – please request a new one";
+            countdown.classList.remove("text-danger");
+            countdown.classList.add("text-muted");
+        } else {
+            countdown.innerText = `Time left: ${min}:${sec}`;
         }
     }, 1000);
 </script>
+
 </body>
 </html>
