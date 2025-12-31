@@ -264,67 +264,221 @@ def verify_wallet_funding(request):
 # ====================
 @login_required
 def wallet_withdraw(request):
+    # Get user's bank account (if exists)
+    bank_account = getattr(request.user, 'bank_account', None)
+
     if request.method == 'POST':
-        amount = Decimal(request.POST.get('amount', '0'))
-
-        if amount < Decimal('100'):
-            messages.error(request, 'Minimum withdrawal is ₦100')
-            return redirect('wallet')
-
-        if request.user.balance < amount:
-            messages.error(request, 'Insufficient wallet balance')
-            return redirect('wallet')
+        amount_str = request.POST.get('amount')
 
         try:
-            bank = BankAccount.objects.get(user=request.user, is_verified=True)
-        except BankAccount.DoesNotExist:
-            messages.error(request, 'Please add and verify a bank account first')
-            return redirect('wallet')
+            amount = Decimal(amount_str)
+        except (TypeError, ValueError, InvalidOperation):
+            messages.error(request, 'Invalid amount')
+            return redirect('wallet_withdraw')
+
+        # Validations
+        if amount < Decimal('100'):
+            messages.error(request, 'Minimum withdrawal is ₦100')
+            return redirect('wallet_withdraw')
+
+        if request.user.balance < amount:
+            messages.error(request, 'Insufficient balance')
+            return redirect('wallet_withdraw')
+
+        if not bank_account or not bank_account.recipient_code:
+            messages.error(request, 'No verified bank account found. Add one first.')
+            return redirect('wallet_withdraw')
 
         reference = f"WITHDRAW_{request.user.id}_{uuid.uuid4().hex.upper()[:10]}"
 
-        # Initiate Paystack Transfer
+        # Initiate Paystack transfer
         response = requests.post(
             'https://api.paystack.co/transfer',
+            json={
+                'source': 'balance',
+                'amount': int(amount * 100),  # in kobo
+                'reference': reference,
+                'recipient': bank_account.recipient_code,
+                'reason': 'Wallet withdrawal - ResultPin.ng'
+            },
             headers={
                 'Authorization': f'Bearer {settings.PAYSTACK_SECRET_KEY}',
                 'Content-Type': 'application/json'
-            },
-            json={
-                'source': 'balance',
-                'amount': int(amount * 100),
-                'reference': reference,
-                'recipient': bank.recipient_code,
-                'reason': 'Wallet withdrawal'
             }
         )
         result = response.json()
 
         if result.get('status'):
+            # SUCCESS: Deduct balance and log transaction
             with transaction.atomic():
                 request.user.balance -= amount
-                request.user.save()
+                request.user.save(update_fields=['balance'])
+
                 WalletTransaction.objects.create(
                     user=request.user,
                     amount=amount,
                     transaction_type='debit',
                     reference=reference,
                     description='Bank Withdrawal',
-                    status='success'
+                    status='success'  # In production, use 'pending' + webhook
                 )
-            messages.success(request, f'₦{amount} withdrawal successful! Funds will arrive soon.')
+
+            messages.success(request, f'₦{amount:,} withdrawn successfully! Check your bank in 5-30 mins.')
         else:
-            messages.error(request, 'Withdrawal failed. Please try again later.')
-        return redirect('wallet')
+            error = result.get('message', 'Transfer failed')
+            messages.error(request, f'Withdrawal failed: {error}')
 
-    return render(request, 'store/wallet_withdraw.html')
+        return redirect('wallet_withdraw')
 
-
+    # GET request - show page
+    context = {
+        'bank_account': bank_account,
+    }
+    return render(request, 'store/wallet_withdraw.html', context)
+    
 # ====================
-# SERVICE PAYMENT WITH WALLET SUPPORT
+# ADD BANK ACCOUNT - PRODUCTION READY WITH TEST BYPASS
 # ====================
+@login_required
+def add_bank_account(request):
+    if request.method == 'POST':
+        account_number = request.POST.get('account_number')
+        bank_code = request.POST.get('bank_code')
+    
+        if not account_number or not bank_code:
+            return JsonResponse({'success': False, 'message': 'Please fill all fields'})
 
-# Example: Airtime purchase view (adapt for data, TV, etc.)
+        # ==============================================
+        # TEST/DEBUG BYPASS - REMOVE THIS ENTIRE BLOCK BEFORE GOING LIVE!
+        # ==============================================
+        # This allows instant bank saving in test mode without hitting resolve limits
+        if settings.DEBUG or settings.PAYSTACK_SECRET_KEY.startswith('sk_test_'):
+            fake_name = "Test User Account"
+
+            recipient_response = requests.post(
+                "https://api.paystack.co/transferrecipient",
+                json={
+                    "type": "nuban",
+                    "name": fake_name,
+                    "account_number": account_number,
+                    "bank_code": bank_code,
+                    "currency": "NGN"
+                },
+                headers={
+                    "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+                    "Content-Type": "application/json"
+                }
+            )
+            recipient_data = recipient_response.json()
+
+            if recipient_data.get('status'):
+                recipient_code = recipient_data['data']['recipient_code']
+
+                bank, created = BankAccount.objects.update_or_create(
+                    user=request.user,
+                    defaults={
+                        'bank_code': bank_code,
+                        'account_number': account_number,
+                        'account_name': fake_name,
+                        'recipient_code': recipient_code,
+                        'is_verified': True
+                    }
+                )
+
+                return JsonResponse({
+                    'success': True,
+                    'account_name': fake_name
+                })
+
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to create test recipient'
+            })
+        # ==============================================
+        # END OF TEST BYPASS - DELETE FROM HERE UP WHEN GOING LIVE
+        # ==============================================
+
+        # ========================
+        # REAL PRODUCTION FLOW (ALWAYS ACTIVE WHEN BYPASS IS REMOVED)
+        # ========================
+        # Step 1: Verify account name with Paystack (real check)
+        resolve_response = requests.get(
+            f"https://api.paystack.co/bank/resolve?account_number={account_number}&bank_code={bank_code}",
+            headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
+        )
+        resolve_data = resolve_response.json()
+
+        if not resolve_data.get('status'):
+            return JsonResponse({
+                'success': False,
+                'message': resolve_data.get('message', 'Invalid account details. Please check and try again.')
+            })
+
+        account_name = resolve_data['data']['account_name']
+
+        # Step 2: Create real transfer recipient
+        recipient_response = requests.post(
+            "https://api.paystack.co/transferrecipient",
+            json={
+                "type": "nuban",
+                "name": account_name,
+                "account_number": account_number,
+                "bank_code": bank_code,
+                "currency": "NGN"
+            },
+            headers={
+                "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+                "Content-Type": "application/json"
+            }
+        )
+        recipient_data = recipient_response.json()
+
+        if not recipient_data.get('status'):
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to link bank for transfers. Try again later.'
+            })
+
+        recipient_code = recipient_data['data']['recipient_code']
+
+        # Step 3: Save verified bank account
+        bank, created = BankAccount.objects.update_or_create(
+            user=request.user,
+            defaults={
+                'bank_code': bank_code,
+                'account_number': account_number,
+                'account_name': account_name,
+                'recipient_code': recipient_code,
+                'is_verified': True
+            }
+        )
+
+        return JsonResponse({
+            'success': True,
+            'account_name': account_name
+        })
+
+    # GET request: Show bank addition form (standalone page)
+    banks = [
+        {"code": "044", "name": "Access Bank"},
+        {"code": "057", "name": "Zenith Bank"},
+        {"code": "058", "name": "GTBank"},
+        {"code": "050", "name": "Ecobank"},
+        {"code": "070", "name": "Fidelity Bank"},
+        {"code": "221", "name": "Stanbic IBTC"},
+        {"code": "232", "name": "Sterling Bank"},
+        {"code": "033", "name": "UBA"},
+        {"code": "035", "name": "Wema Bank"},
+        {"code": "101", "name": "Providus Bank"},
+        {"code": "215", "name": "Unity Bank"},
+        {"code": "076", "name": "Polaris Bank"},
+        {"code": "030", "name": "Heritage Bank"},
+        {"code": "082", "name": "Keystone Bank"},
+        {"code": "301", "name": "Jaiz Bank"},
+    ]
+
+    return render(request, 'store/add_bank_account.html', {'banks': banks})
+
 @login_required
 def airtime_buy(request, plan_id):
     plan = get_object_or_404(ServicePlan, id=plan_id, is_active=True)

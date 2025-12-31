@@ -285,22 +285,24 @@ class WalletTransaction(models.Model):
 # BANK ACCOUNT (NEW FOR WITHDRAWALS)
 # =========================
 class BankAccount(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    bank_code = models.CharField(max_length=10)  # Paystack bank code
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='bank_account'  # ← Important for user.bank_account
+    )
+    bank_code = models.CharField(max_length=10)  # e.g., "044" for Access
     account_number = models.CharField(max_length=20)
     account_name = models.CharField(max_length=100)
-    recipient_code = models.CharField(max_length=100, blank=True)  # Paystack recipient code (create on save)
+    recipient_code = models.CharField(max_length=100, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.account_name} - {self.account_number}"
+        return f"{self.account_name} - {self.account_number[-4:]}"  # Only last 4 digits
 
-    def save(self, *args, **kwargs):
-        if not self.recipient_code:
-            # Create Paystack recipient (implement in views or signal)
-            pass
-        super().save(*args, **kwargs)
+    class Meta:
+        verbose_name = "Bank Account"
+        verbose_name_plural = "Bank Accounts"
 
 
 # =========================

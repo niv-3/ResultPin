@@ -17,6 +17,8 @@ urlpatterns = [
     path("verify-wallet-funding/", views.verify_wallet_funding, name="verify_wallet_funding"),
     path("wallet/withdraw/", views.wallet_withdraw, name="wallet_withdraw"),  # New
 
+    path("wallet/add-bank/", views.add_bank_account, name="add_bank_account"),
+
     # ======================
     # SERVICES FLOW
     # ======================
@@ -94,4 +96,5 @@ urlpatterns = [
     # ======================
     path("submit-review/", views.submit_review, name="submit_review"),
     path("review-thank-you/", views.review_thank_you, name="review_thank_you"),
+    
 ]
