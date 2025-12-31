@@ -133,11 +133,7 @@ class UserAdmin(admin.ModelAdmin):
 # ==================================================
 @admin.register(WalletTransaction)
 class WalletTransactionAdmin(admin.ModelAdmin):
-    list_display = ("user", "amount", "transaction_type", "created_at")
-    list_filter = ("transaction_type",)
-    search_fields = ("user__email",)
-    ordering = ("-created_at",)
-
+     list_display = ("id",)
 
 # ==================================================
 # REFERRALS

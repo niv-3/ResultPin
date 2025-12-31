@@ -1,28 +1,22 @@
-import requests
-import uuid
-import random
-import time
 import json
-import pytz
-import re
-from datetime import datetime
-from decimal import Decimal, InvalidOperation
+import uuid
+from decimal import Decimal
 
-from django.http import JsonResponse
-from django.urls import reverse
-from django.shortcuts import render, redirect, get_object_or_404
 from django.conf import settings
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
 from django.contrib import messages
-from django.core.mail import send_mail
-from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth import (
+    authenticate,
+    login,
+    logout,
+    get_user_model,
+)
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Sum
-from django.views.decorators.csrf import csrf_protect
 from django.db import transaction
-
-from django.contrib.auth import get_user_model
+from django.http import JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.views.decorators.http import require_POST
 
 from .models import (
     Product,
@@ -39,76 +33,11 @@ from .models import (
     Review,
 )
 
-# Print key mode on import (useful for debugging)
-print("Current Paystack key mode:", "LIVE" if settings.PAYSTACK_SECRET_KEY.startswith('sk_live_') else "TEST")
+from .paystack import initialize_paystack, verify_paystack
+from .utils import normalize_phone, process_service_delivery
 
-
-# ==============================
-# PAYSTACK HELPERS
-# ==============================
-def initialize_paystack(email: str, amount_naira: Decimal, reference: str, callback_url: str, metadata: dict = None):
-    """Initialize Paystack transaction."""
-    payload = {
-        "email": email,
-        "amount": int(amount_naira * 100),  # in kobo
-        "reference": reference,
-        "callback_url": callback_url,
-        "metadata": metadata or {},
-    }
-
-    try:
-        response = requests.post(
-            "https://api.paystack.co/transaction/initialize",
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
-                "Content-Type": "application/json",
-            },
-            timeout=15,
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        print("Paystack initialize exception:", str(e))
-        return {"status": False, "message": "Payment gateway error"}
-
-
-def verify_paystack(reference: str):
-    """Verify Paystack transaction."""
-    try:
-        url = f"https://api.paystack.co/transaction/verify/{reference}"
-        response = requests.get(
-            url,
-            headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"},
-            timeout=10,
-        )
-        res = response.json()
-        if res.get("status") and res.get("data", {}).get("status") == "success":
-            return res.get("data")
-        return None
-    except Exception:
-        return None
-
-
-# ==============================
-# GENERAL HELPERS
-# ==============================
-def send_otp(phone: str, email: str, otp: int) -> bool:
-    try:
-        send_mail(
-            subject="Your ResultPin Verification Code",
-            message=(
-                f"Hi! Your 6-digit OTP is {otp}.\n\n"
-                "Valid for 10 minutes.\n\n"
-                "Thanks,\nResultPin Team"
-            ),
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[email],
-            fail_silently=False,
-        )
-        return True
-    except Exception:
-        return False
+# PAYSTACK (delegated helpers)
+# no local helpers needed here
 
 
 # ==============================
@@ -129,7 +58,9 @@ def home(request):
             "services": services,
             "faq_list": faq_list,
             "quantity_options": range(1, 11),
-            "wallet_balance": getattr(request.user, "balance", 0) if request.user.is_authenticated else 0,
+            "wallet_balance": getattr(request.user, "balance", Decimal("0.00"))
+            if request.user.is_authenticated
+            else Decimal("0.00"),
         },
     )
 
@@ -139,507 +70,477 @@ def home(request):
 # ====================
 @login_required
 def wallet(request):
-    total_referrals = request.user.referrals.count()
-    referral_earnings = WalletTransaction.objects.filter(
-        user=request.user, description="Referral Bonus"
-    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    wallet_transactions = WalletTransaction.objects.filter(
+        user=request.user
+    ).order_by("-created_at")
 
-    wallet_transactions = WalletTransaction.objects.filter(user=request.user).order_by('-created_at')
+    referral_earnings = WalletTransaction.objects.filter(
+        user=request.user,
+        description="Referral Bonus",
+        transaction_type="credit",
+        status="success",
+    ).aggregate(total=models.Sum("amount"))["total"] or Decimal("0.00")
 
     context = {
-        'total_referrals': total_referrals,
-        'referral_earnings': referral_earnings,
-        'wallet_transactions': wallet_transactions,
+        "total_referrals": request.user.referrals.count(),
+        "referral_earnings": referral_earnings,
+        "wallet_transactions": wallet_transactions,
     }
-    return render(request, 'store/wallet.html', context)
+    return render(request, "store/wallet.html", context)
 
 
 @login_required
 def wallet_fund(request):
-    return render(request, 'store/wallet_fund.html', {
-        'paystack_public_key': settings.PAYSTACK_PUBLIC_KEY
-    })
-
+    return render(
+        request,
+        "store/wallet_fund.html",
+        {"paystack_public_key": settings.PAYSTACK_PUBLIC_KEY},
+    )
 
 @login_required
 @require_POST
 def wallet_fund_init(request):
     try:
         data = json.loads(request.body)
-        amount = Decimal(data.get('amount', '0'))
-    except (json.JSONDecodeError, InvalidOperation):
-        return JsonResponse({'status': False, 'message': 'Invalid amount'})
+        amount = Decimal(data.get("amount"))
 
-    if amount < Decimal('100'):
-        return JsonResponse({'status': False, 'message': 'Minimum funding is ₦100'})
+        if amount < 100:
+            return JsonResponse({
+                "status": False,
+                "message": "Minimum funding amount is ₦100"
+            })
 
-    reference = f"FUND_{request.user.id}_{uuid.uuid4().hex.upper()[:10]}"
+        reference = f"WALLET-{uuid.uuid4().hex[:12].upper()}"
 
-    # Use a fallback email if user's email is blank
-    email = request.user.email
-    if not email or '@' not in email:  # empty or invalid
-        email = f"user_{request.user.id}@resultpin.ng"  # safe dummy email
+        # 1️⃣ Create PENDING transaction
+        WalletTransaction.objects.create(
+            user=request.user,
+            amount=amount,
+            transaction_type="funding",
+            status="pending",
+            reference=reference
+        )
 
-    payload = initialize_paystack(
-        email=email,  # now guaranteed to be valid
-        amount_naira=amount,
-        reference=reference,
-        callback_url=request.build_absolute_uri(reverse('verify_wallet_funding')),
-        metadata={'type': 'wallet_funding', 'user_id': request.user.id}
-    )
+        # 2️⃣ Initialize Paystack
+        headers = {
+            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+            "Content-Type": "application/json",
+        }
 
-    if not payload.get('status'):
-        print("\n=== WALLET FUNDING - PAYSTACK FAILED ===")
-        print("User ID:", request.user.id)
-        print("Email used:", email)
-        print("Amount:", amount)
-        print("Reference:", reference)
-        print("Paystack Response:", payload)
-        print("========================================\n")
+        payload = {
+            "email": request.user.email,
+            "amount": int(amount * 100),  # Kobo
+            "reference": reference,
+            "callback_url": request.build_absolute_uri(
+                reverse("verify_wallet_funding")
+            ),
+        }
+
+        response = requests.post(
+            "https://api.paystack.co/transaction/initialize",
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+
+        result = response.json()
+
+        if not result.get("status"):
+            return JsonResponse({
+                "status": False,
+                "message": result.get("message", "Payment initialization failed")
+            })
+
+        # ✅ VERY IMPORTANT: match frontend expectation
         return JsonResponse({
-            'status': False,
-            'message': payload.get('message', 'Payment gateway error')
+            "status": True,
+            "data": {
+                "authorization_url": result["data"]["authorization_url"]
+            }
         })
 
-    # Success → create pending transaction
-    WalletTransaction.objects.create(
-        user=request.user,
-        amount=amount,
-        transaction_type='credit',
-        reference=reference,
-        description='Wallet Funding',
-        status='pending'
-    )
-
-    print("\n=== WALLET FUNDING - PAYSTACK SUCCESS ===")
-    print("Authorization URL:", payload['data']['authorization_url'])
-    print("Email sent:", email)
-    print("==========================================\n")
-
-    return JsonResponse(payload)
+    except Exception as e:
+        return JsonResponse({
+            "status": False,
+            "message": "Unable to start payment"
+        })
 
 
-@csrf_exempt
 @login_required
 def verify_wallet_funding(request):
-    reference = request.GET.get('reference') or request.GET.get('trxref')
+    reference = request.GET.get("reference")
+
     if not reference:
-        messages.error(request, 'No payment reference')
-        return redirect('wallet')
+        return redirect("wallet")
 
-    txn = WalletTransaction.objects.filter(reference=reference, user=request.user, status='pending').first()
-    if not txn:
-        messages.error(request, 'Transaction not found or already processed')
-        return redirect('wallet')
+    headers = {
+        "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+    }
 
-    data = verify_paystack(reference)
-    if not data or data.get('status') != 'success':
-        txn.status = 'failed'
-        txn.save()
-        messages.error(request, 'Payment verification failed')
-        return redirect('wallet')
+    response = requests.get(
+        f"https://api.paystack.co/transaction/verify/{reference}",
+        headers=headers,
+        timeout=30
+    )
 
-    paid_amount = Decimal(data['amount']) / 100
-    if paid_amount != txn.amount:
-        txn.status = 'failed'
-        txn.save()
-        messages.error(request, 'Amount mismatch detected')
-        return redirect('wallet')
+    result = response.json()
 
-    with transaction.atomic():
-        txn.status = 'success'
-        txn.save()
-        request.user.balance += txn.amount
-        request.user.save()
+    if not result.get("status"):
+        messages.error(request, "Payment verification failed.")
+        return redirect("wallet")
 
-    messages.success(request, f'Wallet funded successfully with ₦{txn.amount:,}')
-    return redirect('wallet')
+    data = result["data"]
+
+    if data["status"] != "success":
+        messages.error(request, "Payment not successful.")
+        return redirect("wallet")
+
+    try:
+        with transaction.atomic():
+            txn = WalletTransaction.objects.select_for_update().get(
+                reference=reference,
+                status="pending"
+            )
+
+            # Credit wallet
+            wallet = request.user.wallet
+            wallet.balance += txn.amount
+            wallet.save()
+
+            txn.status = "success"
+            txn.save()
+
+        messages.success(request, "Wallet funded successfully!")
+
+    except WalletTransaction.DoesNotExist:
+        messages.warning(request, "Transaction already processed.")
+
+    return redirect("wallet")
+
 
 
 @login_required
 def wallet_withdraw(request):
-    bank_account = getattr(request.user, 'bank_account', None)
+    bank_account = getattr(request.user, "bank_account", None)
 
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
-            amount = Decimal(request.POST.get('amount', '0'))
-        except (InvalidOperation, TypeError):
-            messages.error(request, 'Invalid amount')
-            return redirect('wallet_withdraw')
+            amount = Decimal(request.POST.get("amount", "0"))
+        except Exception:
+            messages.error(request, "Invalid amount")
+            return redirect("wallet_withdraw")
 
-        if amount < Decimal('100'):
-            messages.error(request, 'Minimum withdrawal is ₦100')
-            return redirect('wallet_withdraw')
+        if amount < Decimal("100"):
+            messages.error(request, "Minimum withdrawal is ₦100")
+            return redirect("wallet_withdraw")
 
         if request.user.balance < amount:
-            messages.error(request, 'Insufficient balance')
-            return redirect('wallet_withdraw')
+            messages.error(request, "Insufficient balance")
+            return redirect("wallet_withdraw")
 
         if not bank_account or not bank_account.recipient_code:
-            messages.error(request, 'No verified bank account found. Add one first.')
-            return redirect('wallet_withdraw')
+            messages.error(request, "No verified bank account found")
+            return redirect("wallet_withdraw")
 
-        reference = f"WITHDRAW_{request.user.id}_{uuid.uuid4().hex.upper()[:10]}"
+        reference = f"WITHDRAW_{request.user.id}_{uuid.uuid4().hex[:12]}"
 
         response = requests.post(
-            'https://api.paystack.co/transfer',
+            "https://api.paystack.co/transfer",
             json={
-                'source': 'balance',
-                'amount': int(amount * 100),
-                'reference': reference,
-                'recipient': bank_account.recipient_code,
-                'reason': 'Wallet withdrawal - ResultPin.ng'
+                "source": "balance",
+                "amount": int(amount * 100),
+                "reference": reference,
+                "recipient": bank_account.recipient_code,
+                "reason": "Wallet withdrawal",
             },
             headers={
-                'Authorization': f'Bearer {settings.PAYSTACK_SECRET_KEY}',
-                'Content-Type': 'application/json'
-            }
+                "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+                "Content-Type": "application/json",
+            },
+            timeout=15,
         )
         result = response.json()
 
-        if result.get('status'):
-            with transaction.atomic():
-                request.user.balance -= amount
-                request.user.save(update_fields=['balance'])
-                WalletTransaction.objects.create(
-                    user=request.user,
-                    amount=amount,
-                    transaction_type='debit',
-                    reference=reference,
-                    description='Bank Withdrawal',
-                    status='success'
-                )
-            messages.success(request, f'₦{amount:,} withdrawn successfully! Check your bank in 5-30 mins.')
-        else:
-            messages.error(request, f'Withdrawal failed: {result.get("message", "Transfer failed")}')
+        if not result.get("status"):
+            messages.error(request, result.get("message", "Withdrawal failed"))
+            return redirect("wallet_withdraw")
 
-        return redirect('wallet_withdraw')
+        with transaction.atomic():
+            user = request.user.__class__.objects.select_for_update().get(id=request.user.id)
+            user.balance -= amount
+            user.save(update_fields=["balance"])
+            WalletTransaction.objects.create(
+                user=user,
+                amount=amount,
+                transaction_type="debit",
+                reference=reference,
+                description="Bank Withdrawal",
+                status="success",
+            )
 
-    return render(request, 'store/wallet_withdraw.html', {'bank_account': bank_account})
+        messages.success(request, f"₦{amount:,} withdrawn successfully")
+        return redirect("wallet_withdraw")
+
+    return render(request, "store/wallet_withdraw.html", {"bank_account": bank_account})
 
 
 @login_required
 def add_bank_account(request):
-    if request.method == 'POST':
-        account_number = request.POST.get('account_number')
-        bank_code = request.POST.get('bank_code')
+    if request.method == "POST":
+        account_number = request.POST.get("account_number")
+        bank_code = request.POST.get("bank_code")
 
         if not account_number or not bank_code:
-            return JsonResponse({'success': False, 'message': 'Please fill all fields'})
+            return JsonResponse({"success": False, "message": "All fields required"})
 
-        # Test/Debug bypass
-        if settings.DEBUG or settings.PAYSTACK_SECRET_KEY.startswith('sk_test_'):
-            fake_name = "Test User Account"
-            recipient_response = requests.post(
-                "https://api.paystack.co/transferrecipient",
-                json={
-                    "type": "nuban",
-                    "name": fake_name,
-                    "account_number": account_number,
-                    "bank_code": bank_code,
-                    "currency": "NGN"
-                },
-                headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}", "Content-Type": "application/json"}
-            )
-            data = recipient_response.json()
-            if data.get('status'):
-                recipient_code = data['data']['recipient_code']
-                BankAccount.objects.update_or_create(
-                    user=request.user,
-                    defaults={
-                        'bank_code': bank_code,
-                        'account_number': account_number,
-                        'account_name': fake_name,
-                        'recipient_code': recipient_code,
-                        'is_verified': True
-                    }
-                )
-                return JsonResponse({'success': True, 'account_name': fake_name})
-            return JsonResponse({'success': False, 'message': 'Failed to create test recipient'})
+        name = "Test Account" if settings.DEBUG else None
 
-        # Production flow
-        resolve_response = requests.get(
-            f"https://api.paystack.co/bank/resolve?account_number={account_number}&bank_code={bank_code}",
-            headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
-        )
-        resolve_data = resolve_response.json()
-        if not resolve_data.get('status'):
-            return JsonResponse({'success': False, 'message': resolve_data.get('message', 'Invalid account details')})
+        if not settings.DEBUG:
+            resolve = requests.get(
+                f"https://api.paystack.co/bank/resolve?account_number={account_number}&bank_code={bank_code}",
+                headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"},
+                timeout=10,
+            ).json()
 
-        account_name = resolve_data['data']['account_name']
+            if not resolve.get("status"):
+                return JsonResponse({"success": False, "message": "Invalid account"})
+            name = resolve["data"]["account_name"]
 
-        recipient_response = requests.post(
+        recipient = requests.post(
             "https://api.paystack.co/transferrecipient",
             json={
                 "type": "nuban",
-                "name": account_name,
+                "name": name,
                 "account_number": account_number,
                 "bank_code": bank_code,
-                "currency": "NGN"
+                "currency": "NGN",
             },
-            headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}", "Content-Type": "application/json"}
-        )
-        recipient_data = recipient_response.json()
-        if not recipient_data.get('status'):
-            return JsonResponse({'success': False, 'message': 'Failed to link bank for transfers'})
+            headers={
+                "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+                "Content-Type": "application/json",
+            },
+            timeout=10,
+        ).json()
 
-        recipient_code = recipient_data['data']['recipient_code']
+        if not recipient.get("status"):
+            return JsonResponse({"success": False, "message": "Recipient creation failed"})
+
         BankAccount.objects.update_or_create(
             user=request.user,
             defaults={
-                'bank_code': bank_code,
-                'account_number': account_number,
-                'account_name': account_name,
-                'recipient_code': recipient_code,
-                'is_verified': True
-            }
+                "bank_code": bank_code,
+                "account_number": account_number,
+                "account_name": name,
+                "recipient_code": recipient["data"]["recipient_code"],
+                "is_verified": True,
+            },
         )
-        return JsonResponse({'success': True, 'account_name': account_name})
 
-    banks = [  # (your bank list here - kept unchanged)
-        {"code": "044", "name": "Access Bank"}, {"code": "057", "name": "Zenith Bank"},
-        {"code": "058", "name": "GTBank"}, {"code": "050", "name": "Ecobank"},
-        # ... (rest of banks)
+        return JsonResponse({"success": True, "account_name": name})
+
+    banks = [
+        {"code": "044", "name": "Access Bank"},
+        {"code": "057", "name": "Zenith Bank"},
+        {"code": "058", "name": "GTBank"},
+        {"code": "050", "name": "Ecobank"},
     ]
-    return render(request, 'store/add_bank_account.html', {'banks': banks})
 
+    return render(request, "store/add_bank_account.html", {"banks": banks})
 
-# =========================
-# initiate service workflow 
-# =========================
+# ==============================
+# PAYMENT & WALLET FLOW (UPDATED)
+# ==============================
+
+# ------------------------------
+# INITIATE SERVICE PAYMENT
+# ------------------------------
 @login_required
+@require_POST
 def initiate_service_payment(request, plan_id):
-
-    if 'application/json' not in request.content_type:
-        return JsonResponse({'status': False, 'message': 'Bad request'}, status=400)
-        
-    if request.method != 'POST':
-        return JsonResponse({'status': False, 'message': 'Invalid request'}, status=405)
-
     try:
-        body = json.loads(request.body)
-        raw_phone = body.get('phone', '').strip()
-        payment_method = body.get('payment_method', 'card')
-    except json.JSONDecodeError:
-        return JsonResponse({'status': False, 'message': 'Invalid data sent'})
+        data = json.loads(request.body)
+        phone = data.get("phone")
+        payment_method = data.get("payment_method")
 
-    if not raw_phone:
-        return JsonResponse({'status': False, 'message': 'Please enter the recipient phone number'})
+        if not phone or payment_method not in ["wallet", "card"]:
+            return JsonResponse({"status": False, "message": "Invalid request"})
 
-    # Phone validation
-    digits = ''.join(filter(str.isdigit, raw_phone))
-    if digits.startswith('234') and len(digits) == 13:
-        phone = '+234' + digits[3:]
-    elif digits.startswith('0') and len(digits) == 11:
-        phone = '+234' + digits[1:]
-    elif len(digits) == 10:
-        phone = '+234' + digits
-    else:
-        return JsonResponse({'status': False, 'message': 'Please enter a valid Nigerian number (e.g., 08012345678)'})
+        plan = get_object_or_404(ServicePlan, id=plan_id)
+        amount = Decimal(plan.selling_price)
+        user = request.user
 
-    if phone[4] not in '789':
-        return JsonResponse({'status': False, 'message': 'Please enter a valid mobile number (MTN, Airtel, Glo, 9mobile)'})
+        # ======================
+        # WALLET PAYMENT
+        # ======================
+        if payment_method == "wallet":
+            if user.balance < amount:
+                return JsonResponse({
+                    "status": False,
+                    "message": "Insufficient wallet balance"
+                })
 
-    plan = get_object_or_404(ServicePlan, id=plan_id, is_active=True)
-    amount = plan.selling_price
-    reference = f"SVC_{request.user.id}_{uuid.uuid4().hex.upper()}"
-
-    if payment_method == 'wallet' and request.user.balance + Decimal('0.01') < amount:
-        return JsonResponse({'status': False, 'message': 'Insufficient wallet balance. Please fund your wallet or use card.'})
-
-    # Create transaction with payment_method for logic
-    svc_txn = AirtimeTransaction.objects.create(
-        user=request.user,
-        phone=phone,
-        service_plan=plan,
-        amount_paid=amount,
-        reference=reference,
-        status='pending',
-        payment_method=payment_method  # Add payment_method to your AirtimeTransaction model if not there
-    )
-
-    if payment_method == 'wallet':
-        try:
             with transaction.atomic():
-                request.user.balance -= amount
-                request.user.save(update_fields=['balance'])
+                # Lock user row
+                user.refresh_from_db()
+                if user.balance < amount:
+                    return JsonResponse({
+                        "status": False,
+                        "message": "Insufficient wallet balance"
+                    })
+
+                # Debit wallet
+                user.balance -= amount
+                user.save(update_fields=["balance"])
+
                 WalletTransaction.objects.create(
-                    user=request.user,
+                    user=user,
                     amount=amount,
-                    transaction_type='debit',
-                    reference=reference,
-                    description=f'{plan.provider.category.name} Purchase - {plan.name}',
-                    status='success'
+                    transaction_type="debit",
+                    reference=str(uuid.uuid4()),
+                    description=f"{plan.name} purchase via wallet",
+                    status="success"
                 )
-                svc_txn.status = 'paid'
-                svc_txn.save()
 
-            delivery_success = process_service_delivery(request, svc_txn, plan, phone)
-
-            if not delivery_success:
-                with transaction.atomic():
-                    request.user.balance += amount
-                    request.user.save(update_fields=['balance'])
-                    WalletTransaction.objects.create(
-                        user=request.user,
-                        amount=amount,
-                        transaction_type='credit',
-                        reference=reference,
-                        description='Refund - Delivery failed',
-                        status='success'
-                    )
-                svc_txn.status = 'failed'
-                svc_txn.save()
-                return JsonResponse({'status': False, 'message': 'Delivery failed. Amount refunded to wallet.'})
-
-            with transaction.atomic():
-                savings = min(
-                    plan.selling_price * Decimal('0.02'),
-                    plan.discount_amount * Decimal('0.4'),
-                    Decimal('30'),
-                    plan.profit_amount * Decimal('0.8')
+                AirtimeTransaction.objects.create(
+                    user=user,
+                    plan=plan,
+                    phone=phone,
+                    amount=amount,
+                    payment_method="wallet",
+                    status="success"
                 )
-                if savings > 0:
-                    request.user.balance += savings
-                    request.user.save(update_fields=['balance'])
-                    WalletTransaction.objects.create(
-                        user=request.user,
-                        amount=savings,
-                        transaction_type='credit',
-                        reference=reference,
-                        description='Cashback Reward',
-                        status='success'
-                    )
-                svc_txn.status = 'success'
-                svc_txn.save()
 
-            return JsonResponse({'status': True, 'message': f'Purchase successful! ₦{savings:.0f} cashback added.'})
+            return JsonResponse({
+                "status": True,
+                "message": "Purchase successful"
+            })
 
-        except Exception as e:
-            if svc_txn.status == 'paid':
-                with transaction.atomic():
-                    request.user.balance += amount
-                    request.user.save(update_fields=['balance'])
-                    WalletTransaction.objects.create(
-                        user=request.user,
-                        amount=amount,
-                        transaction_type='credit',
-                        reference=reference,
-                        description='Refund - Transaction error',
-                        status='success'
-                    )
-            svc_txn.status = 'failed'
-            svc_txn.save()
-            return JsonResponse({'status': False, 'message': 'Transaction failed. Amount refunded if deducted.'})
+        # ======================
+        # CARD PAYMENT (PAYSTACK)
+        # ======================
+        reference = f"RP-{uuid.uuid4().hex[:12]}"
 
-    else:  # Card - no wallet association
-        email = request.user.email or f"user_{request.user.id}@resultpin.ng"
-        payload = initialize_paystack(
-            email=email,
-            amount_naira=amount,
+        WalletTransaction.objects.create(
+            user=user,
+            amount=amount,
+            transaction_type="debit",
             reference=reference,
-            callback_url=request.build_absolute_uri(reverse('verify_service_payment')),
-            metadata={'user_id': request.user.id, 'type': 'service_purchase', 'plan_id': plan.id, 'phone': phone}
+            description=f"{plan.name} purchase via card",
+            status="pending"
         )
 
-        if payload.get('status'):
-            return JsonResponse({'status': True, 'authorization_url': payload['data']['authorization_url']})
-        else:
-            svc_txn.status = 'failed'
-            svc_txn.save()
-            return JsonResponse({'status': False, 'message': 'Could not start card payment.'})
+        headers = {
+            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
+            "Content-Type": "application/json",
+        }
 
+        payload = {
+            "email": user.email,
+            "amount": int(amount * 100),
+            "reference": reference,
+            "callback_url": request.build_absolute_uri("/payments/verify/"),
+            "metadata": {
+                "plan_id": plan.id,
+                "user_id": user.id,
+                "phone": phone,
+            }
+        }
 
-def process_service_delivery(request, svc_txn, plan, phone):
-        """
-        TEST MODE: Always simulate successful delivery
-        This ensures cashback is added for testing
-        """
-        print(f"[TEST DELIVERY] Simulated success: {plan.name} ({plan.provider.name}) to {phone} - Reference: {svc_txn.reference}")
+        response = requests.post(
+            "https://api.paystack.co/transaction/initialize",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
 
-        # Always return True so cashback triggers
-        return True
+        res_data = response.json()
 
+        if not res_data.get("status"):
+            return JsonResponse({
+                "status": False,
+                "message": "Unable to initialize payment"
+            })
 
-@csrf_exempt
-@login_required
-def verify_service_payment(request):
-    reference = request.GET.get('reference') or request.GET.get('trxref')
-    if not reference:
-        messages.error(request, 'No payment reference')
-        return redirect('home')
-
-    svc_txn = AirtimeTransaction.objects.filter(reference=reference).first()
-    if not svc_txn or svc_txn.status != 'pending':
-        messages.error(request, 'Transaction not found or already processed')
-        return redirect('home')
-
-    data = verify_paystack(reference)
-    if not data or data.get('status') != 'success':
-        svc_txn.status = 'failed'
-        svc_txn.save()
-        messages.error(request, 'Payment verification failed')
-        return redirect('home')
-
-    # Amount check
-    paid_amount = Decimal(data['amount']) / 100
-    if paid_amount != svc_txn.amount_paid:
-        svc_txn.status = 'failed'
-        svc_txn.save()
-        messages.error(request, 'Amount mismatch')
-        return redirect('home')
-
-    # === DELIVERY + CASHBACK (for card payments) ===
-    try:
-        delivery_success = process_service_delivery(request, svc_txn, svc_txn.service_plan, svc_txn.phone)
-
-        if not delivery_success:
-            svc_txn.status = 'failed'
-            svc_txn.save()
-            messages.error(request, 'Delivery failed. Contact support.')
-            return redirect('home')
-
-        with transaction.atomic():
-            # Give cashback
-            savings = min(
-                svc_txn.service_plan.selling_price * Decimal('0.02'),
-                svc_txn.service_plan.discount_amount * Decimal('0.4'),
-                Decimal('30'),
-                svc_txn.service_plan.profit_amount * Decimal('0.8')
-            )
-
-            if savings > 0:
-                request.user.balance += savings
-                request.user.save(update_fields=['balance'])
-                WalletTransaction.objects.create(
-                    user=request.user,
-                    amount=savings,
-                    transaction_type='credit',
-                    reference=svc_txn.reference,
-                    description='Cashback Reward',
-                    status='success'
-                )
-
-            svc_txn.status = 'success'
-            svc_txn.save()
-
-        messages.success(request, f'Purchase successful! ₦{savings:.0f} cashback added to your wallet.')
-        return redirect('payment_success')
+        return JsonResponse({
+            "status": True,
+            "authorization_url": res_data["data"]["authorization_url"]
+        })
 
     except Exception as e:
-        print(f"[ERROR] Cashback failed for {reference}: {e}")
-        svc_txn.status = 'failed'
-        svc_txn.save()
-        messages.error(request, 'Transaction completed but reward failed. Contact support.')
-        return redirect('home')
+        return JsonResponse({
+            "status": False,
+            "message": str(e)
+        })
+
+
+# ------------------------------
+# PAYSTACK CALLBACK / VERIFY
+# ------------------------------
+@login_required
+def verify_payment(request):
+    reference = request.GET.get("reference")
+
+    if not reference:
+        return JsonResponse({"status": False, "message": "Missing reference"})
+
+    headers = {
+        "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"
+    }
+
+    response = requests.get(
+        f"https://api.paystack.co/transaction/verify/{reference}",
+        headers=headers,
+        timeout=30
+    )
+
+    res_data = response.json()
+
+    if not res_data.get("status"):
+        return JsonResponse({"status": False, "message": "Verification failed"})
+
+    data = res_data["data"]
+
+    if data["status"] != "success":
+        return JsonResponse({"status": False, "message": "Payment not successful"})
+
+    metadata = data.get("metadata", {})
+    plan_id = metadata.get("plan_id")
+    phone = metadata.get("phone")
+
+    plan = get_object_or_404(ServicePlan, id=plan_id)
+    amount = Decimal(plan.selling_price)
+
+    with transaction.atomic():
+        wallet_tx = WalletTransaction.objects.select_for_update().get(
+            reference=reference,
+            status="pending"
+        )
+
+        wallet_tx.status = "success"
+        wallet_tx.save(update_fields=["status"])
+
+        AirtimeTransaction.objects.create(
+            user=wallet_tx.user,
+            plan=plan,
+            phone=phone,
+            amount=amount,
+            payment_method="card",
+            status="success"
+        )
+
+    return JsonResponse({
+        "status": True,
+        "message": "Payment verified successfully"
+    })
+
 
 # ------------------------------
 # AUTHENTICATION VIEWS
 # ------------------------------
 User = get_user_model()
 
+
 def password_is_strong(password: str) -> bool:
-    """Check if password meets strength requirements."""
     if len(password) < 8:
         return False
     return all([
@@ -660,7 +561,6 @@ def register(request):
         password = request.POST.get("password")
         password2 = request.POST.get("password2")
 
-        # Required fields check
         if not all([first_name, last_name, phone, email, password, password2]):
             messages.error(request, "All fields are required.")
             return redirect("register")
@@ -680,7 +580,6 @@ def register(request):
             messages.error(request, "An account with this email already exists.")
             return redirect("register")
 
-        # Generate and store OTP in session
         otp = random.randint(100000, 999999)
         request.session["pending_registration"] = {
             "first_name": first_name,
@@ -707,24 +606,21 @@ def resend_otp(request):
         messages.error(request, "Session expired. Please register again.")
         return redirect("register")
 
-    # Rate limit: 30 seconds between resends
     if int(time.time()) - data["created_at"] < 30:
         messages.error(request, "Please wait 30 seconds before requesting another code.")
         return redirect("verify_otp")
 
-    # Max 5 resends
     if data.get("resend_count", 0) >= 5:
         request.session.pop("pending_registration", None)
         messages.error(request, "Too many resend attempts. Please start over.")
         return redirect("register")
 
-    # New OTP
     new_otp = random.randint(100000, 999999)
     data.update({
         "otp": new_otp,
         "created_at": int(time.time()),
         "resend_count": data.get("resend_count", 0) + 1,
-        "attempts": 0,  # Reset attempts on resend
+        "attempts": 0,
     })
     request.session["pending_registration"] = data
 
@@ -740,7 +636,6 @@ def verify_otp(request):
         messages.error(request, "Session expired. Please register again.")
         return redirect("register")
 
-    # OTP expires after 10 minutes
     if int(time.time()) - data["created_at"] > 600:
         request.session.pop("pending_registration", None)
         messages.error(request, "Code expired. Please register again.")
@@ -761,7 +656,6 @@ def verify_otp(request):
             messages.error(request, "Invalid code. Please try again.")
             return redirect("verify_otp")
 
-        # Success: Create user
         user = User.objects.create_user(
             username=data["email"],
             email=data["email"],
@@ -781,25 +675,35 @@ def verify_otp(request):
 
 
 # ------------------------------
-# PAYMENT SUCCESS PAGE (Uses your existing template)
+# PAYMENT SUCCESS PAGE
 # ------------------------------
 def payment_success(request):
     reference = request.GET.get("reference")
-    
-    # Optional: Fetch transaction details if you want to display them
-    # txn = None
-    # if reference:
-    #     if reference.startswith("FUND_"):
-    #         txn = WalletTransaction.objects.filter(reference=reference, status='success').first()
-    #     elif reference.startswith("SVC_") or reference.startswith("AIR_"):
-    #         txn = AirtimeTransaction.objects.filter(reference=reference, status='success').first()
-    
-    messages.success(request, "Payment completed successfully! Your transaction has been processed.")
-    
-    return render(request, "store/payment_successful.html", {
-        # "txn": txn,  # Uncomment if you add the fetch above and want to show details
-        "reference": reference,
-    })
+    txn = None
+
+    if reference:
+        if reference.startswith("FUND_"):
+            txn = WalletTransaction.objects.filter(
+                reference=reference, status="success"
+            ).first()
+        elif reference.startswith(("SVC_", "AIR_")):
+            txn = AirtimeTransaction.objects.filter(
+                reference=reference, status="success"
+            ).first()
+
+    if reference and not txn:
+        messages.info(request, "Transaction already processed or not found.")
+    else:
+        messages.success(request, "Payment completed successfully.")
+
+    return render(
+        request,
+        "store/payment_successful.html",
+        {
+            "reference": reference,
+            "txn": txn,
+        },
+    )
 
 def custom_login(request):
     if request.method == "POST":

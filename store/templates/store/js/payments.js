@@ -1,46 +1,55 @@
-function startPayment(itemType, itemId) {
+function startPayment(planId, paymentMethod = "card") {
     const phoneInput = document.getElementById("phone");
 
-    if (!phoneInput || !phoneInput.value) {
+    if (!phoneInput || !phoneInput.value.trim()) {
         alert("Please enter a phone number");
         return;
     }
 
-    fetch("/payments/start/", {
+    fetch(`/service/pay/${planId}/`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            "X-CSRFToken": getCSRFToken()
+            "X-CSRFToken": getCSRFToken(),
         },
         body: JSON.stringify({
-            type: itemType,   // "product" or "service"
-            id: itemId,
-            phone: phoneInput.value
-        })
+            phone: phoneInput.value.trim(),
+            payment_method: paymentMethod, // "card" or "wallet"
+        }),
     })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status) {
-            window.location.href = data.data.authorization_url;
-        } else {
-            alert(data.message || "Payment failed");
-        }
-    })
-    .catch(() => alert("Network error. Try again."));
-}
+        .then((res) => res.json())
+        .then((data) => {
+            if (!data.status) {
+                alert(data.message || "Payment failed");
+                return;
+            }
 
+            // Card payment → redirect to Paystack
+            if (data.authorization_url) {
+                window.location.href = data.authorization_url;
+                return;
+            }
+
+            // Wallet payment → already completed
+            alert(data.message || "Payment successful");
+            window.location.href = "/payment/success/";
+        })
+        .catch(() => {
+            alert("Network error. Try again.");
+        });
+}
 
 // -----------------------
 // CSRF helper
 // -----------------------
 function getCSRFToken() {
-    const name = "csrftoken";
+    const name = "csrftoken=";
     const cookies = document.cookie.split(";");
 
     for (let cookie of cookies) {
         cookie = cookie.trim();
-        if (cookie.startsWith(name + "=")) {
-            return cookie.substring(name.length + 1);
+        if (cookie.startsWith(name)) {
+            return cookie.substring(name.length);
         }
     }
     return "";

@@ -1,3 +1,5 @@
+
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -237,51 +239,85 @@ class ServiceTransaction(BaseTransaction):
         return f"{self.service_type} ({self.reference})"
 
 
-# =========================
-# WALLET / REFERRALS
-# =========================
-class Referral(models.Model):
-    referrer = models.ForeignKey(User, related_name="given_referrals", on_delete=models.CASCADE)
-    referred = models.ForeignKey(User, related_name="received_referrals", on_delete=models.CASCADE)
-    amount_earned = models.DecimalField(max_digits=10, decimal_places=2, default=150.00)
-    paid = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+# =====================================
+# WALLET / WALLET TRANSCTIONS /REFERRALS
+# ======================================
+
+
+class Wallet(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wallet"
+    )
+    balance = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} – ₦{self.balance}"
+
 
 class WalletTransaction(models.Model):
     TRANSACTION_TYPES = (
-        ("credit", "Credit"),
-        ("debit", "Debit"),
+        ('funding', 'Funding'),
+        ('purchase', 'Purchase'),
+        ('cashback', 'Cashback'),
+        ('withdrawal', 'Withdrawal'),
     )
 
     STATUS_CHOICES = (
-        ("pending", "Pending"),
-        ("success", "Success"),
-        ("failed", "Failed"),
+        ('pending', 'Pending'),
+        ('success', 'Success'),
+        ('failed', 'Failed'),
     )
 
-    DESCRIPTION_CHOICES = (
-        ("Wallet Funding", "Wallet Funding"),
-        ("Service Purchase", "Service Purchase"),
-        ("Savings from Discount", "Savings from Discount"),
-        ("Refund for failed purchase", "Refund for failed purchase"),
-        ("Bank Withdrawal", "Bank Withdrawal"),
-        ("Referral Bonus", "Referral Bonus"),
-    )
-
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    wallet = models.ForeignKey(
+        'Wallet',
+        related_name='transactions',
         on_delete=models.CASCADE,
-        related_name="wallet_transactions"
     )
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
-    reference = models.CharField(max_length=100, unique=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
-    description = models.CharField(max_length=255, choices=DESCRIPTION_CHOICES)
+
+    reference = models.CharField(
+        max_length=100,
+        unique=True,
+        editable=False,
+    )
+
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+    )
+
+    transaction_type = models.CharField(
+        max_length=20,
+        choices=TRANSACTION_TYPES,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+    )
+
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.user} | {self.transaction_type} | ₦{self.amount}"
+    class Meta:
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.reference:
+            self.reference = str(uuid.uuid4())
+        super().save(*args, **kwargs)
+
 
 # =========================
 # BANK ACCOUNT (NEW FOR WITHDRAWALS)
@@ -305,6 +341,16 @@ class BankAccount(models.Model):
     class Meta:
         verbose_name = "Bank Account"
         verbose_name_plural = "Bank Accounts"
+
+
+        
+class Referral(models.Model):
+    referrer = models.ForeignKey(User, related_name="given_referrals", on_delete=models.CASCADE)
+    referred = models.ForeignKey(User, related_name="received_referrals", on_delete=models.CASCADE)
+    amount_earned = models.DecimalField(max_digits=10, decimal_places=2, default=150.00)
+    paid = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
 
 
 # =========================

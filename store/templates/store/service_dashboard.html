@@ -6,7 +6,6 @@
 {% block content %}
 <div class="container my-5 pb-5">
 
-    <!-- Wallet Balance -->
     <div class="alert alert-info text-center mb-5 rounded-4 shadow-sm">
         <strong class="fs-5">Wallet Balance:</strong> 
         <span class="fs-3 fw-bold text-success">₦{{ request.user.balance|floatformat:0 }}</span>
@@ -15,248 +14,178 @@
         </a>
     </div>
 
-    <!-- Provider Selection -->
     {% if providers %}
-        <div class="mb-5">
-            <h4 class="fw-bold text-center mb-4">Select Network Provider</h4>
-            <div class="row g-4 justify-content-center">
-                {% for provider in providers %}
-                    <div class="col-lg-3 col-md-4 col-sm-6">
-                        <a href="?provider={{ provider.id }}" class="text-decoration-none">
-                            <div class="card text-center p-4 border-0 shadow-sm hover-lift
-                                {% if selected_provider == provider.id %}border border-success border-4{% endif %}">
-                                {% if provider.logo %}
-                                    <img src="{{ provider.logo.url }}" alt="{{ provider.name }}" class="mx-auto mb-3" style="height: 80px; object-fit: contain;">
-                                {% endif %}
-                                <h6 class="fw-bold mt-2">{{ provider.name }}</h6>
-                            </div>
-                        </a>
+    <div class="mb-5">
+        <h4 class="fw-bold text-center mb-4">Select Network Provider</h4>
+        <div class="row g-4 justify-content-center">
+            {% for provider in providers %}
+            <div class="col-lg-3 col-md-4 col-sm-6">
+                <a href="?provider={{ provider.id }}" class="text-decoration-none">
+                    <div class="card text-center p-4 border-0 shadow-sm
+                        {% if selected_provider == provider.id %}border border-success border-3{% endif %}">
+                        {% if provider.logo %}
+                        <img src="{{ provider.logo.url }}" class="mx-auto mb-3" style="height:80px">
+                        {% endif %}
+                        <h6 class="fw-bold">{{ provider.name }}</h6>
                     </div>
-                {% endfor %}
+                </a>
             </div>
-        </div>
-    {% endif %}
-
-    <!-- Plans Table -->
-    {% if plans %}
-        <div class="card border-0 shadow">
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="bg-light">
-                            <tr>
-                                <th class="ps-4">Plan</th>
-                                <th class="text-center">Price</th>
-                                <th class="text-center">You Save</th>
-                                <th class="text-end pe-4"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for plan in plans %}
-                                <tr>
-                                    <td class="ps-4">
-                                        <div class="fw-bold">{{ plan.name }}</div>
-                                        {% if plan.description %}
-                                            <small class="text-muted">{{ plan.description }}</small>
-                                        {% endif %}
-                                        {% if plan.validity %}
-                                            <small class="text-muted d-block">Validity: {{ plan.validity }}</small>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        <div class="fw-bold text-success fs-4 mb-1">
-                                            ₦{{ plan.selling_price|floatformat:0 }}
-                                        </div>
-                                        <div class="text-muted text-decoration-line-through">
-                                            ₦{{ plan.market_price|floatformat:0 }}
-                                        </div>
-                                    </td>
-                                    <td class="text-center">
-                                        {% if plan.discount_amount > 0 %}
-                                            <span class="badge bg-success fs-6 px-3 py-2">
-                                                Save ₦{{ plan.discount_amount|floatformat:0 }}
-                                            </span>
-                                        {% else %}
-                                            <small class="text-muted">—</small>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end pe-4">
-                                        <button type="button" class="btn btn-success px-4"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#purchaseModal"
-                                                onclick="setPlan({{ plan.id }}, '{{ plan.name|escapejs }}', {{ plan.selling_price }})">
-                                            Buy Now
-                                        </button>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-</div>
-
-<!-- Purchase Modal -->
-<div class="modal fade" id="purchaseModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="modalPlanName">Purchase Plan</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="modal-purchase-form">
-                    {% csrf_token %}
-                    <input type="hidden" id="modal-plan-id">
-
-                    <div class="mb-4 text-center">
-                        <p class="fs-4 fw-bold mb-1" id="modal-plan-price">₦0</p>
-                        <p class="text-muted">Your wallet balance: <strong>₦{{ request.user.balance|floatformat:0 }}</strong></p>
-                    </div>
-
-                    <!-- Phone Input -->
-                    <div class="mb-4">
-                        <label class="form-label fw-bold">
-                            {% if category.slug == 'airtime' or category.slug == 'data' %}
-                                Phone Number
-                            {% elif category.slug == 'tv-subscription' %}
-                                Smart Card / IUC Number
-                            {% elif category.slug == 'electricity' %}
-                                Meter Number
-                            {% else %}
-                                Recipient
-                            {% endif %}
-                        </label>
-                        <input type="text" class="form-control form-control-lg text-center" id="modal-phone" required
-                               placeholder="{% if category.slug == 'airtime' or category.slug == 'data' %}08012345678{% else %}Enter number{% endif %}">
-                    </div>
-
-                    <!-- Payment Method -->
-                    <div class="mb-4">
-                        <label class="form-label fw-bold">Payment Method</label>
-                        <div class="d-grid gap-3">
-                            <!-- Wallet Option -->
-                            <div class="form-check border rounded-3 p-3">
-                                <input class="form-check-input" type="radio" name="payment_method" id="modal-wallet" value="wallet">
-                                <label class="form-check-label fw-bold d-block" for="modal-wallet">
-                                    <i class="fas fa-wallet text-success me-2"></i> Pay with Wallet Balance
-                                    <small id="wallet-status" class="d-block mt-1"></small>
-                                </label>
-                            </div>
-
-                            <!-- Card Option -->
-                            <div class="form-check border rounded-3 p-3">
-                                <input class="form-check-input" type="radio" name="payment_method" id="modal-card" value="card">
-                                <label class="form-check-label fw-bold d-block" for="modal-card">
-                                    <i class="fas fa-credit-card text-primary me-2"></i> Pay with Card (Paystack)
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-success btn-lg w-100">
-                        Complete Purchase
-                    </button>
-                </form>
-            </div>
+            {% endfor %}
         </div>
     </div>
+    {% endif %}
+
+    {% if plans %}
+    <div class="card border-0 shadow">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th>Plan</th>
+                        <th class="text-center">Price</th>
+                        <th class="text-center">Save</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plan in plans %}
+                    <tr>
+                        <td>
+                            <strong>{{ plan.name }}</strong>
+                            {% if plan.validity %}
+                            <small class="d-block text-muted">Validity: {{ plan.validity }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="fw-bold text-success fs-4">₦{{ plan.selling_price|floatformat:0 }}</div>
+                            <small class="text-muted text-decoration-line-through">
+                                ₦{{ plan.market_price|floatformat:0 }}
+                            </small>
+                        </td>
+                        <td class="text-center">
+                            {% if plan.discount_amount > 0 %}
+                            <span class="badge bg-success">
+                                ₦{{ plan.discount_amount|floatformat:0 }}
+                            </span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-success"
+                                data-bs-toggle="modal"
+                                data-bs-target="#purchaseModal"
+                                onclick="setPlan({{ plan.id }}, '{{ plan.name|escapejs }}', {{ plan.selling_price }})">
+                                Buy
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
+<!-- MODAL -->
+<div class="modal fade" id="purchaseModal" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header bg-success text-white">
+    <h5 id="modalPlanName"></h5>
+    <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+<form id="purchase-form">
+    {% csrf_token %}
+
+    <p class="text-center fw-bold fs-4" id="modal-plan-price"></p>
+
+    <input id="modal-phone" class="form-control mb-3 text-center" required placeholder="08012345678">
+
+    <div class="mb-3">
+        <label class="fw-bold">Payment Method</label>
+
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_method" id="pay-wallet" value="wallet">
+            <label class="form-check-label">Wallet</label>
+        </div>
+
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_method" id="pay-card" value="card">
+            <label class="form-check-label">Card</label>
+        </div>
+    </div>
+
+    <button id="pay-btn" class="btn btn-success w-100">Complete Purchase</button>
+</form>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}
+
 {% block extra_js %}
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-if (document.getElementById('purchaseModal')) {  // Only run if modal is on the page
-    let currentPlanId = null;
-    let currentPlanPrice = 0;
-    const userBalance = {{ request.user.balance|floatformat:0 }};
-    let isSubmitting = false;
+let planId = null;
+let planPrice = 0;
+let submitting = false;
+const walletBalance = {{ request.user.balance|floatformat:0 }};
 
-    function setPlan(planId, planName, planPrice) {
-        currentPlanId = planId;
-        currentPlanPrice = planPrice;
-        document.getElementById('modalPlanName').textContent = planName;
-        document.getElementById('modal-plan-price').textContent = '₦' + planPrice;
+function setPlan(id, name, price) {
+    planId = id;
+    planPrice = price;
+    document.getElementById("modalPlanName").textContent = name;
+    document.getElementById("modal-plan-price").textContent = "₦" + price;
 
-        const walletRadio = document.getElementById('modal-wallet');
-        const cardRadio = document.getElementById('modal-card');
-        const walletStatus = document.getElementById('wallet-status');
-
-        if (userBalance >= planPrice) {
-            walletRadio.removeAttribute('disabled');
-            walletRadio.checked = true;
-            cardRadio.checked = false;
-            walletStatus.textContent = 'Available';
-            walletStatus.className = 'text-success';
-        } else {
-            walletRadio.setAttribute('disabled', 'disabled');
-            walletRadio.checked = false;
-            cardRadio.checked = true;
-            walletStatus.textContent = `Insufficient balance (₦${userBalance} available)`;
-            walletStatus.className = 'text-danger';
-        }
+    if (walletBalance >= price) {
+        document.getElementById("pay-wallet").checked = true;
+    } else {
+        document.getElementById("pay-card").checked = true;
+        document.getElementById("pay-wallet").disabled = true;
     }
+}
 
-    document.getElementById('modal-purchase-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+document.getElementById("purchase-form").addEventListener("submit", function(e){
+    e.preventDefault();
+    if (submitting) return;
+    submitting = true;
 
-        if (isSubmitting || !currentPlanId) return;
-        isSubmitting = true;
+    const phone = document.getElementById("modal-phone").value.trim();
+    const method = document.querySelector("input[name='payment_method']:checked").value;
+    const btn = document.getElementById("pay-btn");
 
-        const input = document.getElementById('modal-phone').value.trim();
-        const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
-        const button = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = "Processing...";
 
-        if (!input) {
-            alert('Please enter the required number');
-            isSubmitting = false;
-            return;
+    fetch(`/initiate-service-payment/${planId}/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCSRFToken()
+        },
+        body: JSON.stringify({ phone, payment_method: method })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (!d.status) throw new Error(d.message);
+        if (d.authorization_url) {
+            window.location.href = d.authorization_url;
+        } else {
+            window.location.href = "/payment-success/";
         }
-
-        button.disabled = true;
-        button.innerHTML = 'Processing...';
-
-        fetch(`/initiate-service-payment/${currentPlanId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({
-                phone: input,
-                payment_method: paymentMethod
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status) {
-                alert(data.message || 'Purchase successful!');
-                if (paymentMethod === 'wallet') {
-                    location.reload();
-                } else {
-                    window.location.href = data.authorization_url;
-                }
-            } else {
-                alert(data.message || 'Transaction failed. Try again.');
-                button.disabled = false;
-                button.innerHTML = 'Complete Purchase';
-            }
-        })
-        .catch(() => {
-            alert('Network error. Check your connection.');
-            button.disabled = false;
-            button.innerHTML = 'Complete Purchase';
-        })
-        .finally(() => {
-            isSubmitting = false;
-        });
+    })
+    .catch(e => {
+        alert(e.message || "Failed");
+        btn.disabled = false;
+        btn.textContent = "Complete Purchase";
+        submitting = false;
     });
+});
+
+function getCSRFToken() {
+    return document.cookie.split("; ")
+        .find(r => r.startsWith("csrftoken="))
+        ?.split("=")[1];
 }
 </script>
 {% endblock %}
-
-{% endblock content %}
