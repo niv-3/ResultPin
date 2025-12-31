@@ -19,10 +19,9 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Sum
 from django.views.decorators.csrf import csrf_protect
-
+from django.db import transaction  # ← Added for atomic balance updates
 from django.contrib.auth import get_user_model
 import re
-
 
 from .models import (
     Product,
@@ -37,8 +36,9 @@ from .models import (
     ExamTransaction,
     AirtimeTransaction,
     ServiceTransaction,
-    WalletTransaction,   # ← ADD THIS
-    Referral, 
+    WalletTransaction,
+    Referral,
+    BankAccount,  # ← New: for withdrawals
 )
 
 
@@ -146,8 +146,356 @@ def home(request):
             "quantity_options": range(1, 11),
             "wallet_balance": getattr(request.user, "balance", 0),
         },
-    )  
+    )
+# ====================
+# WALLET DASHBOARD
+# ====================
+@login_required
+def wallet(request):
+    total_referrals = request.user.referrals.count()
+    referral_earnings = WalletTransaction.objects.filter(
+        user=request.user,
+        description="Referral Bonus"
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
+    wallet_transactions = WalletTransaction.objects.filter(
+        user=request.user
+    ).order_by('-created_at')
+
+    context = {
+        'total_referrals': total_referrals,
+        'referral_earnings': referral_earnings,
+        'wallet_transactions': wallet_transactions,
+    }
+    return render(request, 'store/wallet.html', context)
+
+
+# ====================
+# FUND WALLET
+# ====================
+@login_required
+def wallet_fund(request):
+    return render(request, 'store/wallet_fund.html', {
+        'paystack_public_key': settings.PAYSTACK_PUBLIC_KEY
+    })
+
+@login_required
+@require_POST
+def wallet_fund_init(request):
+    try:
+        data = json.loads(request.body)
+        amount = Decimal(data.get('amount', '0'))
+    except Exception:
+        return JsonResponse({'status': False, 'message': 'Invalid amount'})
+
+    if amount < Decimal('100'):
+        return JsonResponse({'status': False, 'message': 'Minimum funding is ₦100'})
+
+    reference = f"FUND_{request.user.id}_{uuid.uuid4().hex.upper()[:10]}"
+
+    # Use YOUR existing helper
+    payload = initialize_paystack(
+        email=request.user.email,
+        amount_naira=amount,
+        reference=reference,
+        callback_url=request.build_absolute_uri(reverse('verify_wallet_funding')),
+        metadata={'type': 'wallet_funding', 'user_id': request.user.id}
+    )
+
+    if not payload.get('status'):
+        return JsonResponse({'status': False, 'message': 'Failed to connect to payment gateway'})
+
+    # Log pending transaction
+    WalletTransaction.objects.create(
+        user=request.user,
+        amount=amount,
+        transaction_type='credit',
+        reference=reference,
+        description='Wallet Funding',
+        status='pending'
+    )
+
+    return JsonResponse(payload)  # Contains authorization_url, reference, etc.
+@csrf_exempt
+@login_required
+def verify_wallet_funding(request):
+    reference = request.GET.get('reference') or request.GET.get('trxref')
+    if not reference:
+        messages.error(request, 'No payment reference')
+        return redirect('wallet')
+
+    txn = WalletTransaction.objects.filter(
+        reference=reference,
+        user=request.user,
+        status='pending'
+    ).first()
+
+    if not txn:
+        messages.error(request, 'Transaction not found or already processed')
+        return redirect('wallet')
+
+    data = verify_paystack(reference)  # ← Your working helper
+
+    if not data or data.get('status') != 'success':
+        txn.status = 'failed'
+        txn.save()
+        messages.error(request, 'Payment verification failed')
+        return redirect('wallet')
+
+    paid_amount = Decimal(data['amount']) / 100
+    if paid_amount != txn.amount:
+        txn.status = 'failed'
+        txn.save()
+        messages.error(request, 'Amount mismatch detected')
+        return redirect('wallet')
+
+    with transaction.atomic():
+        txn.status = 'success'
+        txn.save()
+        request.user.balance += txn.amount
+        request.user.save()
+
+    messages.success(request, f'Wallet funded successfully with ₦{txn.amount:,}')
+    return redirect('wallet')
+
+
+# ====================
+# WITHDRAW TO BANK
+# ====================
+@login_required
+def wallet_withdraw(request):
+    if request.method == 'POST':
+        amount = Decimal(request.POST.get('amount', '0'))
+
+        if amount < Decimal('100'):
+            messages.error(request, 'Minimum withdrawal is ₦100')
+            return redirect('wallet')
+
+        if request.user.balance < amount:
+            messages.error(request, 'Insufficient wallet balance')
+            return redirect('wallet')
+
+        try:
+            bank = BankAccount.objects.get(user=request.user, is_verified=True)
+        except BankAccount.DoesNotExist:
+            messages.error(request, 'Please add and verify a bank account first')
+            return redirect('wallet')
+
+        reference = f"WITHDRAW_{request.user.id}_{uuid.uuid4().hex.upper()[:10]}"
+
+        # Initiate Paystack Transfer
+        response = requests.post(
+            'https://api.paystack.co/transfer',
+            headers={
+                'Authorization': f'Bearer {settings.PAYSTACK_SECRET_KEY}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'source': 'balance',
+                'amount': int(amount * 100),
+                'reference': reference,
+                'recipient': bank.recipient_code,
+                'reason': 'Wallet withdrawal'
+            }
+        )
+        result = response.json()
+
+        if result.get('status'):
+            with transaction.atomic():
+                request.user.balance -= amount
+                request.user.save()
+                WalletTransaction.objects.create(
+                    user=request.user,
+                    amount=amount,
+                    transaction_type='debit',
+                    reference=reference,
+                    description='Bank Withdrawal',
+                    status='success'
+                )
+            messages.success(request, f'₦{amount} withdrawal successful! Funds will arrive soon.')
+        else:
+            messages.error(request, 'Withdrawal failed. Please try again later.')
+        return redirect('wallet')
+
+    return render(request, 'store/wallet_withdraw.html')
+
+
+# ====================
+# SERVICE PAYMENT WITH WALLET SUPPORT
+# ====================
+
+# Example: Airtime purchase view (adapt for data, TV, etc.)
+@login_required
+def airtime_buy(request, plan_id):
+    plan = get_object_or_404(ServicePlan, id=plan_id, is_active=True)
+
+    if request.method == 'POST':
+        phone = request.POST.get('phone')
+        payment_method = request.POST.get('payment_method')  # 'wallet' or 'card'
+
+        # Store temporarily in session
+        request.session['pending_service'] = {
+            'plan_id': plan.id,
+            'phone': phone,
+            'payment_method': payment_method
+        }
+        return redirect('initiate_service_payment')
+
+    return render(request, 'store/airtime_buy.html', {'plan': plan})
+
+
+@login_required
+def initiate_service_payment(request):
+    data = request.session.get('pending_service')
+    if not data:
+        messages.error(request, 'No pending purchase found')
+        return redirect('home')
+
+    plan = get_object_or_404(ServicePlan, id=data['plan_id'])
+    amount = plan.selling_price
+    payment_method = data['payment_method']
+    phone = data.get('phone')
+
+    reference = f"SVC_{request.user.id}_{uuid.uuid4().hex.upper()[:10]}"
+
+    # Create transaction record
+    svc_txn = AirtimeTransaction.objects.create(  # Or ServiceTransaction for others
+        user=request.user,
+        phone=phone,
+        service_plan=plan,
+        amount_paid=amount,
+        reference=reference,
+        status='pending'
+    )
+
+    if payment_method == 'wallet':
+        with transaction.atomic():
+            if request.user.balance < amount:
+                svc_txn.status = 'failed'
+                svc_txn.save()
+                messages.error(request, 'Insufficient wallet balance')
+                del request.session['pending_service']
+                return redirect('wallet')
+
+            request.user.balance -= amount
+            request.user.save()
+
+            WalletTransaction.objects.create(
+                user=request.user,
+                amount=amount,
+                transaction_type='debit',
+                reference=reference,
+                description='Service Purchase',
+                status='success'
+            )
+
+        # Proceed to delivery
+        del request.session['pending_service']
+        return process_service_delivery(request, svc_txn, plan, phone)
+
+    else:  # Card payment
+        payload = initialize_paystack(
+            email=request.user.email,
+            amount_naira=amount,
+            reference=reference,
+            callback_url=request.build_absolute_uri(reverse('verify_service_payment')),
+            metadata={
+                'user_id': request.user.id,
+                'type': 'service',
+                'plan_id': plan.id,
+                'phone': phone
+            }
+        )
+
+        if payload.get('status'):
+            return redirect(payload['data']['authorization_url'])
+        else:
+            messages.error(request, 'Payment setup failed')
+            return redirect('home')
+
+
+@csrf_exempt
+@login_required
+def verify_service_payment(request):
+    reference = request.GET.get('reference')
+    if not reference:
+        messages.error(request, 'Invalid payment')
+        return redirect('home')
+
+    # Find the pending transaction (adjust model if using ServiceTransaction)
+    svc_txn = AirtimeTransaction.objects.filter(reference=reference, status='pending').first()
+    if not svc_txn:
+        messages.error(request, 'Transaction not found')
+        return redirect('home')
+
+    data = verify_paystack_transaction(reference)
+    if not data or data.get('status') != 'success':
+        svc_txn.status = 'failed'
+        svc_txn.save()
+        messages.error(request, 'Payment failed')
+        return redirect('home')
+
+    return process_service_delivery(request, svc_txn, svc_txn.service_plan, svc_txn.phone)
+
+
+def process_service_delivery(request, svc_txn, plan, phone):
+    try:
+        # ← YOUR EXISTING VTU/API DELIVERY CODE HERE
+        success = your_vtu_delivery_function(plan, phone, request.user)  # Replace with yours
+
+        if not success:
+            raise Exception("Delivery failed")
+
+        with transaction.atomic():
+            svc_txn.status = 'success'
+            svc_txn.save()
+
+            # === SAFE SAVINGS REWARD (Opay-style, protects profit) ===
+            savings = min(
+                plan.selling_price * Decimal('0.02'),        # 2% of paid amount
+                plan.discount_amount * Decimal('0.4'),       # Max 40% of discount
+                Decimal('30')                                # Cap at ₦30
+            )
+            # Never exceed 80% of your profit
+            savings = min(savings, plan.profit_amount * Decimal('0.8'))
+
+            if savings > 0:
+                request.user.balance += savings
+                request.user.save()
+
+                WalletTransaction.objects.create(
+                    user=request.user,
+                    amount=savings,
+                    transaction_type='credit',
+                    reference=svc_txn.reference,
+                    description='Savings from Discount',
+                    status='success'
+                )
+
+        messages.success(request, f'Purchase successful! ₦{savings} savings added to your wallet.')
+        return redirect('payment_success')
+
+    except Exception as e:
+        with transaction.atomic():
+            svc_txn.status = 'failed'
+            svc_txn.save()
+
+            # Auto refund if paid with wallet
+            if svc_txn.amount_paid and hasattr(svc_txn, 'user') and svc_txn.user:
+                request.user.balance += svc_txn.amount_paid
+                request.user.save()
+
+                WalletTransaction.objects.create(
+                    user=request.user,
+                    amount=svc_txn.amount_paid,
+                    transaction_type='credit',
+                    reference=svc_txn.reference,
+                    description='Refund for failed purchase',
+                    status='success'
+                )
+
+        messages.error(request, 'Transaction failed. Amount refunded to wallet.')
+        return redirect('home')
 
 # ------------------------------
 # AUTHENTICATION

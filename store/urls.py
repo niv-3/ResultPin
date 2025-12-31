@@ -10,9 +10,12 @@ urlpatterns = [
     # ======================
     path("", views.home, name="home"),
     path("wallet/", views.wallet, name="wallet"),
-    path("dashboard/", views.wallet, name="dashboard"),  # alias
-
-
+    path("dashboard/", views.wallet, name="dashboard"),
+        
+    path("wallet/fund/", views.wallet_fund, name="wallet_fund"),  # Updated to single view
+    path("wallet/fund/init/", views.wallet_fund_init, name="wallet_fund_init"),
+    path("verify-wallet-funding/", views.verify_wallet_funding, name="verify_wallet_funding"),
+    path("wallet/withdraw/", views.wallet_withdraw, name="wallet_withdraw"),  # New
 
     # ======================
     # SERVICES FLOW
@@ -91,9 +94,4 @@ urlpatterns = [
     # ======================
     path("submit-review/", views.submit_review, name="submit_review"),
     path("review-thank-you/", views.review_thank_you, name="review_thank_you"),
-
-    # ======================
-    # TEMPORARILY DISABLED (broken view)
-    # ======================
-    # path("payments/start/", views.start_payment, name="start_payment"),  # ← commented out
 ]

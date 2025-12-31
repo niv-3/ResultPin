@@ -4,6 +4,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.urls import reverse
 import uuid
 from decimal import Decimal
+from django.conf import settings
 
 
 # =========================
@@ -99,8 +100,6 @@ class ServiceProvider(models.Model):
     def __str__(self):
         return f"{self.name} ({self.category.name})"
 
-from decimal import Decimal
-from django.db import models
 
 class ServicePlan(models.Model):
     provider = models.ForeignKey(
@@ -246,13 +245,62 @@ class Referral(models.Model):
     paid = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-
 class WalletTransaction(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    TRANSACTION_TYPES = (
+        ("credit", "Credit"),
+        ("debit", "Debit"),
+    )
+
+    STATUS_CHOICES = (
+        ("pending", "Pending"),
+        ("success", "Success"),
+        ("failed", "Failed"),
+    )
+
+    DESCRIPTION_CHOICES = (
+        ("Wallet Funding", "Wallet Funding"),
+        ("Service Purchase", "Service Purchase"),
+        ("Savings from Discount", "Savings from Discount"),
+        ("Refund for failed purchase", "Refund for failed purchase"),
+        ("Bank Withdrawal", "Bank Withdrawal"),
+        ("Referral Bonus", "Referral Bonus"),
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wallet_transactions"
+    )
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    transaction_type = models.CharField(max_length=10)  # credit / debit
-    description = models.CharField(max_length=200)
+    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
+    reference = models.CharField(max_length=100, unique=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+    description = models.CharField(max_length=255, choices=DESCRIPTION_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} | {self.transaction_type} | ₦{self.amount}"
+
+# =========================
+# BANK ACCOUNT (NEW FOR WITHDRAWALS)
+# =========================
+class BankAccount(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    bank_code = models.CharField(max_length=10)  # Paystack bank code
+    account_number = models.CharField(max_length=20)
+    account_name = models.CharField(max_length=100)
+    recipient_code = models.CharField(max_length=100, blank=True)  # Paystack recipient code (create on save)
+    is_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.account_name} - {self.account_number}"
+
+    def save(self, *args, **kwargs):
+        if not self.recipient_code:
+            # Create Paystack recipient (implement in views or signal)
+            pass
+        super().save(*args, **kwargs)
 
 
 # =========================
@@ -329,9 +377,3 @@ class HeroBanner(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.page})"
-user = models.ForeignKey(
-    User,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True
-)

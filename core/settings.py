@@ -150,8 +150,11 @@ DEFAULT_FROM_EMAIL = "ResultPin <resultpin.solutions@gmail.com>"
 # ==============================
 # PAYSTACK
 # ==============================
-PAYSTACK_PUBLIC_KEY = os.getenv('PAYSTACK_PUBLIC_KEY')
-PAYSTACK_SECRET_KEY = os.getenv('PAYSTACK_SECRET_KEY')
+# settings.py
+PAYSTACK_PUBLIC_KEY = os.getenv("PAYSTACK_PUBLIC_KEY")
+PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
+
+
 
 
 # ==============================
