@@ -10,31 +10,25 @@ urlpatterns = [
     # ======================
     path("", views.home, name="home"),
     path("wallet/", views.wallet, name="wallet"),
-    path("dashboard/", views.wallet, name="dashboard"),
+    
         
-    path("wallet/fund/", views.wallet_fund, name="wallet_fund"),  # Updated to single view
+    path("wallet/fund/", views.wallet_fund, name="wallet_fund"),
     path("wallet/fund/init/", views.wallet_fund_init, name="wallet_fund_init"),
     path("verify-wallet-funding/", views.verify_wallet_funding, name="verify_wallet_funding"),
-    path("wallet/withdraw/", views.wallet_withdraw, name="wallet_withdraw"),  # New
-
+    path("wallet/withdraw/", views.wallet_withdraw, name="wallet_withdraw"),
     path("wallet/add-bank/", views.add_bank_account, name="add_bank_account"),
 
     # ======================
-    # SERVICES FLOW
+    # SERVICES
     # ======================
     path(
         "services/<slug:slug>/",
         views.service_dashboard,
         name="service_dashboard"
     ),
-    path(
-        "services/buy/<int:plan_id>/",
-        views.airtime_buy,
-        name="airtime_buy"
-    ),
 
     # ======================
-    # PAYMENTS
+    # PAYMENTS (UNIFIED FOR ALL SERVICES)
     # ======================
     path(
         "initiate-service-payment/<int:plan_id>/",
@@ -96,5 +90,4 @@ urlpatterns = [
     # ======================
     path("submit-review/", views.submit_review, name="submit_review"),
     path("review-thank-you/", views.review_thank_you, name="review_thank_you"),
-    
 ]

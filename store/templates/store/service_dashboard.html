@@ -6,9 +6,16 @@
 {% block content %}
 <div class="container my-5 pb-5">
 
-    <!-- ========================= -->
-    <!-- PROVIDER SELECTION -->
-    <!-- ========================= -->
+    <!-- Wallet Balance -->
+    <div class="alert alert-info text-center mb-5 rounded-4 shadow-sm">
+        <strong class="fs-5">Wallet Balance:</strong> 
+        <span class="fs-3 fw-bold text-success">₦{{ request.user.balance|floatformat:0 }}</span>
+        <a href="{% url 'wallet_fund' %}" class="btn btn-outline-success btn-sm ms-3">
+            <i class="fas fa-plus"></i> Fund Wallet
+        </a>
+    </div>
+
+    <!-- Provider Selection -->
     {% if providers %}
         <div class="mb-5">
             <h4 class="fw-bold text-center mb-4">Select Network Provider</h4>
@@ -17,15 +24,9 @@
                     <div class="col-lg-3 col-md-4 col-sm-6">
                         <a href="?provider={{ provider.id }}" class="text-decoration-none">
                             <div class="card text-center p-4 border-0 shadow-sm hover-lift
-                                {% if selected_provider == provider.id %}
-                                    border border-success border-4
-                                {% endif %}
-                            ">
+                                {% if selected_provider == provider.id %}border border-success border-4{% endif %}">
                                 {% if provider.logo %}
-                                    <img src="{{ provider.logo.url }}"
-                                         alt="{{ provider.name }}"
-                                         class="mx-auto mb-3"
-                                         style="height: 80px; object-fit: contain;">
+                                    <img src="{{ provider.logo.url }}" alt="{{ provider.name }}" class="mx-auto mb-3" style="height: 80px; object-fit: contain;">
                                 {% endif %}
                                 <h6 class="fw-bold mt-2">{{ provider.name }}</h6>
                             </div>
@@ -36,9 +37,7 @@
         </div>
     {% endif %}
 
-    <!-- ========================= -->
-    <!-- AVAILABLE PLANS -->
-    <!-- ========================= -->
+    <!-- Plans Table -->
     {% if plans %}
         <div class="card border-0 shadow">
             <div class="card-body p-0">
@@ -55,30 +54,23 @@
                         <tbody>
                             {% for plan in plans %}
                                 <tr>
-                                    <!-- PLAN INFO -->
                                     <td class="ps-4">
                                         <div class="fw-bold">{{ plan.name }}</div>
                                         {% if plan.description %}
-                                            <small class="text-muted">
-                                                {{ plan.description }}
-                                            </small>
+                                            <small class="text-muted">{{ plan.description }}</small>
+                                        {% endif %}
+                                        {% if plan.validity %}
+                                            <small class="text-muted d-block">Validity: {{ plan.validity }}</small>
                                         {% endif %}
                                     </td>
-
-                                    <!-- PRICE -->
                                     <td class="text-center">
-                                        <!-- SELLING PRICE -->
                                         <div class="fw-bold text-success fs-4 mb-1">
                                             ₦{{ plan.selling_price|floatformat:0 }}
                                         </div>
-
-                                        <!-- MARKET PRICE (CROSSED OUT) -->
                                         <div class="text-muted text-decoration-line-through">
                                             ₦{{ plan.market_price|floatformat:0 }}
                                         </div>
                                     </td>
-
-                                    <!-- SAVINGS -->
                                     <td class="text-center">
                                         {% if plan.discount_amount > 0 %}
                                             <span class="badge bg-success fs-6 px-3 py-2">
@@ -88,13 +80,13 @@
                                             <small class="text-muted">—</small>
                                         {% endif %}
                                     </td>
-
-                                    <!-- ACTION -->
                                     <td class="text-end pe-4">
-                                        <a href="{% url 'airtime_buy' plan.id %}"
-                                           class="btn btn-success px-4">
-                                            Buy
-                                        </a>
+                                        <button type="button" class="btn btn-success px-4" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#purchaseModal"
+                                                onclick="setPlan({{ plan.id }}, '{{ plan.name|escapejs }}', {{ plan.selling_price }})">
+                                            Buy Now
+                                        </button>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -103,20 +95,165 @@
                 </div>
             </div>
         </div>
-
-    {% elif selected_provider %}
-        <div class="text-center py-5">
-            <p class="text-muted fs-4">
-                No active plans available for this provider.
-            </p>
-        </div>
-
-    {% elif providers %}
-        <div class="text-center py-5">
-            <p class="text-muted fs-4">
-                Select a provider above to view plans.
-            </p>
-        </div>
     {% endif %}
 </div>
-{% endblock %}
+
+<!-- Purchase Modal -->
+<div class="modal fade" id="purchaseModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalPlanName">Purchase Plan</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="modal-purchase-form">
+                    {% csrf_token %}
+                    <input type="hidden" id="modal-plan-id">
+
+                    <div class="mb-4 text-center">
+                        <p class="fs-4 fw-bold mb-1" id="modal-plan-price">₦0</p>
+                        <p class="text-muted">Your wallet balance: <strong>₦{{ request.user.balance|floatformat:0 }}</strong></p>
+                    </div>
+
+                    <!-- Phone / Identifier Input -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            {% if category.slug == 'airtime' or category.slug == 'data' %}
+                                Phone Number
+                            {% elif category.slug == 'tv-subscription' %}
+                                Smart Card / IUC Number
+                            {% elif category.slug == 'electricity' %}
+                                Meter Number
+                            {% else %}
+                                Recipient
+                            {% endif %}
+                        </label>
+                        <input type="text" class="form-control form-control-lg text-center" id="modal-phone" required
+                               placeholder="{% if category.slug == 'airtime' or category.slug == 'data' %}08012345678{% else %}Enter number{% endif %}">
+                    </div>
+
+                    <!-- Payment Method -->
+<div class="mb-4">
+    <label class="form-label fw-bold">Payment Method</label>
+    <div class="d-grid gap-3">
+        <!-- Wallet Option (opacity only here) -->
+        <div class="form-check border rounded-3 p-3 {% if request.user.balance < currentPlanPrice|default:0 %}opacity-50{% endif %}">
+            <input class="form-check-input" type="radio" name="payment_method" id="modal-wallet" value="wallet" checked>
+            <label class="form-check-label fw-bold" for="modal-wallet">
+                <i class="fas fa-wallet text-success me-2"></i> Pay with Wallet
+                {% if request.user.balance < currentPlanPrice|default:0 %}
+                    <small class="text-danger d-block">Insufficient balance</small>
+                {% endif %}
+            </label>
+        </div>
+        <!-- Card Option (no opacity) -->
+        <div class="form-check border rounded-3 p-3">
+            <input class="form-check-input" type="radio" name="payment_method" id="modal-card" value="card">
+            <label class="form-check-label fw-bold" for="modal-card">
+                <i class="fas fa-credit-card text-primary me-2"></i> Pay with Card
+            </label>
+        </div>
+    </div>
+</div>
+
+                    <button type="submit" class="btn btn-success btn-lg w-100">
+                        Complete Purchase
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let currentPlanId = null;
+let currentPlanPrice = 0;
+const userBalance = {{ request.user.balance|floatformat:0 }};
+let isSubmitting = false;
+
+function setPlan(planId, planName, planPrice) {
+    currentPlanId = planId;
+    currentPlanPrice = planPrice;
+    document.getElementById('modalPlanName').textContent = planName;
+    document.getElementById('modal-plan-price').textContent = '₦' + planPrice;
+
+    const walletRadio = document.getElementById('modal-wallet');
+    const cardRadio = document.getElementById('modal-card');
+    const walletStatus = document.getElementById('wallet-status');
+
+    if (userBalance >= planPrice) {
+        walletRadio.removeAttribute('disabled');
+        walletRadio.checked = true;
+        cardRadio.checked = false;
+        walletStatus.textContent = 'Available';
+        walletStatus.className = 'text-success';
+    } else {
+        walletRadio.setAttribute('disabled', 'disabled');
+        walletRadio.checked = false;
+        cardRadio.checked = true;
+        walletStatus.textContent = `Insufficient balance (₦${userBalance} available)`;
+        walletStatus.className = 'text-danger';
+    }
+}
+
+document.getElementById('modal-purchase-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    if (isSubmitting) return;
+    isSubmitting = true;
+
+    const input = document.getElementById('modal-phone').value.trim();
+    const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+    const button = e.target.querySelector('button[type="submit"]');
+
+    if (!input) {
+        alert('Please enter the required number');
+        isSubmitting = false;
+        return;
+    }
+
+    button.disabled = true;
+    button.innerHTML = 'Processing...';
+
+    fetch("{% url 'initiate_service_payment' 0 %}".replace('0', currentPlanId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            phone: input,
+            payment_method: paymentMethod
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status) {
+            if (paymentMethod === 'wallet') {
+                alert(data.message || 'Purchase successful! Cashback added.');
+                location.reload();
+            } else {
+                window.location.href = data.authorization_url;
+            }
+        } else {
+            alert(data.message || 'Transaction failed. Try again.');
+            button.disabled = false;
+            button.innerHTML = 'Complete Purchase';
+        }
+    })
+    .catch(() => {
+        alert('Network error. Check your connection.');
+        button.disabled = false;
+        button.innerHTML = 'Complete Purchase';
+    })
+    .finally(() => {
+        isSubmitting = false;
+    });
+});
+</script>
+{% endblock extra_js %}
+
+{% endblock content %}

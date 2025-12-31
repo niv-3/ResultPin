@@ -1,41 +1,50 @@
-document.getElementById("fund-form").addEventListener("submit", function (e) {
+document.getElementById('purchase-form').addEventListener('submit', function(e) {
     e.preventDefault();
 
-    const amount = document.getElementById("amount").value;
+    const phone = document.getElementById('phone').value.trim();
+    const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+    const payButton = document.getElementById('pay-button');
 
-    if (!amount || amount < 100) {
-        alert("Minimum funding amount is ₦100");
+    if (!/^0[789][01]\d{8}$/.test(phone)) {
+        alert('Please enter a valid 11-digit Nigerian phone number');
         return;
     }
 
-    // Show loading
-    const button = e.target.querySelector("button[type='submit']");
-    button.disabled = true;
-    button.innerHTML = "Processing...";
+    payButton.disabled = true;
+    payButton.innerHTML = 'Processing purchase...';
 
-    fetch("{% url 'wallet_fund_init' %}", {  // Use correct URL
-        method: "POST",
+    fetch("{% url 'initiate_service_payment' plan.id %}", {
+        method: 'POST',
         headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": getCSRFToken(),
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
         },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({
+            phone: phone,
+            payment_method: paymentMethod
+        })
     })
-    .then((res) => res.json())
-    .then((data) => {
+    .then(response => response.json())
+    .then(data => {
         if (data.status) {
-            // SAME AS YOUR WORKING payment.js — Redirect to Paystack checkout
-            window.location.href = data.data.authorization_url;
+            if (paymentMethod === 'wallet') {
+                // Instant success - no redirect needed
+                alert('Purchase successful! Airtime delivered instantly.');
+                window.location.reload();  // Or redirect to success page
+            } else {
+                // Card payment
+                window.location.href = data.authorization_url;
+            }
         } else {
-            alert(data.message || "Unable to start payment");
-            button.disabled = false;
-            button.innerHTML = "Fund Now with Paystack";
+            alert(data.message || 'Transaction failed. Try again.');
+            payButton.disabled = false;
+            payButton.innerHTML = 'Complete Purchase';
         }
     })
-    .catch((err) => {
+    .catch(err => {
         console.error(err);
-        alert("Network error. Please try again.");
-        button.disabled = false;
-        button.innerHTML = "Fund Now with Paystack";
+        alert('Network error. Please try again.');
+        payButton.disabled = false;
+        payButton.innerHTML = 'Complete Purchase';
     });
 });

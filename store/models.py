@@ -185,6 +185,8 @@ class ExamTransaction(BaseTransaction):
 # =========================
 class AirtimeTransaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    payment_method = models.CharField(max_length=20, choices=[('wallet', 'Wallet'), ('card', 'Card')], default='card')
 
     phone = models.CharField(max_length=20)
 
