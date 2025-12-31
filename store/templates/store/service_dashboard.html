@@ -167,93 +167,92 @@
 </div>
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-let currentPlanId = null;
-let currentPlanPrice = 0;
-const userBalance = {{ request.user.balance|floatformat:0 }};
-let isSubmitting = false;
+// Only run on service dashboard pages
+if (document.getElementById('modal-purchase-form')) {
+    let currentPlanId = null;
+    let currentPlanPrice = 0;
+    const userBalance = {{ request.user.balance|floatformat:0 }};
+    let isSubmitting = false;
 
-function setPlan(planId, planName, planPrice) {
-    currentPlanId = planId;
-    currentPlanPrice = planPrice;
-    document.getElementById('modalPlanName').textContent = planName;
-    document.getElementById('modal-plan-price').textContent = '₦' + planPrice;
+    function setPlan(planId, planName, planPrice) {
+        currentPlanId = planId;
+        currentPlanPrice = planPrice;
+        document.getElementById('modalPlanName').textContent = planName;
+        document.getElementById('modal-plan-price').textContent = '₦' + planPrice;
 
-    const walletRadio = document.getElementById('modal-wallet');
-    const cardRadio = document.getElementById('modal-card');
-    const walletStatus = document.getElementById('wallet-status');
+        const walletRadio = document.getElementById('modal-wallet');
+        const cardRadio = document.getElementById('modal-card');
+        const walletStatus = document.getElementById('wallet-status');
 
-    if (userBalance >= planPrice) {
-        walletRadio.removeAttribute('disabled');
-        walletRadio.checked = true;
-        cardRadio.checked = false;
-        walletStatus.textContent = 'Available';
-        walletStatus.className = 'text-success';
-    } else {
-        walletRadio.setAttribute('disabled', 'disabled');
-        walletRadio.checked = false;
-        cardRadio.checked = true;
-        walletStatus.textContent = `Insufficient balance (₦${userBalance} available)`;
-        walletStatus.className = 'text-danger';
-    }
-}
-
-document.getElementById('modal-purchase-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    if (isSubmitting) return;
-    isSubmitting = true;
-
-    const input = document.getElementById('modal-phone').value.trim();
-    const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
-    const button = e.target.querySelector('button[type="submit"]');
-
-    if (!input) {
-        alert('Please enter the required number');
-        isSubmitting = false;
-        return;
-    }
-
-    button.disabled = true;
-    button.innerHTML = 'Processing...';
-
-    fetch("{% url 'initiate_service_payment' 0 %}".replace('0', currentPlanId), {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: JSON.stringify({
-            phone: input,
-            payment_method: paymentMethod
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.status) {
-            if (paymentMethod === 'wallet') {
-                alert(data.message || 'Purchase successful! Cashback added.');
-                location.reload();
-            } else {
-                window.location.href = data.authorization_url;
-            }
+        if (userBalance >= planPrice) {
+            walletRadio.removeAttribute('disabled');
+            walletRadio.checked = true;
+            cardRadio.checked = false;
+            walletStatus.textContent = 'Available';
+            walletStatus.className = 'text-success';
         } else {
-            alert(data.message || 'Transaction failed. Try again.');
+            walletRadio.setAttribute('disabled', 'disabled');
+            walletRadio.checked = false;
+            cardRadio.checked = true;
+            walletStatus.textContent = `Insufficient balance (₦${userBalance} available)`;
+            walletStatus.className = 'text-danger';
+        }
+    }
+
+    document.getElementById('modal-purchase-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (isSubmitting || !currentPlanId) return;
+        isSubmitting = true;
+
+        const input = document.getElementById('modal-phone').value.trim();
+        const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+        const button = e.target.querySelector('button[type="submit"]');
+
+        if (!input) {
+            alert('Please enter the required number');
+            isSubmitting = false;
+            return;
+        }
+
+        button.disabled = true;
+        button.innerHTML = 'Processing...';
+
+        fetch("/initiate-service-payment/" + currentPlanId + "/", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                phone: input,
+                payment_method: paymentMethod
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status) {
+                alert(data.message || 'Purchase successful!');
+                if (paymentMethod === 'wallet') {
+                    location.reload();
+                } else {
+                    window.location.href = data.authorization_url;
+                }
+            } else {
+                alert(data.message || 'Transaction failed');
+                button.disabled = false;
+                button.innerHTML = 'Complete Purchase';
+            }
+        })
+        .catch(() => {
+            alert('Network error');
             button.disabled = false;
             button.innerHTML = 'Complete Purchase';
-        }
-    })
-    .catch(() => {
-        alert('Network error. Check your connection.');
-        button.disabled = false;
-        button.innerHTML = 'Complete Purchase';
-    })
-    .finally(() => {
-        isSubmitting = false;
+        })
+        .finally(() => {
+            isSubmitting = false;
+        });
     });
-});
 </script>
-{% endblock extra_js %}
-
+{% endblock %}
 {% endblock content %}

@@ -409,6 +409,10 @@ def add_bank_account(request):
 # =========================
 @login_required
 def initiate_service_payment(request, plan_id):
+
+    if 'application/json' not in request.content_type:
+        return JsonResponse({'status': False, 'message': 'Bad request'}, status=400)
+        
     if request.method != 'POST':
         return JsonResponse({'status': False, 'message': 'Invalid request'}, status=405)
 
@@ -545,6 +549,18 @@ def initiate_service_payment(request, plan_id):
             svc_txn.save()
             return JsonResponse({'status': False, 'message': 'Could not start card payment.'})
 
+
+def process_service_delivery(request, svc_txn, plan, phone):
+        """
+        TEST MODE: Always simulate successful delivery
+        This ensures cashback is added for testing
+        """
+        print(f"[TEST DELIVERY] Simulated success: {plan.name} ({plan.provider.name}) to {phone} - Reference: {svc_txn.reference}")
+
+        # Always return True so cashback triggers
+        return True
+
+
 @csrf_exempt
 @login_required
 def verify_service_payment(request):
@@ -616,17 +632,6 @@ def verify_service_payment(request):
         svc_txn.save()
         messages.error(request, 'Transaction completed but reward failed. Contact support.')
         return redirect('home')
-
-        
-    def process_service_delivery(request, svc_txn, plan, phone):
-        """
-        TEST MODE: Always simulate successful delivery
-        This ensures cashback is added for testing
-        """
-        print(f"[TEST DELIVERY] Simulated success: {plan.name} ({plan.provider.name}) to {phone} - Reference: {svc_txn.reference}")
-
-        # Always return True so cashback triggers
-        return True
 
 # ------------------------------
 # AUTHENTICATION VIEWS
@@ -775,6 +780,27 @@ def verify_otp(request):
     return render(request, "store/verify_otp.html")
 
 
+# ------------------------------
+# PAYMENT SUCCESS PAGE (Uses your existing template)
+# ------------------------------
+def payment_success(request):
+    reference = request.GET.get("reference")
+    
+    # Optional: Fetch transaction details if you want to display them
+    # txn = None
+    # if reference:
+    #     if reference.startswith("FUND_"):
+    #         txn = WalletTransaction.objects.filter(reference=reference, status='success').first()
+    #     elif reference.startswith("SVC_") or reference.startswith("AIR_"):
+    #         txn = AirtimeTransaction.objects.filter(reference=reference, status='success').first()
+    
+    messages.success(request, "Payment completed successfully! Your transaction has been processed.")
+    
+    return render(request, "store/payment_successful.html", {
+        # "txn": txn,  # Uncomment if you add the fetch above and want to show details
+        "reference": reference,
+    })
+
 def custom_login(request):
     if request.method == "POST":
         identifier = request.POST.get("username", "").strip().lower()
@@ -894,23 +920,3 @@ def submit_review(request):
     return redirect("review_thank_you")
 
 
-# ------------------------------
-# PAYMENT SUCCESS PAGE (Uses your existing template)
-# ------------------------------
-def payment_success(request):
-    reference = request.GET.get("reference")
-    
-    # Optional: Fetch transaction details if you want to display them
-    # txn = None
-    # if reference:
-    #     if reference.startswith("FUND_"):
-    #         txn = WalletTransaction.objects.filter(reference=reference, status='success').first()
-    #     elif reference.startswith("SVC_") or reference.startswith("AIR_"):
-    #         txn = AirtimeTransaction.objects.filter(reference=reference, status='success').first()
-    
-    messages.success(request, "Payment completed successfully! Your transaction has been processed.")
-    
-    return render(request, "store/payment_successful.html", {
-        # "txn": txn,  # Uncomment if you add the fetch above and want to show details
-        "reference": reference,
-    })
