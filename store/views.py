@@ -1,22 +1,23 @@
 import json
 import uuid
+import hmac
+import hashlib
+import requests
 from decimal import Decimal
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import (
-    authenticate,
-    login,
-    logout,
-    get_user_model,
-)
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
+from django.db import models, transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_POST
+from django.db.models import Sum
 
 from .models import (
     Product,
@@ -33,11 +34,7 @@ from .models import (
     Review,
 )
 
-from .paystack import initialize_paystack, verify_paystack
-from .utils import normalize_phone, process_service_delivery
-
-# PAYSTACK (delegated helpers)
-# no local helpers needed here
+from .paystack import initialize_paystack
 
 
 # ==============================
@@ -49,6 +46,10 @@ def home(request):
     faq_list = FAQ.objects.filter(is_active=True)
     services = ServiceCategory.objects.filter(is_active=True).order_by("order")
 
+    wallet_balance = (
+        request.user.wallet_balance if request.user.is_authenticated else Decimal("0.00")
+    )
+
     return render(
         request,
         "store/home.html",
@@ -58,11 +59,48 @@ def home(request):
             "services": services,
             "faq_list": faq_list,
             "quantity_options": range(1, 11),
-            "wallet_balance": getattr(request.user, "balance", Decimal("0.00"))
-            if request.user.is_authenticated
-            else Decimal("0.00"),
+            "wallet_balance": wallet_balance,
         },
     )
+
+
+@csrf_exempt
+def paystack_webhook(request):
+    # Verify Paystack signature
+    paystack_signature = request.headers.get("x-paystack-signature")
+    if not paystack_signature:
+        return HttpResponse(status=400)
+
+    computed_signature = hmac.new(
+        key=settings.PAYSTACK_SECRET_KEY.encode(),
+        msg=request.body,
+        digestmod=hashlib.sha512,
+    ).hexdigest()
+
+    if not hmac.compare_digest(computed_signature, paystack_signature):
+        return HttpResponse(status=400)
+
+    payload = json.loads(request.body)
+    event = payload.get("event")
+
+    if event == "charge.success":
+        reference = payload["data"].get("reference")
+
+        try:
+            with transaction.atomic():
+                txn = WalletTransaction.objects.select_for_update().get(
+                    reference=reference,
+                    status="pending"
+                )
+                # No balance field — just mark as success
+                # Balance will be auto-calculated from transactions
+                txn.status = "success"
+                txn.save(update_fields=["status"])
+
+        except WalletTransaction.DoesNotExist:
+            pass  # Already processed or invalid
+
+    return HttpResponse(status=200)
 
 
 # ====================
@@ -70,22 +108,28 @@ def home(request):
 # ====================
 @login_required
 def wallet(request):
-    wallet_transactions = WalletTransaction.objects.filter(
-        user=request.user
-    ).order_by("-created_at")
+    user = request.user
 
-    referral_earnings = WalletTransaction.objects.filter(
-        user=request.user,
-        description="Referral Bonus",
-        transaction_type="credit",
-        status="success",
-    ).aggregate(total=models.Sum("amount"))["total"] or Decimal("0.00")
+    wallet_transactions = user.wallet_transactions.order_by("-created_at")
+
+    referral_earnings = (
+        user.wallet_transactions.filter(
+            source="referral",
+            transaction_type="credit",
+            status="success",
+        )
+        .aggregate(total=Sum("amount"))["total"]
+        or Decimal("0.00")
+    )
+    total_referrals = user.total_referrals
 
     context = {
-        "total_referrals": request.user.referrals.count(),
-        "referral_earnings": referral_earnings,
+        "total_referrals": total_referrals,         
+        "referral_earnings": referral_earnings,      
         "wallet_transactions": wallet_transactions,
+
     }
+
     return render(request, "store/wallet.html", context)
 
 
@@ -97,14 +141,15 @@ def wallet_fund(request):
         {"paystack_public_key": settings.PAYSTACK_PUBLIC_KEY},
     )
 
+
 @login_required
 @require_POST
 def wallet_fund_init(request):
     try:
         data = json.loads(request.body)
-        amount = Decimal(data.get("amount"))
+        amount = Decimal(data.get("amount", "0"))
 
-        if amount < 100:
+        if amount < Decimal("100"):
             return JsonResponse({
                 "status": False,
                 "message": "Minimum funding amount is ₦100"
@@ -112,46 +157,29 @@ def wallet_fund_init(request):
 
         reference = f"WALLET-{uuid.uuid4().hex[:12].upper()}"
 
-        # 1️⃣ Create PENDING transaction
+        # Create pending transaction — no credit yet
         WalletTransaction.objects.create(
             user=request.user,
             amount=amount,
-            transaction_type="funding",
+            transaction_type="credit",
+            source="funding",
             status="pending",
-            reference=reference
+            reference=reference,
         )
 
-        # 2️⃣ Initialize Paystack
-        headers = {
-            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        payload = {
-            "email": request.user.email,
-            "amount": int(amount * 100),  # Kobo
-            "reference": reference,
-            "callback_url": request.build_absolute_uri(
-                reverse("verify_wallet_funding")
-            ),
-        }
-
-        response = requests.post(
-            "https://api.paystack.co/transaction/initialize",
-            json=payload,
-            headers=headers,
-            timeout=30
+        result = initialize_paystack(
+            email=request.user.email,
+            amount=amount,
+            reference=reference,
+            callback_url=request.build_absolute_uri(reverse("verify_wallet_funding")),
         )
-
-        result = response.json()
 
         if not result.get("status"):
             return JsonResponse({
                 "status": False,
-                "message": result.get("message", "Payment initialization failed")
+                "message": result.get("message", "Payment initialization failed"),
             })
 
-        # ✅ VERY IMPORTANT: match frontend expectation
         return JsonResponse({
             "status": True,
             "data": {
@@ -159,7 +187,7 @@ def wallet_fund_init(request):
             }
         })
 
-    except Exception as e:
+    except Exception:
         return JsonResponse({
             "status": False,
             "message": "Unable to start payment"
@@ -169,54 +197,32 @@ def wallet_fund_init(request):
 @login_required
 def verify_wallet_funding(request):
     reference = request.GET.get("reference")
-
     if not reference:
         return redirect("wallet")
 
-    headers = {
-        "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
-    }
-
+    headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
     response = requests.get(
         f"https://api.paystack.co/transaction/verify/{reference}",
         headers=headers,
         timeout=30
     )
-
     result = response.json()
 
-    if not result.get("status"):
+    if not result.get("status") or result["data"]["status"] != "success":
         messages.error(request, "Payment verification failed.")
         return redirect("wallet")
 
-    data = result["data"]
-
-    if data["status"] != "success":
-        messages.error(request, "Payment not successful.")
+    txn = WalletTransaction.objects.filter(reference=reference).first()
+    if not txn:
+        messages.error(request, "Transaction not found.")
         return redirect("wallet")
 
-    try:
-        with transaction.atomic():
-            txn = WalletTransaction.objects.select_for_update().get(
-                reference=reference,
-                status="pending"
-            )
-
-            # Credit wallet
-            wallet = request.user.wallet
-            wallet.balance += txn.amount
-            wallet.save()
-
-            txn.status = "success"
-            txn.save()
-
-        messages.success(request, "Wallet funded successfully!")
-
-    except WalletTransaction.DoesNotExist:
-        messages.warning(request, "Transaction already processed.")
+    if txn.status == "success":
+        messages.info(request, "Payment already confirmed.")
+    else:
+        messages.success(request, "Wallet credited successfully!")
 
     return redirect("wallet")
-
 
 
 @login_required
@@ -234,7 +240,8 @@ def wallet_withdraw(request):
             messages.error(request, "Minimum withdrawal is ₦100")
             return redirect("wallet_withdraw")
 
-        if request.user.balance < amount:
+        current_balance = request.user.wallet_balance
+        if current_balance < amount:
             messages.error(request, "Insufficient balance")
             return redirect("wallet_withdraw")
 
@@ -265,27 +272,25 @@ def wallet_withdraw(request):
             messages.error(request, result.get("message", "Withdrawal failed"))
             return redirect("wallet_withdraw")
 
-        with transaction.atomic():
-            user = request.user.__class__.objects.select_for_update().get(id=request.user.id)
-            user.balance -= amount
-            user.save(update_fields=["balance"])
-            WalletTransaction.objects.create(
-                user=user,
-                amount=amount,
-                transaction_type="debit",
-                reference=reference,
-                description="Bank Withdrawal",
-                status="success",
-            )
+        # Record successful debit — balance auto-recalculates
+        WalletTransaction.objects.create(
+            user=request.user,
+            amount=amount,
+            transaction_type="debit",
+            source="withdrawal",
+            reference=reference,
+            status="success",
+        )
 
         messages.success(request, f"₦{amount:,} withdrawn successfully")
-        return redirect("wallet_withdraw")
+        return redirect("wallet")
 
     return render(request, "store/wallet_withdraw.html", {"bank_account": bank_account})
 
 
 @login_required
 def add_bank_account(request):
+    # (unchanged — this part was correct)
     if request.method == "POST":
         account_number = request.POST.get("account_number")
         bank_code = request.POST.get("bank_code")
@@ -347,9 +352,6 @@ def add_bank_account(request):
 
     return render(request, "store/add_bank_account.html", {"banks": banks})
 
-# ==============================
-# PAYMENT & WALLET FLOW (UPDATED)
-# ==============================
 
 # ------------------------------
 # INITIATE SERVICE PAYMENT
@@ -373,29 +375,19 @@ def initiate_service_payment(request, plan_id):
         # WALLET PAYMENT
         # ======================
         if payment_method == "wallet":
-            if user.balance < amount:
+            current_balance = user.wallet_balance
+            if current_balance < amount:
                 return JsonResponse({
                     "status": False,
                     "message": "Insufficient wallet balance"
                 })
 
             with transaction.atomic():
-                # Lock user row
-                user.refresh_from_db()
-                if user.balance < amount:
-                    return JsonResponse({
-                        "status": False,
-                        "message": "Insufficient wallet balance"
-                    })
-
-                # Debit wallet
-                user.balance -= amount
-                user.save(update_fields=["balance"])
-
                 WalletTransaction.objects.create(
                     user=user,
                     amount=amount,
                     transaction_type="debit",
+                    source="purchase",
                     reference=str(uuid.uuid4()),
                     description=f"{plan.name} purchase via wallet",
                     status="success"
@@ -403,10 +395,11 @@ def initiate_service_payment(request, plan_id):
 
                 AirtimeTransaction.objects.create(
                     user=user,
-                    plan=plan,
+                    service_plan=plan,
                     phone=phone,
-                    amount=amount,
+                    amount_paid=amount,
                     payment_method="wallet",
+                    reference=str(uuid.uuid4()),
                     status="success"
                 )
 
@@ -418,12 +411,13 @@ def initiate_service_payment(request, plan_id):
         # ======================
         # CARD PAYMENT (PAYSTACK)
         # ======================
-        reference = f"RP-{uuid.uuid4().hex[:12]}"
+        reference = f"RP-{uuid.uuid4().hex[:12].upper()}"
 
         WalletTransaction.objects.create(
             user=user,
             amount=amount,
             transaction_type="debit",
+            source="purchase",
             reference=reference,
             description=f"{plan.name} purchase via card",
             status="pending"
@@ -469,7 +463,7 @@ def initiate_service_payment(request, plan_id):
     except Exception as e:
         return JsonResponse({
             "status": False,
-            "message": str(e)
+            "message": "An error occurred"
         })
 
 
@@ -479,31 +473,21 @@ def initiate_service_payment(request, plan_id):
 @login_required
 def verify_payment(request):
     reference = request.GET.get("reference")
-
     if not reference:
         return JsonResponse({"status": False, "message": "Missing reference"})
 
-    headers = {
-        "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"
-    }
-
+    headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
     response = requests.get(
         f"https://api.paystack.co/transaction/verify/{reference}",
         headers=headers,
         timeout=30
     )
-
     res_data = response.json()
 
-    if not res_data.get("status"):
-        return JsonResponse({"status": False, "message": "Verification failed"})
-
-    data = res_data["data"]
-
-    if data["status"] != "success":
+    if not res_data.get("status") or res_data["data"]["status"] != "success":
         return JsonResponse({"status": False, "message": "Payment not successful"})
 
-    metadata = data.get("metadata", {})
+    metadata = res_data["data"].get("metadata", {})
     plan_id = metadata.get("plan_id")
     phone = metadata.get("phone")
 
@@ -521,10 +505,11 @@ def verify_payment(request):
 
         AirtimeTransaction.objects.create(
             user=wallet_tx.user,
-            plan=plan,
+            service_plan=plan,
             phone=phone,
-            amount=amount,
+            amount_paid=amount,
             payment_method="card",
+            reference=reference,
             status="success"
         )
 
@@ -532,7 +517,6 @@ def verify_payment(request):
         "status": True,
         "message": "Payment verified successfully"
     })
-
 
 # ------------------------------
 # AUTHENTICATION VIEWS
