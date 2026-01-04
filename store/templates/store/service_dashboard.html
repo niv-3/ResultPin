@@ -95,7 +95,7 @@
     <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
 </div>
 <div class="modal-body">
-<form id="purchase-form">
+
     {% csrf_token %}
 
     <p class="text-center fw-bold fs-4" id="modal-plan-price"></p>
@@ -116,76 +116,113 @@
         </div>
     </div>
 
-    <button id="pay-btn" class="btn btn-success w-100">Complete Purchase</button>
-</form>
+    <button id="pay-btn" class="btn btn-success w-100" onclick="submitPurchase()">
+        Complete Purchase
+    </button>
+
 </div>
 </div>
 </div>
 </div>
 {% endblock %}
-
 {% block extra_js %}
 <script>
 let planId = null;
 let planPrice = 0;
 let submitting = false;
-const walletBalance = {{ request.user.balance|floatformat:0 }};
+const walletBalance = {{ request.user.wallet_balance|floatformat:0 }};
 
+// Set plan when Buy button clicked
 function setPlan(id, name, price) {
     planId = id;
     planPrice = price;
     document.getElementById("modalPlanName").textContent = name;
-    document.getElementById("modal-plan-price").textContent = "₦" + price;
+    document.getElementById("modal-plan-price").textContent = "₦" + price.toLocaleString();
 
-    if (walletBalance >= price) {
-        document.getElementById("pay-wallet").checked = true;
-    } else {
+    const walletRadio = document.getElementById("pay-wallet");
+    walletRadio.disabled = walletBalance < price;
+    walletRadio.checked = walletBalance >= price;
+    if (walletBalance < price) {
         document.getElementById("pay-card").checked = true;
-        document.getElementById("pay-wallet").disabled = true;
     }
 }
 
-document.getElementById("purchase-form").addEventListener("submit", function(e){
-    e.preventDefault();
+// Get CSRF token safely
+function getCSRFToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (token) return token.value;
+    
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') return value;
+    }
+    return '';
+}
+
+// Main purchase function
+function submitPurchase() {
     if (submitting) return;
-    submitting = true;
+    if (!planId) {
+        alert("No plan selected. Please try again.");
+        return;
+    }
 
     const phone = document.getElementById("modal-phone").value.trim();
-    const method = document.querySelector("input[name='payment_method']:checked").value;
+    const method = document.querySelector('input[name="payment_method"]:checked');
+    
+    if (!phone || phone.length < 11) {
+        alert("Enter a valid phone number (e.g., 08012345678)");
+        return;
+    }
+    if (!method) {
+        alert("Select payment method");
+        return;
+    }
+
+    submitting = true;
     const btn = document.getElementById("pay-btn");
-
     btn.disabled = true;
-    btn.textContent = "Processing...";
+    btn.textContent = "Processing... Please wait";
 
-    fetch(`/initiate-service-payment/${planId}/`, {
+    fetch(`/service/pay/${planId}/`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "X-CSRFToken": getCSRFToken()
         },
-        body: JSON.stringify({ phone, payment_method: method })
+        body: JSON.stringify({
+            phone: phone,
+            payment_method: method.value
+        })
     })
-    .then(r => r.json())
-    .then(d => {
-        if (!d.status) throw new Error(d.message);
-        if (d.authorization_url) {
-            window.location.href = d.authorization_url;
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.status) {
+            if (data.authorization_url) {
+                // Card payment
+                window.location.href = data.authorization_url;
+            } else {
+                // Wallet payment success
+                alert(data.message || "Purchase successful!");
+                window.location.href = data.redirect_url || "/payment/success/";
+            }
         } else {
-            window.location.href = "/payment-success/";
+            throw new Error(data.message || "Purchase failed");
         }
     })
-    .catch(e => {
-        alert(e.message || "Failed");
+    .catch(err => {
+        console.error("Purchase error:", err);
+        alert(err.message || "Network error. Check console (F12) for details.");
         btn.disabled = false;
         btn.textContent = "Complete Purchase";
         submitting = false;
     });
-});
-
-function getCSRFToken() {
-    return document.cookie.split("; ")
-        .find(r => r.startsWith("csrftoken="))
-        ?.split("=")[1];
 }
 </script>
 {% endblock %}

@@ -7,6 +7,7 @@ import os
 import dj_database_url
 from dotenv import load_dotenv
 import os
+from decouple import config
 
 
 load_dotenv()
@@ -141,8 +142,8 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+EMAIL_HOST_USER = "resultpin.solutions@gmail.com"
+EMAIL_HOST_PASSWORD = "mkuqmhbtysbxaukl"
 
 DEFAULT_FROM_EMAIL = "ResultPin <resultpin.solutions@gmail.com>"
 
@@ -151,10 +152,15 @@ DEFAULT_FROM_EMAIL = "ResultPin <resultpin.solutions@gmail.com>"
 # ==============================
 # PAYSTACK
 # ==============================
-# settings.py
+
 PAYSTACK_PUBLIC_KEY = os.getenv("PAYSTACK_PUBLIC_KEY")
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
 
+
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://ouida-unswerving-uncorruptly.ngrok-free.dev",
+]
 
 
 
@@ -168,13 +174,12 @@ TERMII_SENDER_ID = os.getenv('TERMII_SENDER_ID', 'ResultPin')
 # ==============================
 # VTPASS (SANDBOX) – WAEC PINS
 # ==============================
-VTPASS_API_KEY = "31776810f5c6873b50a50e72a65313a3"
-VTPASS_PUBLIC_KEY = "PK_153c4b2d250a1135d25d4bc209baf1e201dea7a7925"
-VTPASS_SECRET_KEY = "SK_82749e1802a0c5d9b2019ebeb230c9eecbbb0953ba5"
+from decouple import config
 
-# Sandbox toggle (VERY IMPORTANT)
-VTPASS_TEST_MODE = True
-
+VTPASS_BASE_URL = "https://sandbox.vtpass.com/api/" if config('VTPASS_TEST_MODE', cast=bool) else "https://vtpass.com/api/"
+VTPASS_API_KEY = config('VTPASS_API_KEY')
+VTPASS_PUBLIC_KEY = config('VTPASS_PUBLIC_KEY')  # For GET requests
+VTPASS_SECRET_KEY = config('VTPASS_SECRET_KEY')  # For POST
 
 # ==============================
 # EPINS (OPTIONAL / FALLBACK)

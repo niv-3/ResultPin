@@ -266,6 +266,15 @@ class ServicePlan(models.Model):
         return (self.selling_price * self.REWARD_RATE).quantize(Decimal("0.01"))
 
     # -----------------------------
+    # DISCOUNT FOR CUSTOMERS (DISPLAY ONLY)
+    # -----------------------------
+    @property
+    def discount_amount(self):
+        if self.market_price and self.selling_price:
+            return (self.market_price - self.selling_price).quantize(Decimal("0.01"))
+        return Decimal("0.00")
+
+    # -----------------------------
     # VALIDATION (ANTI-LOSS GUARD)
     # -----------------------------
     def clean(self):

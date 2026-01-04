@@ -18,7 +18,7 @@ urlpatterns = [
     path("wallet/fund/verify/", views.verify_wallet_funding, name="verify_wallet_funding"),
     path("wallet/withdraw/", views.wallet_withdraw, name="wallet_withdraw"),
     path("wallet/bank/add/", views.add_bank_account, name="add_bank_account"),
-    path("webhooks/paystack/", paystack_webhook, name="paystack_webhook"),
+    path("paystack_webhook/", paystack_webhook, name="paystack_webhook"),
 
     # ======================
     # SERVICES
@@ -40,6 +40,20 @@ urlpatterns = [
         name="payment_success",
     ),
 
+    path("verify-service-payment/", views.verify_service_payment, name="verify_service_payment"),
+
+    path(
+        "payment/success/",
+        views.payment_success,
+        name="payment_success",
+    ),
+
+
+
+
+
+
+
     # ======================
     # AUTH
     # ======================
@@ -48,6 +62,8 @@ urlpatterns = [
     path("logout/", views.custom_logout, name="logout"),
     path("verify-otp/", views.verify_otp, name="verify_otp"),
     path("resend-otp/", views.resend_otp, name="resend_otp"),
+
+
 
     # ======================
     # PASSWORD RESET

@@ -5,6 +5,10 @@ import hashlib
 import requests
 from decimal import Decimal
 
+import re
+import time
+import random
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -18,6 +22,12 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_POST
 from django.db.models import Sum
+from django.http import HttpResponse, JsonResponse
+from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
 
 from .models import (
     Product,
@@ -62,46 +72,59 @@ def home(request):
             "wallet_balance": wallet_balance,
         },
     )
-
-
 @csrf_exempt
 def paystack_webhook(request):
-    # Verify Paystack signature
-    paystack_signature = request.headers.get("x-paystack-signature")
-    if not paystack_signature:
-        return HttpResponse(status=400)
+    # Verify signature
+    signature = request.headers.get("x-paystack-signature")
+    if not signature:
+        return HttpResponse("No signature", status=400)
 
-    computed_signature = hmac.new(
-        key=settings.PAYSTACK_SECRET_KEY.encode(),
-        msg=request.body,
-        digestmod=hashlib.sha512,
+    computed = hmac.new(
+        settings.PAYSTACK_SECRET_KEY.encode(),
+        request.body,
+        hashlib.sha512
     ).hexdigest()
 
-    if not hmac.compare_digest(computed_signature, paystack_signature):
-        return HttpResponse(status=400)
+    if not hmac.compare_digest(computed, signature):
+        return HttpResponse("Invalid signature", status=400)
 
-    payload = json.loads(request.body)
-    event = payload.get("event")
+    # Parse payload
+    try:
+        payload = json.loads(request.body)
+    except json.JSONDecodeError:
+        return HttpResponse("Invalid JSON", status=400)
 
-    if event == "charge.success":
-        reference = payload["data"].get("reference")
+    # Only care about successful charges
+    if payload.get("event") != "charge.success":
+        return HttpResponse("Ignored event", status=200)
 
+    ref = payload.get("data", {}).get("reference")
+    if not ref:
+        return HttpResponse("No reference", status=200)
+
+    # Find transaction
+    try:
+        txn = WalletTransaction.objects.get(reference=ref)
+    except WalletTransaction.DoesNotExist:
+        return HttpResponse("Unknown ref", status=200)
+
+    # If already success → safe exit (this prevents 500 on retries)
+    if txn.status == "success":
+        return HttpResponse("Already processed", status=200)
+
+    # Only update if pending
+    if txn.status == "pending":
         try:
             with transaction.atomic():
-                txn = WalletTransaction.objects.select_for_update().get(
-                    reference=reference,
-                    status="pending"
-                )
-                # No balance field — just mark as success
-                # Balance will be auto-calculated from transactions
-                txn.status = "success"
-                txn.save(update_fields=["status"])
-
+                # Lock and re-check
+                locked_txn = WalletTransaction.objects.select_for_update().get(reference=ref)
+                if locked_txn.status == "pending":
+                    locked_txn.status = "success"
+                    locked_txn.save(update_fields=["status"])
         except WalletTransaction.DoesNotExist:
-            pass  # Already processed or invalid
+            pass  # Race condition — already handled by another call
 
-    return HttpResponse(status=200)
-
+    return HttpResponse("OK", status=200)
 
 # ====================
 # WALLET VIEWS
@@ -351,11 +374,10 @@ def add_bank_account(request):
     ]
 
     return render(request, "store/add_bank_account.html", {"banks": banks})
+from django.db import transaction
+from django.utils import timezone
+from datetime import timedelta
 
-
-# ------------------------------
-# INITIATE SERVICE PAYMENT
-# ------------------------------
 @login_required
 @require_POST
 def initiate_service_payment(request, plan_id):
@@ -363,323 +385,220 @@ def initiate_service_payment(request, plan_id):
         data = json.loads(request.body)
         phone = data.get("phone")
         payment_method = data.get("payment_method")
-
         if not phone or payment_method not in ["wallet", "card"]:
-            return JsonResponse({"status": False, "message": "Invalid request"})
-
-        plan = get_object_or_404(ServicePlan, id=plan_id)
-        amount = Decimal(plan.selling_price)
+            return JsonResponse({"status": False, "message": "Invalid data"})
+        plan = get_object_or_404(ServicePlan, id=plan_id, is_active=True)
+        amount = plan.selling_price
+        if amount <= 0:
+            return JsonResponse({"status": False, "message": "Invalid amount"})
         user = request.user
-
+        reference = f"AIRTIME-{uuid.uuid4().hex[:12].upper()}"
         # ======================
-        # WALLET PAYMENT
+        # WALLET PAYMENT (instant)
         # ======================
         if payment_method == "wallet":
-            current_balance = user.wallet_balance
-            if current_balance < amount:
+            if user.wallet_balance < amount:
                 return JsonResponse({
                     "status": False,
-                    "message": "Insufficient wallet balance"
+                    "message": f"Insufficient balance. Need ₦{amount:,}, have ₦{user.wallet_balance:,}"
                 })
-
             with transaction.atomic():
-                WalletTransaction.objects.create(
-                    user=user,
+                user.debit_wallet(
                     amount=amount,
-                    transaction_type="debit",
-                    source="purchase",
-                    reference=str(uuid.uuid4()),
-                    description=f"{plan.name} purchase via wallet",
-                    status="success"
+                    source="airtime_purchase",
+                    reference=reference
                 )
-
                 AirtimeTransaction.objects.create(
                     user=user,
                     service_plan=plan,
                     phone=phone,
                     amount_paid=amount,
                     payment_method="wallet",
-                    reference=str(uuid.uuid4()),
+                    reference=reference,
                     status="success"
                 )
-
+                reward = plan.reward_amount or 0
+                if reward > 0:
+                    user.credit_wallet(
+                        amount=reward,
+                        source="cashback_reward",
+                        reference=f"REWARD-{reference}"
+                    )
             return JsonResponse({
                 "status": True,
-                "message": "Purchase successful"
+                "message": "Purchase successful!",
+                "redirect_url": reverse("payment_success") + f"?reference={reference}"
             })
-
         # ======================
-        # CARD PAYMENT (PAYSTACK)
+        # CARD / PAYSTACK PAYMENT
         # ======================
-        reference = f"RP-{uuid.uuid4().hex[:12].upper()}"
-
-        WalletTransaction.objects.create(
-            user=user,
-            amount=amount,
-            transaction_type="debit",
-            source="purchase",
-            reference=reference,
-            description=f"{plan.name} purchase via card",
-            status="pending"
-        )
-
-        headers = {
-            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        payload = {
-            "email": user.email,
-            "amount": int(amount * 100),
-            "reference": reference,
-            "callback_url": request.build_absolute_uri("/payments/verify/"),
-            "metadata": {
-                "plan_id": plan.id,
-                "user_id": user.id,
-                "phone": phone,
-            }
-        }
-
-        response = requests.post(
-            "https://api.paystack.co/transaction/initialize",
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
-
-        res_data = response.json()
-
-        if not res_data.get("status"):
+        else:
+            # Clean up stale pendings
+            stale_cutoff = timezone.now() - timedelta(minutes=30)
+            WalletTransaction.objects.filter(
+                user=user,
+                source="airtime_purchase",
+                status="pending",
+                created_at__lt=stale_cutoff
+            ).delete()
+            # Only one pending at a time
+            if WalletTransaction.objects.filter(
+                user=user,
+                source="airtime_purchase",
+                status="pending"
+            ).exists():
+                return JsonResponse({
+                    "status": False,
+                    "message": "You have a pending airtime payment. Please complete it or wait a few minutes."
+                })
+            with transaction.atomic():
+                if WalletTransaction.objects.filter(reference=reference, status="pending").exists():
+                    return JsonResponse({"status": False, "message": "Already processing"})
+                pending_txn = WalletTransaction.objects.create(
+                    user=user,
+                    amount=amount,
+                    transaction_type="debit",
+                    source="airtime_purchase",
+                    reference=reference,
+                    status="pending"
+                )
+                request.session[f"pending_airtime_{reference}"] = {
+                    "plan_id": plan.id,
+                    "phone": phone,
+                    "amount": float(amount),
+                    "txn_id": pending_txn.id,
+                }
+            result = initialize_paystack(
+                email=user.email,
+                amount=amount * 100,
+                reference=reference,
+                callback_url=request.build_absolute_uri(reverse('verify_service_payment'))
+            )
+            if not result.get("status"):
+                with transaction.atomic():
+                    WalletTransaction.objects.filter(reference=reference, status="pending").delete()
+                    session_key = f"pending_airtime_{reference}"
+                    if session_key in request.session:
+                        del request.session[session_key]
+                return JsonResponse({
+                    "status": False,
+                    "message": result.get("message") or "Payment failed"
+                })
             return JsonResponse({
-                "status": False,
-                "message": "Unable to initialize payment"
+                "status": True,
+                "authorization_url": result["data"]["authorization_url"]
             })
+    except Exception as e:
+        print("Error:", str(e))
+        return JsonResponse({"status": False, "message": "Service unavailable"})
 
-        return JsonResponse({
-            "status": True,
-            "authorization_url": res_data["data"]["authorization_url"]
-        })
+
+@login_required
+def verify_service_payment(request):
+    reference = request.GET.get("reference") or request.GET.get("trxref")
+    if not reference:
+        messages.error(request, "Invalid reference")
+        return redirect("payment_success")
+
+    # Verify with Paystack (redundant if webhook ran, but safe)
+    url = f"https://api.paystack.co/transaction/verify/{reference}"
+    headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        result = response.json()
+    except Exception as e:
+        print("Paystack verify error:", e)
+        messages.error(request, "Payment verification failed")
+        return redirect("payment_success")
+
+    if not result.get("status") or result.get("data", {}).get("status") != "success":
+        messages.error(request, "Payment not successful")
+        return redirect("payment_success")
+
+    session_key = f"pending_airtime_{reference}"
+    pending_data = request.session.get(session_key)
+
+    if not pending_data:
+        # Already processed (likely by webhook)
+        return redirect(reverse("payment_success") + f"?reference={reference}")
+
+    try:
+        with transaction.atomic():
+            already_processed = True
+            try:
+                txn = WalletTransaction.objects.select_for_update().get(
+                    reference=reference,
+                    status="pending",
+                    user=request.user
+                )
+                txn.status = "success"
+                txn.save(update_fields=["status"])
+                already_processed = False
+                print(f"Redirect marked {reference} as success")
+            except WalletTransaction.DoesNotExist:
+                print(f"Transaction {reference} already processed by webhook")
+
+            # Deliver airtime if not already done
+            if not AirtimeTransaction.objects.filter(reference=reference).exists():
+                plan = ServicePlan.objects.get(id=pending_data["plan_id"])
+                AirtimeTransaction.objects.create(
+                    user=request.user,
+                    service_plan=plan,
+                    phone=pending_data["phone"],
+                    amount_paid=pending_data["amount"],
+                    payment_method="card",
+                    reference=reference,
+                    status="success"
+                )
+                print(f"Airtime delivered by redirect for {reference}")
+
+            # === CASHBACK: Apply only if not already given ===
+            reward = 0
+            if pending_data:
+                plan = ServicePlan.objects.get(id=pending_data["plan_id"])
+                reward = plan.reward_amount or 0
+
+            if reward > 0 and not WalletTransaction.objects.filter(
+                reference=f"REWARD-{reference}",
+                source="cashback_reward"
+            ).exists():
+                request.user.credit_wallet(
+                    amount=reward,
+                    source="cashback_reward",
+                    reference=f"REWARD-{reference}"
+                )
+                print(f"REDIRECT APPLIED CASHBACK: ₦{reward} for {reference}")
+
+            # Clean session
+            if session_key in request.session:
+                del request.session[session_key]
+
+            messages.success(request, "Payment successful!" + (f" Cashback ₦{reward} added!" if reward > 0 else ""))
 
     except Exception as e:
-        return JsonResponse({
-            "status": False,
-            "message": "An error occurred"
-        })
+        print("Verification error:", str(e))
+        messages.error(request, "Error completing transaction")
+
+    return redirect(reverse("payment_success") + f"?reference={reference}")
 
 
-# ------------------------------
-# PAYSTACK CALLBACK / VERIFY
-# ------------------------------
-@login_required
-def verify_payment(request):
-    reference = request.GET.get("reference")
-    if not reference:
-        return JsonResponse({"status": False, "message": "Missing reference"})
-
-    headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
-    response = requests.get(
-        f"https://api.paystack.co/transaction/verify/{reference}",
-        headers=headers,
-        timeout=30
-    )
-    res_data = response.json()
-
-    if not res_data.get("status") or res_data["data"]["status"] != "success":
-        return JsonResponse({"status": False, "message": "Payment not successful"})
-
-    metadata = res_data["data"].get("metadata", {})
-    plan_id = metadata.get("plan_id")
-    phone = metadata.get("phone")
-
-    plan = get_object_or_404(ServicePlan, id=plan_id)
-    amount = Decimal(plan.selling_price)
-
-    with transaction.atomic():
-        wallet_tx = WalletTransaction.objects.select_for_update().get(
-            reference=reference,
-            status="pending"
-        )
-
-        wallet_tx.status = "success"
-        wallet_tx.save(update_fields=["status"])
-
-        AirtimeTransaction.objects.create(
-            user=wallet_tx.user,
-            service_plan=plan,
-            phone=phone,
-            amount_paid=amount,
-            payment_method="card",
-            reference=reference,
-            status="success"
-        )
-
-    return JsonResponse({
-        "status": True,
-        "message": "Payment verified successfully"
-    })
-
-# ------------------------------
-# AUTHENTICATION VIEWS
-# ------------------------------
-User = get_user_model()
-
-
-def password_is_strong(password: str) -> bool:
-    if len(password) < 8:
-        return False
-    return all([
-        bool(re.search(r"[A-Z]", password)),
-        bool(re.search(r"[a-z]", password)),
-        bool(re.search(r"[0-9]", password)),
-        bool(re.search(r"[!@#$%^&*()_+=\-{}[\]:;\"'<>,.?/]", password)),
-    ])
-
-
-@csrf_protect
-def register(request):
-    if request.method == "POST":
-        first_name = request.POST.get("first_name", "").strip()
-        last_name = request.POST.get("last_name", "").strip()
-        phone = request.POST.get("phone", "").strip()
-        email = request.POST.get("email", "").strip().lower()
-        password = request.POST.get("password")
-        password2 = request.POST.get("password2")
-
-        if not all([first_name, last_name, phone, email, password, password2]):
-            messages.error(request, "All fields are required.")
-            return redirect("register")
-
-        if password != password2:
-            messages.error(request, "Passwords do not match.")
-            return redirect("register")
-
-        if not password_is_strong(password):
-            messages.error(
-                request,
-                "Password must be at least 8 characters with uppercase, lowercase, number, and symbol."
-            )
-            return redirect("register")
-
-        if User.objects.filter(email__iexact=email).exists():
-            messages.error(request, "An account with this email already exists.")
-            return redirect("register")
-
-        otp = random.randint(100000, 999999)
-        request.session["pending_registration"] = {
-            "first_name": first_name,
-            "last_name": last_name,
-            "phone": phone,
-            "email": email,
-            "password": password,
-            "otp": otp,
-            "created_at": int(time.time()),
-            "attempts": 0,
-            "resend_count": 0,
-        }
-
-        send_otp(phone, email, otp)
-        messages.success(request, "Verification code sent to your email.")
-        return redirect("verify_otp")
-
-    return render(request, "store/register.html")
-
-
-def resend_otp(request):
-    data = request.session.get("pending_registration")
-    if not data:
-        messages.error(request, "Session expired. Please register again.")
-        return redirect("register")
-
-    if int(time.time()) - data["created_at"] < 30:
-        messages.error(request, "Please wait 30 seconds before requesting another code.")
-        return redirect("verify_otp")
-
-    if data.get("resend_count", 0) >= 5:
-        request.session.pop("pending_registration", None)
-        messages.error(request, "Too many resend attempts. Please start over.")
-        return redirect("register")
-
-    new_otp = random.randint(100000, 999999)
-    data.update({
-        "otp": new_otp,
-        "created_at": int(time.time()),
-        "resend_count": data.get("resend_count", 0) + 1,
-        "attempts": 0,
-    })
-    request.session["pending_registration"] = data
-
-    send_otp(data["phone"], data["email"], new_otp)
-    messages.success(request, "New verification code sent.")
-    return redirect("verify_otp")
-
-
-@csrf_protect
-def verify_otp(request):
-    data = request.session.get("pending_registration")
-    if not data:
-        messages.error(request, "Session expired. Please register again.")
-        return redirect("register")
-
-    if int(time.time()) - data["created_at"] > 600:
-        request.session.pop("pending_registration", None)
-        messages.error(request, "Code expired. Please register again.")
-        return redirect("register")
-
-    if request.method == "POST":
-        otp_input = request.POST.get("otp", "").strip()
-
-        if otp_input != str(data["otp"]):
-            data["attempts"] += 1
-            request.session["pending_registration"] = data
-
-            if data["attempts"] >= 5:
-                request.session.pop("pending_registration", None)
-                messages.error(request, "Too many failed attempts. Please start over.")
-                return redirect("register")
-
-            messages.error(request, "Invalid code. Please try again.")
-            return redirect("verify_otp")
-
-        user = User.objects.create_user(
-            username=data["email"],
-            email=data["email"],
-            first_name=data["first_name"],
-            last_name=data["last_name"],
-            phone=data["phone"],
-            password=data["password"],
-            is_active=True,
-        )
-        login(request, user)
-        request.session.pop("pending_registration", None)
-
-        messages.success(request, "Account created and verified successfully!")
-        return redirect("wallet")
-
-    return render(request, "store/verify_otp.html")
-
-
-# ------------------------------
-# PAYMENT SUCCESS PAGE
-# ------------------------------
 def payment_success(request):
     reference = request.GET.get("reference")
     txn = None
-
     if reference:
         if reference.startswith("FUND_"):
             txn = WalletTransaction.objects.filter(
                 reference=reference, status="success"
             ).first()
-        elif reference.startswith(("SVC_", "AIR_")):
+        elif reference.startswith("AIRTIME-"):
             txn = AirtimeTransaction.objects.filter(
                 reference=reference, status="success"
             ).first()
-
     if reference and not txn:
         messages.info(request, "Transaction already processed or not found.")
     else:
         messages.success(request, "Payment completed successfully.")
-
     return render(
         request,
         "store/payment_successful.html",
@@ -688,30 +607,181 @@ def payment_success(request):
             "txn": txn,
         },
     )
+# ------------------------------
+# UTILITIES
+# ------------------------------
 
+def password_is_strong(password: str) -> bool:
+    return (
+        len(password) >= 8
+        and re.search(r"[A-Z]", password)
+        and re.search(r"[a-z]", password)
+        and re.search(r"[0-9]", password)
+        and re.search(r"[!@#$%^&*()_+=\-{}[\]:;\"'<>,.?/]", password)
+    )
+
+@csrf_protect
+def register(request):
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip().lower()
+        password = request.POST.get("password")
+        password2 = request.POST.get("password2")
+
+        if password != password2:
+            messages.error(request, "Passwords do not match.")
+            return redirect("register")
+
+        if not password_is_strong(password):
+            messages.error(request, "Password is too weak.")
+            return redirect("register")
+
+        otp = str(random.randint(100000, 999999))
+
+        request.session["pending_user"] = {
+            "email": email,
+            "password": password,
+            "otp": otp,
+            "created_at": int(time.time()),
+            "attempts": 0,
+            "resend_count": 0,
+        }
+
+        send_otp(None, email, otp)
+
+        messages.success(request, "OTP sent to your email.")
+        return redirect("verify_otp")
+
+    return render(request, "store/register.html")
+
+
+
+
+
+from django.core.mail import send_mail
+from django.conf import settings
+
+def send_otp(phone, email, otp):
+    send_mail(
+        "ResultPin Verification Code",
+        f"Your OTP is {otp}. It expires in 10 minutes.",
+        settings.DEFAULT_FROM_EMAIL,
+        [email],
+        fail_silently=False,
+    )
+
+
+
+# ------------------------------
+# VERIFY OTP
+# ------------------------------
+@csrf_protect
+def verify_otp(request):
+    data = request.session.get("pending_user")
+
+    if not data:
+        messages.error(request, "Registration session expired.")
+        return redirect("register")
+
+    if time.time() - data["created_at"] > 600:
+        request.session.pop("pending_user", None)
+        messages.error(request, "OTP expired.")
+        return redirect("register")
+
+    if request.method == "POST":
+        otp_input = request.POST.get("otp", "").strip()
+
+        if otp_input != data["otp"]:
+            data["attempts"] += 1
+            request.session["pending_user"] = data
+
+            if data["attempts"] >= 5:
+                request.session.pop("pending_user", None)
+                messages.error(request, "Too many failed attempts.")
+                return redirect("register")
+
+            messages.error(request, "Invalid OTP.")
+            return redirect("verify_otp")
+
+        user = User.objects.create_user(
+            username=data["email"],
+            email=data["email"],
+            password=data["password"],
+            is_active=True,
+        )
+
+        login(request, user)
+        request.session.pop("pending_user", None)
+
+        messages.success(request, "Account verified successfully.")
+        return redirect("wallet")
+
+    return render(request, "store/verify_otp.html")
+
+
+# ------------------------------
+# RESEND OTP
+# ------------------------------
+
+@csrf_protect
+def resend_otp(request):
+    data = request.session.get("pending_user")
+
+    if not data:
+        messages.error(request, "Session expired. Please register again.")
+        return redirect("register")
+
+    if time.time() - data["created_at"] < 30:
+        messages.error(request, "Please wait before requesting a new code.")
+        return redirect("verify_otp")
+
+    resend_count = data.get("resend_count", 0)
+    if resend_count >= 5:
+        request.session.pop("pending_user", None)
+        messages.error(request, "Too many attempts. Register again.")
+        return redirect("register")
+
+    otp = random.randint(100000, 999999)
+
+    data.update({
+        "otp": str(otp),
+        "created_at": int(time.time()),
+        "resend_count": resend_count + 1,
+        "attempts": 0,
+    })
+
+    request.session["pending_user"] = data
+
+    send_otp(data["phone"], data["email"], otp)
+
+    messages.success(request, "New OTP sent.")
+    return redirect("verify_otp")
+
+
+ #------------------------------
+# LOGIN
+# ------------------------------
+
+@csrf_protect
 def custom_login(request):
     if request.method == "POST":
-        identifier = request.POST.get("username", "").strip().lower()
+        email = request.POST.get("username", "").strip().lower()
         password = request.POST.get("password")
 
-        if not identifier or not password:
-            messages.error(request, "Please enter both email/phone and password.")
+        if not email or not password:
+            messages.error(request, "Please enter email and password.")
             return redirect("login")
 
-        user = User.objects.filter(Q(email__iexact=identifier) | Q(phone=identifier)).first()
-        if not user:
-            messages.error(request, "Invalid login details.")
-            return redirect("login")
+        user = authenticate(request, username=email, password=password)
 
-        auth_user = authenticate(request, username=user.username, password=password)
-        if auth_user:
-            login(request, auth_user)
+        if user:
+            login(request, user)
             return redirect("wallet")
 
-        messages.error(request, "Incorrect password.")
+        messages.error(request, "Invalid login credentials.")
         return redirect("login")
 
     return render(request, "store/login.html")
+
 
 
 def custom_logout(request):

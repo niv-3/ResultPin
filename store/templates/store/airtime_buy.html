@@ -8,185 +8,209 @@
 
     <!-- Back Button -->
     <div class="mb-4">
-        <a href="{% url 'service_dashboard' category.slug %}{% if selected_provider %}?provider={{ selected_provider }}{% endif %}" 
-           class="btn btn-outline-secondary">
+        <a href="{% url 'service_dashboard' category.slug %}{% if selected_provider %}?provider={{ selected_provider }}{% endif %}"
+           class="btn btn-outline-secondary btn-sm">
             ← Back to Plans
         </a>
     </div>
 
     <!-- Page Header -->
     <div class="text-center mb-5">
-        <h1 class="fw-bold display-5">Complete Your Purchase</h1>
+        <h1 class="fw-bold display-5 section-title">Buy Airtime</h1>
         <p class="text-muted fs-4">
-            Enter phone number to receive {{ plan.name }} instantly
+            {{ plan.name }} will be sent instantly to your phone
         </p>
     </div>
 
     <!-- PLAN SUMMARY -->
     <div class="row justify-content-center mb-5">
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 rounded-4">
-                <div class="card-body text-center p-5">
-                    {% if provider.logo %}
-                        <img src="{{ provider.logo.url }}" alt="{{ provider.name }}" class="mb-4" style="height:70px; object-fit:contain;">
-                    {% endif %}
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="service-card text-center p-5">
+                {% if provider.logo %}
+                    <img src="{{ provider.logo.url }}" alt="{{ provider.name }}"
+                         class="mb-4" style="height:70px; object-fit:contain;">
+                {% endif %}
 
-                    <h4 class="fw-bold mb-2">{{ plan.name }}</h4>
-                    <p class="text-muted mb-4">{{ provider.name }} • {{ category.name }}</p>
+                <h4 class="fw-bold mb-2">{{ plan.name }}</h4>
+                <p class="text-muted mb-4">{{ provider.name }}</p>
 
-                    <div class="fs-2 fw-bold text-success mb-3">
-                        ₦{{ plan.selling_price|floatformat:0 }}
-                    </div>
-
-                    {% if plan.discount_amount > 0 %}
-                        <span class="badge bg-success fs-5 mb-3">
-                            Save ₦{{ plan.discount_amount|floatformat:0 }}
-                        </span>
-                        <p class="text-muted text-decoration-line-through small">
-                            ₦{{ plan.market_price|floatformat:0 }}
-                        </p>
-                    {% endif %}
-
-                    {% if plan.validity %}
-                        <p class="small text-muted mt-3">Validity: {{ plan.validity }}</p>
-                    {% endif %}
+                <div class="fs-2 fw-bold text-success mb-3">
+                    ₦{{ plan.selling_price|floatformat:0 }}
                 </div>
+
+                {% if plan.discount_amount > 0 %}
+                    <span class="badge bg-success fs-5 mb-3 px-4 py-2 d-block">
+                        Save ₦{{ plan.discount_amount|floatformat:0 }}
+                    </span>
+                    <p class="text-muted text-decoration-line-through small">
+                        ₦{{ plan.market_price|floatformat:0 }}
+                    </p>
+                {% endif %}
+
+                {% if plan.validity %}
+                    <p class="small text-muted mt-3">Validity: {{ plan.validity }}</p>
+                {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- PURCHASE FORM -->
-    <div class="row justify-content-center">
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 rounded-4">
-                <div class="card-body p-5">
+    <!-- PURCHASE SECTION (NO FORM, NO SUBMIT) -->
+    <div id="purchase-box">
+        {% csrf_token %}
 
-                    <form id="purchase-form">
-                        {% csrf_token %}
-
-                        <!-- Phone Number -->
-                        <div class="mb-4">
-                            <label for="phone" class="form-label fw-bold fs-5">
-                                Recipient Phone Number
-                            </label>
-                            <input type="tel" id="phone" name="phone" class="form-control form-control-lg text-center"
-                                   placeholder="e.g. 08012345678" maxlength="11" required>
-                            <div class="form-text mt-2">
-                                Airtime will be delivered instantly to this number
-                            </div>
-                        </div>
-
-                        <!-- Wallet Balance Display -->
-                        <div class="alert alert-info text-center mb-4">
-                            <strong>Your Wallet Balance:</strong> 
-                            <span class="fs-4 fw-bold">₦{{ request.user.balance|floatformat:0 }}</span>
-                        </div>
-
-                        <!-- Payment Method Selection -->
-                        <div class="mb-4">
-                            <label class="form-label fw-bold fs-5">Payment Method</label>
-
-                            <div class="d-grid gap-3">
-                                <!-- Wallet Option -->
-                                <div class="form-check border rounded-3 p-3 {% if request.user.balance < plan.selling_price %}opacity-50{% endif %}">
-                                    <input class="form-check-input" type="radio" name="payment_method" id="pay-wallet" value="wallet"
-                                           {% if request.user.balance >= plan.selling_price %}checked{% endif %}
-                                           {% if request.user.balance < plan.selling_price %}disabled{% endif %}>
-                                    <label class="form-check-label fw-bold d-block" for="pay-wallet">
-                                        <i class="fas fa-wallet text-success me-2"></i> Pay with Wallet Balance
-                                        {% if request.user.balance >= plan.selling_price %}
-                                            <span class="badge bg-success ms-2">Available</span>
-                                        {% else %}
-                                            <small class="text-danger d-block">Insufficient balance (₦{{ request.user.balance|floatformat:0 }} available)</small>
-                                        {% endif %}
-                                    </label>
-                                </div>
-
-                                <!-- Card Option -->
-                                <div class="form-check border rounded-3 p-3">
-                                    <input class="form-check-input" type="radio" name="payment_method" id="pay-card" value="card"
-                                           {% if request.user.balance < plan.selling_price %}checked{% endif %}>
-                                    <label class="form-check-label fw-bold d-block" for="pay-card">
-                                        <i class="fas fa-credit-card text-primary me-2"></i> Pay with Card (Paystack)
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Submit Button -->
-                        <button type="submit" id="pay-button" class="btn btn-success btn-lg w-100 fw-bold py-4 fs-4">
-                            Complete Purchase
-                        </button>
-                    </form>
-
-                </div>
+        <!-- Phone Number -->
+        <div class="mb-4">
+            <label for="phone" class="form-label fw-bold fs-5">
+                Phone Number to Recharge
+            </label>
+            <input
+                type="tel"
+                id="phone"
+                class="form-control form-control-lg text-center fw-bold"
+                placeholder="08012345678"
+                maxlength="11"
+                autocomplete="off">
+            <div class="form-text text-center mt-2">
+                Airtime arrives in seconds!
             </div>
         </div>
+
+        <!-- Wallet Balance -->
+        <div class="alert alert-info text-center py-3 mb-4 rounded-3">
+            <strong class="fs-5">Wallet Balance:</strong><br>
+            <span class="fs-3 fw-bold text-success">
+                ₦{{ request.user.wallet_balance|floatformat:0 }}
+            </span>
+        </div>
+
+        <!-- Payment Methods -->
+        <div class="mb-5">
+            <h5 class="fw-bold text-center mb-4">Choose Payment Method</h5>
+
+            <div class="d-grid gap-3">
+                <label class="form-check border rounded-4 p-4 text-center {% if request.user.wallet_balance < plan.selling_price %}opacity-50{% endif %}">
+                    <input class="form-check-input"
+                           type="radio"
+                           name="payment_method"
+                           value="wallet"
+                           {% if request.user.wallet_balance >= plan.selling_price %}checked{% endif %}
+                           {% if request.user.wallet_balance < plan.selling_price %}disabled{% endif %}>
+                    <div class="mt-3">
+                        <i class="fas fa-wallet fa-2x text-success mb-2"></i><br>
+                        <strong class="fs-5">Pay with Wallet</strong><br>
+                        <small>Instant • No fees</small>
+                    </div>
+                </label>
+
+                <label class="form-check border rounded-4 p-4 text-center">
+                    <input class="form-check-input"
+                           type="radio"
+                           name="payment_method"
+                           value="card"
+                           {% if request.user.wallet_balance < plan.selling_price %}checked{% endif %}>
+                    <div class="mt-3">
+                        <i class="fas fa-credit-card fa-2x text-primary mb-2"></i><br>
+                        <strong class="fs-5">Pay with ATM Card or Transfer</strong><br>
+                        <small>Secure via Paystack</small>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- ACTION BUTTON -->
+        <button
+            type="button"
+            id="pay-button"
+            class="btn btn-success btn-lg w-100 fw-bold py-4 fs-3 shadow">
+            Buy Airtime Now
+        </button>
     </div>
 </div>
-{% endblock %}
-{% block extra_js %}
+
+<!-- PAYMENT SCRIPT (ISOLATED & BULLETPROOF) -->
 <script>
-function getCsrfToken() {
-    return document.querySelector('[name=csrfmiddlewaretoken]').value;
-}
+(function () {
 
-document.getElementById('purchase-form').addEventListener('submit', function(e) {
-    e.preventDefault();
+    const btn = document.getElementById("pay-button");
 
-    const phone = document.getElementById('phone').value.trim();
-    const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
-    const payButton = document.getElementById('pay-button');
+    // HARD BLOCK ENTER KEY (mobile + desktop)
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    }, true);
 
-    // Validate phone number
-    if (!/^0[789][01]\d{8}$/.test(phone)) {
-        alert('Please enter a valid 11-digit Nigerian phone number (e.g., 08012345678)');
-        return;
-    }
+    btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
 
-    payButton.disabled = true;
-    payButton.innerHTML = 'Processing... Please wait';
+        // === DISABLE BUTTON IMMEDIATELY TO PREVENT DOUBLE CLICK ===
+        btn.disabled = true;
+        btn.textContent = "Processing… Please wait";
 
-    // CORRECT: POST + JSON body to the correct URL with plan.id
-    fetch("{% url 'initiate_service_payment' plan.id %}", {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        },
-        body: JSON.stringify({
-            phone: phone,
-            payment_method: paymentMethod
+        const phone = document.getElementById("phone").value.trim();
+        const method = document.querySelector("input[name='payment_method']:checked")?.value;
+
+        if (!phone) {
+            alert("Please enter phone number");
+            resetButton();
+            return;
+        }
+
+        if (!/^0[789][01]\d{8}$/.test(phone)) {
+            alert("Invalid Nigerian number (e.g., 08012345678)");
+            resetButton();
+            return;
+        }
+
+        if (!method) {
+            alert("Please select a payment method");
+            resetButton();
+            return;
+        }
+
+        fetch("{% url 'initiate_service_payment' plan.id %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
+            },
+            body: JSON.stringify({
+                phone: phone,
+                payment_method: method
+            })
         })
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Server error');
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.status) {
-            if (paymentMethod === 'wallet') {
-                // Instant wallet success
-                alert('Purchase successful! Airtime delivered instantly.');
-                window.location.href = '{% url "payment_success" %}';
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === true) {
+                if (data.authorization_url) {
+                    // For card: redirect to Paystack
+                    window.location.href = data.authorization_url;
+                } else if (data.redirect_url) {
+                    // For wallet: redirect to success
+                    window.location.href = data.redirect_url;
+                } else {
+                    // Fallback
+                    window.location.href = "{% url 'payment_success' %}";
+                }
             } else {
-                // Card payment - redirect to Paystack
-                window.location.href = data.authorization_url;
+                throw new Error(data.message || "Transaction failed");
             }
-        } else {
-            alert(data.message || 'Transaction failed. Please try again.');
-            payButton.disabled = false;
-            payButton.innerHTML = 'Complete Purchase';
+        })
+        .catch(err => {
+            alert(err.message || "Network error. Please try again.");
+            resetButton();
+        });
+
+        function resetButton() {
+            btn.disabled = false;
+            btn.textContent = "Buy Airtime Now";
         }
-    })
-    .catch(err => {
-        console.error('Error:', err);
-        alert('Network error. Please check your connection and try again.');
-        payButton.disabled = false;
-        payButton.innerHTML = 'Complete Purchase';
     });
-});
+
+})();
 </script>
 {% endblock %}
