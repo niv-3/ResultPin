@@ -1,0 +1,662 @@
+{% extends "store/base.html" %}
+{% load static %}
+
+{% block title %}ResultPin.ng - Buy JAMB, WAEC, NECO e-PINs Instantly{% endblock %}
+
+{% block extra_css %}
+
+<style>
+
+:root {
+
+    --primary: #0b2c3d;
+
+    --primary-soft: #143e55;
+
+    --accent: #ff6d00;
+
+    --light: #f7f9f8;
+
+    --dark: #0b2c3d;
+
+    --muted: #6b7280;
+
+    --green: #008751; /* added for consistency with base */
+
+}
+
+/* ================= HERO ================= */
+
+.hero {
+
+    position: relative;
+
+    min-height: 60vh;
+
+    background-color: var(--dark);
+
+    color: #fff;
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: space-between;
+
+    padding: 40px 0;
+
+}
+
+.hero::after {
+
+    content: "";
+
+    position: absolute;
+
+    inset: 0;
+
+    background: linear-gradient(to bottom, rgba(11, 44, 61, 0.6), rgba(11, 44, 61, 0.95));
+
+    z-index: 1;
+
+}
+
+/* Better text readability on any background image */
+
+.hero-content h1,
+
+.hero-content p {
+
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+
+}
+
+.hero-top {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    padding: 0 24px;
+
+    position: relative;
+
+    z-index: 2;
+
+}
+
+.hero-logo { height: 80px; }
+
+.hero-links {
+
+    display: flex;
+
+    gap: 15px;
+
+    align-items: center;
+
+}
+
+.nav-link {
+
+    color: #fff;
+
+    font-weight: 500;
+
+    transition: color 0.3s;
+
+    text-decoration: none;
+
+}
+
+.nav-link:hover { color: var(--accent); }
+
+.hero-content {
+
+    position: relative;
+
+    z-index: 2;
+
+    max-width: 700px;
+
+    margin: 0 auto;
+
+    padding: 0 20px;
+
+    text-align: left;
+
+    animation: heroSmooth 5s ease-in-out infinite;
+
+}
+
+@keyframes heroSmooth {
+
+    0%   { opacity: 0; transform: translateY(14px); }
+
+    20%  { opacity: 1; transform: translateY(0); }
+
+    80%  { opacity: 1; transform: translateY(0); }
+
+    100% { opacity: 0; transform: translateY(-14px); }
+
+}
+
+.hero-content h1 {
+
+    font-size: 3.5rem;
+
+    font-weight: 800;
+
+    margin-bottom: 1rem;
+
+}
+
+.hero-content p { font-size: 1.4rem; margin-bottom: 2rem; }
+
+.hero-cta {
+
+    background: var(--accent);
+
+    color: #fff;
+
+    padding: 18px 48px;
+
+    font-size: 1.2rem;
+
+    border-radius: 50px;
+
+    font-weight: 700;
+
+    text-decoration: none;
+
+    display: inline-block;
+
+    transition: 0.3s ease;
+
+}
+
+.hero-cta:hover {
+
+    background: #ff8c1a;
+
+    transform: scale(1.06);
+
+}
+
+.marquee-container {
+
+    background: #fff;
+
+    border-radius: 8px;
+
+    padding: 14px;
+
+    overflow: hidden;
+
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+
+    max-width: 950px;
+
+    width: calc(100% - 40px);
+
+    margin: 0 auto 20px;
+
+    position: relative;
+
+    z-index: 2;
+
+}
+
+.marquee {
+
+    white-space: nowrap;
+
+    animation: scroll 20s linear infinite;
+
+    color: var(--green);
+
+    font-weight: 700;
+
+    font-size: 1.2rem;
+
+}
+
+@keyframes scroll {
+
+    from { transform: translateX(100%); }
+
+    to   { transform: translateX(-100%); }
+
+}
+
+.marquee-container:hover .marquee { animation-play-state: paused; }
+
+.service-card {
+
+    background: #fff;
+
+    border-radius: 18px;
+
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+
+    transition: all 0.3s ease;
+
+}
+
+.service-card:hover {
+
+    transform: translateY(-10px);
+
+    box-shadow: 0 25px 50px rgba(0,0,0,0.18);
+
+}
+
+.service-icon {
+
+    height: 140px;
+
+    object-fit: contain;
+
+    margin: 1.5rem auto;
+
+}
+
+.btn-buy,
+
+.service-card span.btn {
+
+    background: var(--primary);
+
+    color: #fff;
+
+    border-radius: 50px;
+
+    padding: 14px 32px;
+
+    font-weight: 600;
+
+    transition: 0.3s;
+
+}
+
+.btn-buy:hover,
+
+.service-card span.btn:hover {
+
+    background: var(--primary-soft);
+
+}
+
+.faq-container {
+
+    max-width: 700px;
+
+    margin: 30px auto;
+
+    padding: 20px;
+
+    border-radius: 8px;
+
+    background: #f1f5f9;
+
+}
+
+/* ========== MOBILE FIXES ========== */
+
+@media (max-width: 768px) {
+
+    .col-md-4, .col-lg-4 {
+
+        flex: 0 0 50% !important;
+
+        max-width: 50% !important;
+
+    }
+
+    .service-card {
+
+        padding: 16px 12px !important;     /* ← More breathing room */
+
+        border-radius: 14px !important;
+
+    }
+
+    .service-card h5 {
+
+        font-size: 14px !important;        /* ← Slightly larger, easier to read */
+
+        margin-bottom: 4px !important;
+
+    }
+
+    /* Consistent icon size for both <img> and Font Awesome fallbacks */
+
+    .service-card img,
+
+    .service-card i,
+
+    .service-icon {
+
+        width: auto !important;
+
+        height: 90px !important;           /* ← Balanced size for mobile cards */
+
+        margin: 12px auto !important;
+
+        object-fit: contain;
+
+    }
+
+    .service-card .btn {
+
+        width: auto !important;
+
+        min-width: 96px !important;
+
+        padding: 6px 14px !important;
+
+        font-size: 12px !important;
+
+        border-radius: 999px !important;
+
+        margin: 8px auto 0 !important;
+
+        display: inline-flex !important;
+
+        justify-content: center !important;
+
+        align-items: center !important;
+
+        gap: 6px !important;
+
+    }
+
+    /* Mobile hero overrides */
+
+    .hero {
+
+        min-height: 460px !important;
+
+        padding: 0 !important;
+
+        background-size: 72% auto !important;
+
+        background-position: center 12% !important;
+
+        background-repeat: no-repeat !important;
+
+        overflow: hidden !important;
+
+    }
+
+    .hero::before {
+
+        content: "" !important;
+
+        position: absolute !important;
+
+        inset: 0 !important;
+
+        background: rgba(20, 40, 55, 0.45) !important;
+
+        z-index: 1 !important;
+
+    }
+
+    .hero-top {
+
+        position: fixed !important;
+
+        top: 0 !important;
+
+        left: 0 !important;
+
+        right: 0 !important;
+
+        height: 56px !important;
+
+        padding: 8px 12px !important;
+
+        background: rgba(10, 30, 45, 0.96) !important;
+
+        backdrop-filter: blur(6px);
+
+        z-index: 9999 !important;
+
+    }
+
+    .hero-logo { height: 36px !important; }
+
+    .hero-links .nav-link, .hero-links .btn { font-size: 13px !important; }
+
+    .hero-content {
+
+        position: absolute !important;
+
+        left: 16px !important;
+
+        bottom: 20px !important;
+
+        max-width: calc(100% - 32px) !important;
+
+        text-align: left !important;
+
+        z-index: 3 !important;
+
+        margin: 0 !important;
+
+        padding: 0 !important;
+
+    }
+
+    .hero-content h1 { font-size: 20px !important; line-height: 1.25 !important; margin-bottom: 4px !important; }
+
+    .hero-content p { font-size: 13px !important; margin-bottom: 8px !important; opacity: 0.95 !important; }
+
+    .hero-cta { font-size: 13px !important; padding: 9px 18px !important; border-radius: 999px !important; }
+
+    /* Improved marquee visibility on mobile */
+
+    .hero .marquee-container {
+
+        position: absolute !important;
+
+        left: 0 !important;
+
+        right: 0 !important;
+
+        bottom: 0 !important;
+
+        padding: 10px 12px !important;
+
+        text-align: center !important;
+
+        z-index: 2 !important;
+
+        background: rgba(255,255,255,0.95) !important;
+
+        backdrop-filter: blur(4px);
+
+    }
+
+    .hero .marquee {
+
+        font-size: 12.5px !important;
+
+        font-weight: 800;
+
+        color: var(--primary);
+
+    }
+
+}
+/* ================= DESKTOP HERO NAV FIX ================= */
+@media (min-width: 992px) {
+    .hero-top {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 0 24px !important;
+    }
+
+    .hero-links {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 20px !important;
+        align-items: center !important;
+    }
+
+    .hero-links .nav-link,
+    .hero-links .btn {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+    }
+
+    .hero-logo {
+        height: 80px !important;
+    }
+}
+
+
+
+</style>
+
+{% endblock %}
+
+{% block content %}
+    {% if hero %}
+    <section class="hero" {% if hero.background_image %} style="background:url('{{ hero.background_image.url }}') center center / contain no-repeat;" {% endif %}>
+        
+  <!-- HERO TOPBAR (desktop logo only) -->
+<div class="hero-top d-none d-lg-flex">
+    <img src="{% static 'store/images/logo.jpg' %}" class="hero-logo" alt="ResultPin.ng">
+    <!-- Removed hero-links to prevent duplicate nav items -->
+</div>
+
+        <!-- HERO CONTENT -->
+        <div class="hero-content" style="margin: 0; padding-left: 60px; padding-right: 20px; text-align: left; max-width: 800px;">
+            <h1>{{ hero.title }}</h1>
+            <p>{{ hero.subtitle }}</p>
+            <a href="{{ hero.cta_link }}" class="hero-cta">{{ hero.cta_text }}</a>
+        </div>
+
+        <!-- MARQUEE -->
+        <div class="marquee-container">
+            <div class="marquee">
+                Instant Delivery • Secure Paystack Payments • 24/7 Support • Over 50,000+ Happy Students
+            </div>
+        </div>
+
+    </section>
+    {% endif %}
+    <section class="container my-5">
+        <h2 class="section-title text-center mb-2">
+            What Would You Like To Do Today?
+        </h2>
+        <p class="text-center text-muted mb-5">
+            Fast, secure and instant transactions
+        </p>
+
+        <div class="row g-4 justify-content-center">
+            {% for service in services %}
+            <div class="col-12 col-md-4">
+                <a href="{% url 'service_dashboard' service.slug %}" class="text-decoration-none">
+                    <div class="service-card text-center p-4 h-100 d-flex flex-column">
+                        <h5 class="fw-bold text-dark mb-2">{{ service.name }}</h5>
+
+                        {% if service.icon %}
+                            <img src="{{ service.icon.url }}" class="service-icon mx-auto my-2" style="height:80px; width:auto;" alt="{{ service.name }}">
+                        {% else %}
+                            <i class="fas fa-layer-group fa-4x my-2 text-success"></i>
+                        {% endif %}
+
+                        {% if service.short_description %}
+                            <p class="small text-muted px-3 mb-3">{{ service.short_description }}</p>
+                        {% endif %}
+
+                        <span class="btn btn-success mt-auto">Buy Now →</span>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if products %}
+        <div class="row g-4 justify-content-center mt-4">
+            <div class="col-12 col-md-4">
+                <a href="{% url 'exam_pins_page' %}" class="text-decoration-none">
+                    <div class="service-card text-center p-4 h-100 d-flex flex-column">
+                        <i class="fas fa-graduation-cap fa-4x mb-3 text-success"></i>
+                        <p class="small text-muted px-3 mt-auto">
+                            Buy JAMB, WAEC, NECO result checker pins instantly
+                        </p>
+                        <span class="btn btn-success mt-3">Buy Now →</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- New FAQ card (replaces old accordion) -->
+        <div class="row g-4 justify-content-center mt-4">
+            <div class="col-12 col-md-4">
+                <a href="{% url 'faq_page' %}" class="text-decoration-none">
+                    <div class="service-card text-center p-4 h-100 d-flex flex-column">
+                        <i class="fas fa-question-circle fa-4x mb-3 text-primary"></i>
+                        <h5 class="fw-bold text-dark mb-2">Frequently Asked Questions</h5>
+                        
+                        <span class="btn btn-primary mt-auto">View FAQs →</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        {% if not services and not products %}
+        <p class="text-center text-muted">
+            No services available at the moment.
+        </p>
+        {% endif %}
+    </section>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <script>
+    function updatePrice(productId, unitPrice){
+        let qty = parseInt(document.getElementById('quantity-' + productId).value) || 1;
+        document.getElementById('total-' + productId).innerText =
+            (unitPrice * qty).toLocaleString('en-NG',{maximumFractionDigits:0});
+    }
+
+    function payWithPaystack(productId, unitPrice, productDbId){
+        let email = document.getElementById('email-' + productId).value;
+        let phone = document.getElementById('phone-' + productId).value;
+        let quantity = parseInt(document.getElementById('quantity-' + productId).value) || 1;
+        if(!email || !phone){
+            alert("Please enter both email and phone");
+            return;
+        }
+        fetch(`/initiate-payment/${productDbId}/`,{
+            method:'POST',
+            headers:{
+                'X-CSRFToken':'{{ csrf_token }}',
+                'Content-Type':'application/json'
+            },
+            body: JSON.stringify({ email, phone, quantity })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status && data.authorization_url){
+                window.location.href = data.authorization_url;
+            } else {
+                alert(data.message || "Payment initiation failed.");
+            }
+        })
+        .catch(err => alert("Payment error: " + err));
+    }
+    </script>
+{% endblock %}

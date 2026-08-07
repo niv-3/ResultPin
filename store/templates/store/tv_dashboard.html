@@ -1,0 +1,308 @@
+{% extends "store/base.html" %}
+{% load static %}
+
+{% block title %}TV & Cable Subscriptions | ResultPin.ng{% endblock %}
+
+{% block extra_css %}
+<style>
+/* SAME STYLES AS AIRTIME PAGE */
+@media (max-width: 768px) {
+    body { padding-top: 130px; }
+    .container.my-5 { margin-top:1rem!important; margin-bottom:2rem!important; padding:0 12px!important; }
+    .provider-toggle {
+        padding: 16px; border-radius: 16px; cursor: pointer; transition: background 0.3s ease;
+        position: relative; background: #f8f9fa;
+    }
+    .provider-toggle:hover { background: #e9ecef; }
+    .provider-toggle img { height:50px; width:auto; object-fit:contain; }
+    .provider-toggle h5 { font-size:16px; margin:0; }
+    .toggle-icon {
+        position: absolute; right:16px; top:50%; transform:translateY(-50%);
+        font-size:24px; color:#28a745; transition: transform 0.3s ease;
+    }
+    .provider-toggle.collapsed .toggle-icon { transform:translateY(-50%) rotate(-90deg); }
+    .provider-plans { display:none; margin-top:12px; border-radius:16px; overflow:hidden; }
+    .provider-plans.active { display:block; }
+}
+
+@media (min-width: 769px) {
+    .provider-plans { display:block !important; }
+    .provider-toggle { background:#f8f9fa; padding:16px; border-radius:16px; text-align:center; }
+    .provider-toggle img { height:60px; width:auto; object-fit:contain; max-width:160px; }
+    .toggle-icon { display:none; }
+}
+
+.selected-provider { background:#d4edda !important; border:2px solid #28a745 !important; }
+.discount-badge { background:#0d6efd; color:white; font-size:0.8em; }
+.cashback-badge { background:#ff6b00; color:white; font-size:0.8em; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 pb-5">
+
+  {% if user.is_authenticated %}
+    <div class="alert alert-info text-center mb-5 rounded-4 shadow-sm">
+      <strong class="fs-5">Wallet Balance:</strong>
+      <span class="fs-3 fw-bold text-success">
+        ₦{{ request.user.wallet_balance|floatformat:0 }}
+      </span>
+      <a href="{% url 'wallet_fund' %}" class="btn btn-outline-success btn-sm ms-3">
+        <i class="fas fa-plus"></i> Fund Wallet
+      </a>
+    </div>
+  {% endif %}
+
+  {% for provider in providers %}
+    <div class="provider-block mb-4">
+      <div class="card border-0 shadow-sm provider-toggle
+                  {% if selected_provider.id == provider.id %}selected-provider{% endif %}
+                  {% if selected_provider and selected_provider.id != provider.id %}collapsed{% endif %}"
+           data-provider-id="{{ provider.id }}">
+        <div class="d-flex align-items-center justify-content-center position-relative">
+          {% if provider.logo %}
+            <img src="{{ provider.logo.url }}" class="me-3" alt="{{ provider.name }}">
+          {% endif %}
+          <h5 class="fw-bold">{{ provider.name }}</h5>
+          <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+      </div>
+
+      <div class="provider-plans card border-0 shadow-sm
+                  {% if selected_provider.id == provider.id or not selected_provider %}active{% endif %}">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="bg-light">
+              <tr>
+                <th>Package</th>
+                <th class="text-center">Amount</th>
+                <th class="text-center">Benefits</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for plan in plans %}
+                {% if plan.provider == provider %}
+                  <tr>
+                    <td><strong>{{ plan.name }}</strong></td>
+                    <td class="text-center fw-bold text-success">₦{{ plan.selling_price|floatformat:0 }}</td>
+                    <td class="text-center">
+                      {% if plan.discount_amount %}
+                        <span class="badge discount-badge me-1">Save ₦{{ plan.discount_amount|floatformat:0 }}</span>
+                      {% endif %}
+                      {% if plan.reward_amount %}
+                        <span class="badge cashback-badge">+₦{{ plan.reward_amount|floatformat:0 }} cashback</span>
+                      {% endif %}
+                      {% if not plan.discount_amount and not plan.reward_amount %}
+                        <small class="text-muted">—</small>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">
+                      {% if plan.vendor_plan_id %}
+                        <button class="btn btn-success btn-sm"
+                                data-bs-toggle="modal"
+                                data-bs-target="#cableModal"
+                                onclick="setCablePlan({{ plan.id }}, '{{ plan.name|escapejs }}', {{ plan.selling_price }}, {{ plan.vendor_plan_id }})">
+                          Subscribe
+                        </button>
+                      {% else %}
+                        <button class="btn btn-secondary btn-sm" disabled>Missing Config</button>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endif %}
+              {% empty %}
+                <tr>
+                  <td colspan="4" class="text-center text-muted py-4">
+                    No packages available for this provider
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="text-center py-5">
+      <h5 class="text-muted">No TV providers available at this time.</h5>
+    </div>
+  {% endfor %}
+
+</div>
+
+<!-- Cable Subscription Modal -->
+<div class="modal fade" id="cableModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="cableModalTitle">Cable Subscription</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        {% csrf_token %}
+        <p class="text-center fw-bold fs-4 text-success" id="cableModalPrice"></p>
+
+        <div class="mb-3">
+          <label for="smartcard" class="form-label">Smartcard / IUC Number</label>
+          <input type="text" id="smartcard" class="form-control text-center fs-5" placeholder="e.g. 1234567890" required>
+        </div>
+
+        <div class="mb-3">
+          <label for="cablePhone" class="form-label">Phone Number</label>
+          <input type="tel" id="cablePhone" class="form-control text-center fs-5" placeholder="08012345678" maxlength="11" required>
+        </div>
+
+        <div class="mb-4">
+          <label class="fw-bold mb-2">Payment Method</label>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_method" id="pay-wallet" value="wallet">
+            <label class="form-check-label" for="pay-wallet">
+              Wallet Balance
+            </label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_method" id="pay-card" value="card" checked>
+            <label class="form-check-label" for="pay-card">Pay with transfer or card</label>
+          </div>
+        </div>
+
+        <button id="cablePayBtn" class="btn btn-success btn-lg w-100" onclick="submitCablePurchase()">
+          Complete Subscription
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Mobile toggle
+document.addEventListener("DOMContentLoaded", function () {
+    if(window.innerWidth > 768) return;
+    const toggles = document.querySelectorAll(".provider-toggle");
+    toggles.forEach(toggle => {
+        toggle.addEventListener("click", function(e) {
+            const providerId = this.getAttribute("data-provider-id");
+            const targetPlans = this.parentElement.querySelector(".provider-plans");
+            if(this.classList.contains("selected-provider")) {
+                e.preventDefault();
+                this.classList.toggle("collapsed");
+                targetPlans.classList.toggle("active");
+                return;
+            }
+            window.location.href = `?provider=${providerId}`;
+        });
+    });
+});
+
+// Variables
+let internalPlanId = null;
+let vendorPlanId = null;
+const walletBalance = {{ request.user.wallet_balance|default:0 }};  // Pass balance to JS
+
+function setCablePlan(id, name, price, vendorId) {
+    internalPlanId = id;
+    vendorPlanId = vendorId;
+    document.getElementById("cableModalTitle").textContent = name;
+    document.getElementById("cableModalPrice").textContent = "₦" + price.toLocaleString();
+
+    // Reset inputs
+    document.getElementById("smartcard").value = "";
+    document.getElementById("cablePhone").value = "";
+
+    // Wallet option logic
+    const walletRadio = document.getElementById("pay-wallet");
+    const walletLabel = walletRadio.parentElement.querySelector("label");
+
+    if (walletBalance < price) {
+        walletRadio.disabled = true;
+        walletLabel.style.opacity = "0.5";
+        walletLabel.style.cursor = "not-allowed";
+        walletLabel.title = "Insufficient wallet balance";
+
+        if (walletRadio.checked) {
+            document.getElementById("pay-card").checked = true;
+        }
+    } else {
+        walletRadio.disabled = false;
+        walletLabel.style.opacity = "1";
+        walletLabel.style.cursor = "pointer";
+        walletLabel.title = "";
+    }
+}
+
+function submitCablePurchase() {
+    if (submitting || !internalPlanId || !vendorPlanId) {
+        alert("Invalid plan selected");
+        return;
+    }
+
+    const smartcard = document.getElementById("smartcard").value.trim();
+    const phone = document.getElementById("cablePhone").value.trim();
+    const method = document.querySelector('input[name="payment_method"]:checked')?.value;
+
+    if (!smartcard || smartcard.length < 10) {
+        alert("Please enter a valid Smartcard/IUC number");
+        return;
+    }
+    if (!phone || phone.length < 11) {
+        alert("Please enter a valid 11-digit phone number");
+        return;
+    }
+    if (!method) {
+        alert("Please select a payment method");
+        return;
+    }
+
+    // Extra safeguard for wallet
+    if (method === "wallet" && walletBalance < price) {
+        alert("Insufficient wallet balance for this transaction.");
+        return;
+    }
+
+    submitting = true;
+    document.getElementById("cablePayBtn").disabled = true;
+    document.getElementById("cablePayBtn").textContent = "Processing...";
+
+    fetch(`/service/pay/${internalPlanId}/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            phone: phone,
+            smartcard: smartcard,
+            payment_method: method,
+            vendor_plan_id: vendorPlanId,
+            service_type: "cable"
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === true) {
+            if (data.authorization_url) {
+                window.location.href = data.authorization_url;
+            } else {
+                alert(data.message || "Subscription successful!");
+                window.location.reload();
+            }
+        } else {
+            alert(data.message || "Transaction failed");
+        }
+    })
+    .catch(() => {
+        alert("Network error. Please try again.");
+    })
+    .finally(() => {
+        submitting = false;
+        document.getElementById("cablePayBtn").disabled = false;
+        document.getElementById("cablePayBtn").textContent = "Complete Subscription";
+    });
+}
+
+let submitting = false;
+</script>
+{% endblock %}

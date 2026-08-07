@@ -1,0 +1,313 @@
+{% extends "store/base.html" %}
+{% load static %}
+
+{% block title %}Electricity Bill Payment | ResultPin.ng{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Identical styles as cable/airtime pages */
+@media (max-width: 768px) {
+    body { padding-top: 130px; }
+    .container.my-5 { margin-top:1rem!important; margin-bottom:2rem!important; padding:0 12px!important; }
+    .provider-toggle {
+        padding: 16px; border-radius: 16px; cursor: pointer; transition: background 0.3s ease;
+        position: relative; background: #f8f9fa;
+    }
+    .provider-toggle:hover { background: #e9ecef; }
+    .provider-toggle img { height:50px; width:auto; object-fit:contain; }
+    .provider-toggle h5 { font-size:16px; margin:0; }
+    .toggle-icon {
+        position: absolute; right:16px; top:50%; transform:translateY(-50%);
+        font-size:24px; color:#28a745; transition: transform 0.3s ease;
+    }
+    .provider-toggle.collapsed .toggle-icon { transform:translateY(-50%) rotate(-90deg); }
+    .provider-plans { display:none; margin-top:12px; border-radius:16px; overflow:hidden; }
+    .provider-plans.active { display:block; }
+}
+
+@media (min-width: 769px) {
+    .provider-plans { display:block !important; }
+    .provider-toggle { background:#f8f9fa; padding:16px; border-radius:16px; text-align:center; }
+    .provider-toggle img { height:60px; width:auto; object-fit:contain; max-width:160px; }
+    .toggle-icon { display:none; }
+}
+
+.selected-provider { background:#d4edda !important; border:2px solid #28a745 !important; }
+.discount-badge { background:#0d6efd; color:white; font-size:0.8em; }
+.cashback-badge { background:#ff6b00; color:white; font-size:0.8em; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5 pb-5">
+
+  {% if user.is_authenticated %}
+    <div class="alert alert-info text-center mb-5 rounded-4 shadow-sm">
+      <strong class="fs-5">Wallet Balance:</strong>
+      <span class="fs-3 fw-bold text-success">
+        ₦{{ request.user.wallet_balance|floatformat:0 }}
+      </span>
+      <a href="{% url 'wallet_fund' %}" class="btn btn-outline-success btn-sm ms-3">
+        <i class="fas fa-plus"></i> Fund Wallet
+      </a>
+    </div>
+  {% endif %}
+
+  {% for provider in providers %}
+    <div class="provider-block mb-4">
+
+      <div class="card border-0 shadow-sm provider-toggle
+                  {% if selected_provider.id == provider.id %}selected-provider{% endif %}
+                  {% if selected_provider and selected_provider.id != provider.id %}collapsed{% endif %}"
+           data-provider-id="{{ provider.id }}">
+        <div class="d-flex align-items-center justify-content-center position-relative">
+          {% if provider.logo %}
+            <img src="{{ provider.logo.url }}" class="me-3" alt="{{ provider.name }}">
+          {% endif %}
+          <h5 class="fw-bold">{{ provider.name }}</h5>
+          <i class="fas fa-chevron-down toggle-icon"></i>
+        </div>
+      </div>
+
+      <div class="provider-plans card border-0 shadow-sm
+                  {% if selected_provider.id == provider.id or not selected_provider %}active{% endif %}">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="bg-light">
+              <tr>
+                <th>Service</th>
+                <th class="text-center">Amount</th>
+                <th class="text-center">Details</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Prepaid / Postpaid Electricity</strong></td>
+                <td class="text-center fw-bold text-success">Any Amount</td>
+                <td class="text-center">
+                  <small class="text-muted">Instant token delivery</small>
+                </td>
+                <td class="text-end">
+                  <button class="btn btn-success btn-sm"
+                          data-bs-toggle="modal"
+                          data-bs-target="#electricityModal"
+                          onclick="setElectricityPlan({{ provider.id }}, '{{ provider.name|escapejs }}')">
+                    Pay Bill
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  {% empty %}
+    <div class="text-center py-5">
+      <h5 class="text-muted">No electricity providers available at this time.</h5>
+    </div>
+  {% endfor %}
+
+</div>
+
+<!-- Electricity Payment Modal -->
+{% if user.is_authenticated %}
+<div class="modal fade" id="electricityModal" tabindex="-1" aria-labelledby="electricityModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="electricityModalTitle">Electricity Payment</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        {% csrf_token %}
+        <p class="text-center fw-bold fs-4 text-success" id="elecModalPrice">Enter Amount</p>
+
+        <div class="mb-3">
+          <label for="meterNumber" class="form-label">Meter Number</label>
+          <input type="text" id="meterNumber" class="form-control text-center fs-5"
+                 placeholder="12345678901" required>
+        </div>
+
+        <div class="mb-3">
+          <label for="amount" class="form-label">Amount (₦)</label>
+          <input type="number" id="amount" class="form-control text-center fs-5"
+                 min="100" placeholder="1000" required>
+        </div>
+
+        <div class="mb-3">
+          <label for="elecPhone" class="form-label">Phone Number</label>
+          <input type="tel" id="elecPhone" class="form-control text-center fs-5"
+                 placeholder="08012345678" maxlength="11" required>
+        </div>
+
+        <div class="mb-4">
+          <label class="fw-bold mb-2">Meter Type</label>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="meter_type" id="prepaid" value="prepaid" checked>
+            <label class="form-check-label" for="prepaid">Prepaid</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="meter_type" id="postpaid" value="postpaid">
+            <label class="form-check-label" for="postpaid">Postpaid</label>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="fw-bold mb-2">Payment Method</label>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_method" id="pay-wallet-elec" value="wallet">
+            <label class="form-check-label" for="pay-wallet-elec">
+              Wallet (₦{{ request.user.wallet_balance|floatformat:0 }})
+            </label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="payment_method" id="pay-card-elec" value="card" checked>
+            <label class="form-check-label" for="pay-card-elec">Pay with Card / Transfer</label>
+          </div>
+        </div>
+
+        <button id="elecPayBtn" class="btn btn-success btn-lg w-100" onclick="submitElectricityPurchase()">
+          Complete Payment
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Mobile toggle (same as other pages)
+document.addEventListener("DOMContentLoaded", function () {
+    if(window.innerWidth > 768) return;
+    const toggles = document.querySelectorAll(".provider-toggle");
+    toggles.forEach(toggle => {
+        toggle.addEventListener("click", function(e) {
+            const providerId = this.getAttribute("data-provider-id");
+            const targetPlans = this.parentElement.querySelector(".provider-plans");
+            if(this.classList.contains("selected-provider")) {
+                e.preventDefault();
+                this.classList.toggle("collapsed");
+                targetPlans.classList.toggle("active");
+                return;
+            }
+            window.location.href = `?provider=${providerId}`;
+        });
+    });
+});
+
+{% if user.is_authenticated %}
+let discoId = null;
+let discoName = null;
+let submitting = false;
+const walletBalance = {{ request.user.wallet_balance|default:0|floatformat:0 }};
+
+function setElectricityPlan(id, name) {
+    discoId = id;
+    discoName = name;
+    document.getElementById("electricityModalTitle").textContent = name + " Bill Payment";
+    
+    // Reset fields
+    document.getElementById("meterNumber").value = "";
+    document.getElementById("amount").value = "";
+    document.getElementById("elecPhone").value = "";
+    document.getElementById("prepaid").checked = true;
+
+    // Wallet disable logic
+    const walletRadio = document.getElementById("pay-wallet-elec");
+    const walletLabel = walletRadio.nextElementSibling;
+    if (walletBalance < 100) {  // minimal reasonable amount
+        walletRadio.disabled = true;
+        walletLabel.style.opacity = "0.5";
+        walletLabel.style.cursor = "not-allowed";
+        document.getElementById("pay-card-elec").checked = true;
+    } else {
+        walletRadio.disabled = false;
+        walletLabel.style.opacity = "1";
+        walletLabel.style.cursor = "pointer";
+    }
+}
+
+function submitElectricityPurchase() {
+    if (submitting || !discoId) return;
+
+    const meterNumber = document.getElementById("meterNumber").value.trim();
+    const amountStr = document.getElementById("amount").value.trim();
+    const amount = parseFloat(amountStr);
+    const phone = document.getElementById("elecPhone").value.trim();
+    const meterType = document.querySelector('input[name="meter_type"]:checked')?.value;
+    const method = document.querySelector('input[name="payment_method"]:checked')?.value;
+
+    if (!meterNumber || meterNumber.length < 10) {
+        alert("Please enter a valid meter number (min 10 digits)");
+        return;
+    }
+    if (isNaN(amount) || amount < 100) {
+        alert("Please enter a valid amount (minimum ₦100)");
+        return;
+    }
+    if (!phone || phone.length !== 11) {
+        alert("Please enter a valid 11-digit phone number");
+        return;
+    }
+    if (!meterType || !method) {
+        alert("Please select meter type and payment method");
+        return;
+    }
+    if (method === "wallet" && walletBalance < amount) {
+        alert("Insufficient wallet balance");
+        return;
+    }
+
+    submitting = true;
+    document.getElementById("elecPayBtn").disabled = true;
+    document.getElementById("elecPayBtn").textContent = "Processing...";
+
+    fetch(`/service/pay/${discoId}/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            meter_number: meterNumber,
+            disco_id: discoId,
+            amount: amount,
+            phone: phone,
+            meter_type: meterType,
+            payment_method: method,
+            service_type: "electricity"
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === true) {
+            if (data.authorization_url) {
+                window.location.href = data.authorization_url;
+            } else if (data.token) {
+                alert("Payment successful! Token: " + data.token);
+                window.location.reload();
+            } else {
+                alert(data.message || "Payment successful!");
+                window.location.href = data.redirect_url || "/";
+            }
+        } else {
+            alert(data.message || "Transaction failed");
+        }
+    })
+    .catch(() => {
+        alert("Network error. Please try again.");
+    })
+    .finally(() => {
+        submitting = false;
+        document.getElementById("elecPayBtn").disabled = false;
+        document.getElementById("elecPayBtn").textContent = "Complete Payment";
+    });
+}
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "store/base.html" %}
+{% load static %}
+
+{% block title %}Frequently Asked Questions - ResultPin.ng{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h1 class="text-center mb-5" style="color: var(--primary);">Frequently Asked Questions</h1>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            {% for faq in faq_list %}
+            <div class="faq-item mb-4 shadow-sm rounded overflow-hidden">
+                <button class="faq-question w-100 text-start p-4 border-0 fw-bold fs-5" 
+                        style="background: #e2e8f0; color: var(--primary);">
+                    {{ faq.question }}
+                </button>
+                <div class="faq-answer p-4" style="background: #f8fafc; display: none;">
+                    {{ faq.answer|linebreaks }}
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-center text-muted">No FAQs available at the moment.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.faq-question').forEach(btn => {
+    btn.onclick = () => {
+        const answer = btn.nextElementSibling;
+        answer.style.display = answer.style.display === 'block' ? 'none' : 'block';
+    };
+});
+</script>
+{% endblock %}

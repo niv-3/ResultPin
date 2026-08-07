@@ -1,0 +1,138 @@
+{% extends "store/base.html" %}
+{% load static %}
+
+{% block title %}Buy {{ plan.name }} - {{ provider.name }} | ResultPin.ng{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+
+    <!-- Back Button -->
+    <div class="mb-4">
+        <a href="{% url 'service_dashboard' category.slug %}{% if selected_provider %}?provider={{ selected_provider.id }}{% endif %}"
+           class="btn btn-outline-secondary btn-sm">
+            ← Back to Plans
+        </a>
+    </div>
+
+    <!-- Page Header -->
+    <!-- Replace your hardcoded header -->
+<div class="text-center mb-5">
+    <h1 class="fw-bold display-5">
+        Buy {{ plan.provider.category.name|title }}
+    </h1>
+    <p class="text-muted fs-5">
+        {% if plan.provider.category.slug == "airtime" %}
+            {{ plan.name }} will be sent instantly to your phone
+        {% else %}
+            {{ plan.name }} will be activated on your number
+        {% endif %}
+    </p>
+</div>
+
+    <!-- PLAN SUMMARY -->
+    <div class="row justify-content-center mb-5">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm text-center p-5 rounded-4">
+                {% if provider.logo %}
+                    <img src="{{ provider.logo.url }}" alt="{{ provider.name }}"
+                         class="mb-4" style="height:70px; object-fit:contain;">
+                {% endif %}
+
+                <h4 class="fw-bold mb-2">{{ plan.name }}</h4>
+                <p class="text-muted mb-4">{{ provider.name }}</p>
+
+                <div class="fs-2 fw-bold text-success mb-3">
+                    ₦{{ plan.selling_price|floatformat:0 }}
+                </div>
+
+                {% if plan.discount_amount > 0 %}
+                    <span class="badge bg-success fs-6 mb-3 px-4 py-2 d-inline-block">
+                        Save ₦{{ plan.discount_amount|floatformat:0 }}
+                    </span>
+                    <p class="text-muted text-decoration-line-through small">
+                        ₦{{ plan.market_price|floatformat:0 }}
+                    </p>
+                {% endif %}
+
+                {% if plan.validity %}
+                    <p class="small text-muted mt-3">Validity: {{ plan.validity }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- PURCHASE SECTION -->
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+
+            {% csrf_token %}
+
+            <!-- Phone Number -->
+            <div class="mb-4">
+                <label class="form-label fw-bold">Phone Number to Recharge</label>
+                <input type="tel"
+                       id="modal-phone"
+                       class="form-control form-control-lg text-center fw-bold"
+                       placeholder="08012345678"
+                       maxlength="11">
+            </div>
+
+            <!-- Wallet Balance -->
+            <div class="alert alert-info text-center rounded-4 py-3 mb-4">
+                <div class="fw-bold">Wallet Balance</div>
+                <div class="fs-3 fw-bold text-success">
+                    ₦{{ request.user.wallet_balance|floatformat:0 }}
+                </div>
+            </div>
+
+            <!-- Payment Methods -->
+            <div class="mb-5">
+                <h5 class="fw-bold text-center mb-4">Choose Payment Method</h5>
+
+                <div class="d-grid gap-3">
+                    <label class="border rounded-4 p-4 text-center {% if request.user.wallet_balance < plan.selling_price %}opacity-50{% endif %}">
+                        <input type="radio"
+                               name="payment_method"
+                               value="wallet"
+                               {% if request.user.wallet_balance >= plan.selling_price %}checked{% endif %}
+                               {% if request.user.wallet_balance < plan.selling_price %}disabled{% endif %}>
+                        <div class="mt-2 fw-bold">Pay with Wallet</div>
+                    </label>
+
+                    <label class="border rounded-4 p-4 text-center">
+                        <input type="radio"
+                               name="payment_method"
+                               value="card"
+                               {% if request.user.wallet_balance < plan.selling_price %}checked{% endif %}>
+                        <div class="mt-2 fw-bold">Pay with Card</div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- ACTION BUTTON -->
+            <button id="pay-btn"
+                    class="btn btn-success btn-lg w-100 fw-bold py-4 fs-4"
+                    onclick="submitPurchase()">
+                Buy Airtime Now
+            </button>
+
+        </div>
+    </div>
+</div>
+
+<!-- Setup currentPlan for JS -->
+<script>
+    let currentPlan = {
+        planId: {{ plan.id }},
+        name: "{{ plan.name|escapejs }}",
+        price: {{ plan.selling_price }},
+        serviceType: "{{ plan.provider.category.slug|escapejs }}",   // e.g. "airtime" or "internet-data"
+        categorySlug: "{{ plan.provider.category.slug|escapejs }}",  // ← this is the key one we'll use in JS
+        providerId: {{ provider.id }}
+    };
+    let submitting = false;
+</script>
+
+<!-- Load payment.js -->
+<script src="{% static 'js/payment.js' %}"></script>
+{% endblock %}

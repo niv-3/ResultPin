@@ -1,0 +1,276 @@
+{% extends "store/base.html" %}
+{% load static %}
+
+{% block title %}My Wallet - ResultPin.ng{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── COMPACT MODERN WALLET ── */
+:root {
+  --navy: #0b1c2d;
+  --navy-dark: #08141f;
+  --card-bg: rgba(255, 255, 255, 0.94);
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
+  --radius: 14px;
+  --fund-blue: #2563eb;          /* ← new distinct color for Fund button */
+}
+
+body {
+  background: #f5f6f8;
+  padding-top: 85px;             /* ← MAIN FIX: brings content down from under navbar */
+}
+
+/* On smaller screens reduce a bit if your mobile navbar is shorter */
+@media (max-width: 991px) {
+  body {
+    padding-top: 70px;           /* adjust this if mobile navbar is very short/tall */
+  }
+}
+
+/* Compact Cards */
+.wallet-card {
+  background: var(--card-bg);
+  border: 1px solid rgba(230, 230, 230, 0.6);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease;
+  padding: 1.1rem 1rem;
+}
+
+.wallet-card:hover {
+  transform: translateY(-3px);
+}
+
+.stat-card {
+  text-align: center;
+}
+
+.stat-card i {
+  font-size: 1.9rem;
+  color: var(--navy);
+  margin-bottom: 0.6rem;
+}
+
+.stat-card h3 {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0.2rem 0;
+}
+
+.stat-card p {
+  font-size: 0.82rem;
+  color: #6c757d;
+  margin: 0;
+}
+
+/* Action cards */
+.action-card h5 {
+  font-size: 1.05rem;
+  margin-bottom: 0.4rem;
+  color: var(--navy);
+}
+
+.action-card p {
+  font-size: 0.78rem;
+  color: #6c757d;
+  margin-bottom: 0.8rem;
+}
+
+/* Fund button custom color */
+.btn-fund {
+  background-color: var(--fund-blue);
+  border-color: var(--fund-blue);
+  color: white;
+}
+
+.btn-fund:hover {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+/* Transaction table styles (unchanged) */
+.transactions-table {
+  background: white;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.transactions-table thead {
+  background: var(--navy);
+  color: white;
+}
+
+.transactions-table th,
+.transactions-table td {
+  padding: 14px 16px !important;
+}
+
+.transactions-table td.description {
+  max-width: 320px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.transactions-table .badge {
+  padding: 0.4em 0.85em;
+  font-weight: 500;
+  border-radius: 10px;
+  font-size: 0.8rem;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .wallet-card {
+    padding: 0.9rem 0.8rem;
+  }
+
+  .stat-card i {
+    font-size: 1.6rem;
+  }
+
+  .stat-card h3 {
+    font-size: 1.2rem;
+  }
+
+  .stat-card p,
+  .action-card p {
+    font-size: 0.75rem;
+  }
+
+  .action-card h5 {
+    font-size: 0.98rem;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container my-5">
+  <h1 class="text-center mb-5 fw-bold" style="color: var(--navy);">My Wallet</h1>
+
+  <!-- WALLET STATS -->
+  <div class="row g-3 mb-5 justify-content-center wallet-grid">
+    <div class="col-6 col-lg-3">
+      <div class="wallet-card stat-card">
+        <i class="fas fa-wallet"></i>
+        <h3>₦{{ user.wallet_balance|floatformat:2 }}</h3>
+        <p>Balance</p>
+      </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+      <div class="wallet-card stat-card">
+        <i class="fas fa-users"></i>
+        <h3>{{ total_referrals }}</h3>
+        <p>Referrals</p>
+      </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+      <div class="wallet-card stat-card">
+        <i class="fas fa-money-bill-wave"></i>
+        <h3>₦{{ referral_earnings|floatformat:2 }}</h3>
+        <p>Earnings</p>
+      </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+      <div class="wallet-card stat-card">
+        <i class="fas fa-link"></i>
+        <h3>Referral</h3>
+        <p>Share Link</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="row g-3 mb-5 justify-content-center wallet-grid">
+    <div class="col-6 col-lg-3">
+      <div class="wallet-card action-card text-center">
+        <h5>Fund Wallet</h5>
+        <p>Quick top-up</p>
+        <a href="{% url 'wallet_fund' %}" class="btn btn-fund w-100 rounded-pill py-2">
+          Fund
+        </a>
+      </div>
+    </div>
+
+    <div class="col-6 col-lg-3">
+      <div class="wallet-card action-card text-center">
+        <h5>Withdraw</h5>
+        <p>To bank</p>
+        <a href="{% url 'wallet_withdraw' %}" class="btn btn-outline-dark w-100 rounded-pill py-2">
+          Withdraw
+        </a>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="wallet-card action-card text-center">
+        <h5>Referral Link</h5>
+        <div class="input-group input-group-sm mb-2">
+          <input type="text"
+                 class="form-control text-center"
+                 value="{{ request.scheme }}://{{ request.get_host }}?ref={{ user.referral_code }}"
+                 readonly>
+          <button class="btn btn-outline-dark"
+                  type="button"
+                  onclick="navigator.clipboard.writeText(this.previousElementSibling.value); this.innerHTML='Copied!'">
+            Copy
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSACTION HISTORY – completely untouched -->
+  <div class="wallet-card transactions-table">
+    <h5 class="fw-bold mb-4 text-center" style="color: var(--navy);">Transaction History</h5>
+
+    {% if wallet_transactions %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th style="width: 45%;">Description</th>
+              <th>Type</th>
+              <th class="text-end">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for txn in wallet_transactions %}
+            <tr>
+              <td class="text-nowrap">{{ txn.created_at|date:"d M Y" }}</td>
+              <td class="description">{{ txn.description }}</td>
+              <td>
+                <span class="badge {% if txn.transaction_type == 'credit' %}bg-success{% else %}bg-danger{% endif %}">
+                  {{ txn.transaction_type|title }}
+                </span>
+              </td>
+              <td class="text-end fw-bold">
+                {% if txn.transaction_type == 'credit' %}
+                  <span class="text-success">+₦{{ txn.amount|floatformat:2 }}</span>
+                {% else %}
+                  <span class="text-danger">-₦{{ txn.amount|floatformat:2 }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="far fa-folder-open fa-3x mb-3 d-block"></i>
+        <p class="mb-0">No transactions yet</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
