@@ -1,125 +1,477 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <title>Verify Email - ResultPin.ng</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Verify OTP | ResultPin</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <link
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+        rel="stylesheet"
+    >
+
     <style>
-        body {
-            background: linear-gradient(135deg, #008751, #ffffff, #008751);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+
+        :root{
+            --primary:#0b2c3d;
+            --primary-dark:#071a28;
+            --primary-light:#154760;
+            --accent:#ff6d00;
+            --accent-dark:#e86100;
+            --surface:#ffffff;
+            --text:#17212b;
+            --muted:#6b7280;
+            --border:#e6ecef;
         }
-        .card {
-            max-width: 450px;
-            width: 100%;
-            border-radius: 20px;
+
+        *{
+            box-sizing:border-box;
         }
+
+        body{
+            margin:0;
+            min-height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:30px 20px;
+
+            font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    var(--primary-dark),
+                    var(--primary) 55%,
+                    var(--primary-light)
+                );
+
+            position:relative;
+            overflow-x:hidden;
+        }
+
+        body::before{
+            content:"";
+            position:fixed;
+            width:600px;
+            height:600px;
+            border-radius:50%;
+            right:-220px;
+            top:-240px;
+            background:rgba(255,255,255,.035);
+        }
+
+        body::after{
+            content:"";
+            position:fixed;
+            width:380px;
+            height:380px;
+            border-radius:50%;
+            left:-140px;
+            bottom:-160px;
+            background:rgba(255,255,255,.025);
+        }
+
+        .verify-wrapper{
+            width:100%;
+            max-width:470px;
+            position:relative;
+            z-index:2;
+        }
+
+        .verify-brand{
+            text-align:center;
+            margin-bottom:24px;
+        }
+
+        .verify-brand a{
+            color:#fff;
+            font-size:1.45rem;
+            font-weight:800;
+            letter-spacing:-.04em;
+            text-decoration:none;
+        }
+
+        .verify-brand span{
+            color:var(--accent);
+        }
+
+        .verify-card{
+            background:#fff;
+            border-radius:24px;
+            overflow:hidden;
+            box-shadow:0 30px 80px rgba(0,0,0,.25);
+        }
+
+        .verify-header{
+            padding:34px 34px 18px;
+            text-align:center;
+        }
+
+        .verify-icon{
+            width:62px;
+            height:62px;
+            margin:0 auto 18px;
+            border-radius:17px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:#eef4f6;
+            color:var(--primary);
+            font-size:1.4rem;
+        }
+
+        .verify-header h1{
+            color:var(--primary);
+            font-size:1.7rem;
+            font-weight:800;
+            letter-spacing:-.035em;
+            margin-bottom:8px;
+        }
+
+        .verify-header p{
+            color:var(--muted);
+            font-size:.9rem;
+            line-height:1.6;
+            margin:0;
+        }
+
+        .verify-body{
+            padding:12px 34px 34px;
+        }
+
+        .otp-input{
+            height:66px;
+            border:1px solid #dfe6ea;
+            border-radius:14px;
+            text-align:center;
+            font-size:1.8rem;
+            font-weight:800;
+            letter-spacing:10px;
+            color:var(--primary);
+            box-shadow:none!important;
+        }
+
+        .otp-input:focus{
+            border-color:var(--primary);
+            box-shadow:0 0 0 3px rgba(11,44,61,.08)!important;
+        }
+
+        .verify-btn{
+            width:100%;
+            border:0;
+            border-radius:12px;
+            padding:14px 18px;
+            background:var(--accent);
+            color:#fff;
+            font-weight:800;
+            transition:.2s ease;
+        }
+
+        .verify-btn:hover{
+            background:var(--accent-dark);
+            color:#fff;
+            transform:translateY(-1px);
+        }
+
+        .countdown-box{
+            margin-top:22px;
+            padding:13px 15px;
+            border-radius:12px;
+            background:#f5f8fa;
+            text-align:center;
+            color:var(--primary);
+            font-size:.86rem;
+            font-weight:700;
+        }
+
+        .verify-links{
+            margin-top:18px;
+            text-align:center;
+            font-size:.84rem;
+            color:var(--muted);
+        }
+
+        .verify-links a{
+            color:var(--primary);
+            font-weight:700;
+            text-decoration:none;
+        }
+
+        .verify-links a:hover{
+            color:var(--accent);
+        }
+
+        .alert{
+            border:0;
+            border-radius:12px;
+            font-size:.85rem;
+        }
+
+        .back-home{
+            margin-top:20px;
+            text-align:center;
+        }
+
+        .back-home a{
+            color:rgba(255,255,255,.72);
+            font-size:.82rem;
+            font-weight:600;
+            text-decoration:none;
+        }
+
+        .back-home a:hover{
+            color:#fff;
+        }
+
+        @media(max-width:576px){
+
+            body{
+                padding:22px 16px;
+            }
+
+            .verify-card{
+                border-radius:20px;
+            }
+
+            .verify-header{
+                padding:28px 24px 18px;
+            }
+
+            .verify-body{
+                padding:10px 24px 28px;
+            }
+
+            .otp-input{
+                font-size:1.5rem;
+                letter-spacing:7px;
+            }
+
+        }
+
     </style>
 </head>
+
 <body>
 
-<div class="card shadow-lg">
-    <div class="card-body p-5 text-center">
-        <h2 class="text-white bg-success py-3 rounded mb-4">
-            Verify Your Email
-        </h2>
+<div class="verify-wrapper">
 
-        {% if messages %}
-            {% for msg in messages %}
-                <div class="alert alert-{{ msg.tags|default:'danger' }} fw-bold alert-dismissible fade show">
-                    {{ msg }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
+    <div class="verify-brand">
 
-        <p class="text-muted mb-4">
-            We sent a 6-digit code to your email.<br>
-            <small>Check spam folder if not in inbox</small>
-        </p>
+        <a href="{% url 'home' %}">
+            Result<span>Pin</span>
+        </a>
 
-        <form method="post" action="{% url 'verify_otp' %}">
-            {% csrf_token %}
-            <input
-                type="text"
-                name="otp"
-                id="otp-input"
-                class="form-control text-center fs-3 mb-4"
-                maxlength="6"
-                pattern="[0-9]{6}"
-                inputmode="numeric"
-                autocomplete="one-time-code"
-                placeholder="------"
-                style="letter-spacing: 12px; font-weight: bold;"
-                required
-                autofocus
-            >
+    </div>
 
-            <button type="submit" class="btn btn-success btn-lg w-100 mb-3">
-                Verify & Login
-            </button>
-        </form>
 
-        <div class="mt-4">
-            <p id="countdown" class="fs-5 fw-bold text-danger">
-                Time left: 10:00
-            </p>
+    <div class="verify-card">
+
+        <div class="verify-header">
+
+            <div class="verify-icon">
+                <i class="fas fa-shield-halved"></i>
+            </div>
+
+            <h1>
+                Verify your email
+            </h1>
 
             <p>
+                We sent a 6-digit verification code to your email.
+                Check your spam folder if you don’t see it.
+            </p>
+
+        </div>
+
+
+        <div class="verify-body">
+
+            {% if messages %}
+
+                {% for msg in messages %}
+
+                    <div
+                        class="
+                            alert
+                            alert-{{ msg.tags|default:'danger' }}
+                            fw-semibold
+                            alert-dismissible
+                            fade
+                            show
+                        "
+                    >
+
+                        {{ msg }}
+
+                        <button
+                            type="button"
+                            class="btn-close"
+                            data-bs-dismiss="alert"
+                        ></button>
+
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+
+            <form
+                method="post"
+                action="{% url 'verify_otp' %}"
+            >
+
+                {% csrf_token %}
+
+
+                <input
+                    type="text"
+                    name="otp"
+                    id="otp-input"
+                    class="form-control otp-input mb-4"
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    placeholder="------"
+                    required
+                    autofocus
+                >
+
+
+                <button
+                    type="submit"
+                    class="verify-btn"
+                >
+
+                    Verify & Continue
+
+                    <i class="fas fa-arrow-right ms-1"></i>
+
+                </button>
+
+            </form>
+
+
+            <div
+                id="countdown"
+                class="countdown-box"
+            >
+                Code expires in 10:00
+            </div>
+
+
+            <div class="verify-links">
+
                 <span id="resend-link-wrapper">
-                    <a href="{% url 'resend_otp' %}" id="resend-link" class="text-decoration-none text-muted">
+
+                    <a
+                        href="{% url 'resend_otp' %}"
+                        id="resend-link"
+                    >
                         Resend OTP
                     </a>
+
                 </span>
-                |
-                <a href="{% url 'register' %}" class="text-decoration-none">
-                    ← Change Email
+
+                <span class="mx-2">·</span>
+
+                <a href="{% url 'register' %}">
+                    Change email
                 </a>
-            </p>
+
+            </div>
+
         </div>
+
     </div>
+
+
+    <div class="back-home">
+
+        <a href="{% url 'home' %}">
+            <i class="fas fa-arrow-left me-1"></i>
+            Back to homepage
+        </a>
+
+    </div>
+
 </div>
 
+
+<script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
+</script>
+
 <script>
-    let seconds = 600;
-    const countdown = document.getElementById("countdown");
-    const resendLink = document.getElementById("resend-link");
 
-    resendLink.style.pointerEvents = "none";
-    resendLink.style.opacity = "0.5";
+let remainingSeconds = 600;
 
-    const timer = setInterval(() => {
-        seconds--;
-        const min = String(Math.floor(seconds / 60)).padStart(2, '0');
-        const sec = String(seconds % 60).padStart(2, '0');
+const countdown =
+    document.getElementById("countdown");
 
-        if (seconds <= 0) {
-            clearInterval(timer);
-            countdown.innerText = "OTP expired – request a new one below";
-            countdown.classList.remove("text-danger");
-            countdown.classList.add("text-muted");
-            resendLink.style.pointerEvents = "auto";
-            resendLink.style.opacity = "1";
-        } else {
-            countdown.innerText = `Time left: ${min}:${sec}`;
-            if (seconds <= 30) {
-                resendLink.style.pointerEvents = "auto";
-                resendLink.style.opacity = "1";
-            }
+const resendLink =
+    document.getElementById("resend-link");
+
+
+function updateCountdown(){
+
+    const minutes =
+        Math.floor(
+            remainingSeconds / 60
+        );
+
+    const seconds =
+        remainingSeconds % 60;
+
+
+    countdown.textContent =
+        `Code expires in ${minutes}:${seconds
+            .toString()
+            .padStart(2,"0")}`;
+
+
+    if(remainingSeconds <= 0){
+
+        countdown.textContent =
+            "Verification code may have expired.";
+
+        if(resendLink){
+            resendLink.style.color =
+                "#ff6d00";
         }
-    }, 1000);
 
-    // Auto-submit on 6 digits
-    document.getElementById('otp-input').addEventListener('input', function(e) {
-        this.value = this.value.replace(/\D/g, '');
-        if (this.value.length === 6) {
-            this.form.submit();
-        }
-    });
+        clearInterval(timer);
+
+        return;
+    }
+
+
+    remainingSeconds -= 1;
+
+}
+
+
+updateCountdown();
+
+const timer =
+    setInterval(
+        updateCountdown,
+        1000
+    );
+
 </script>
 
 </body>
+
 </html>

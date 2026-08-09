@@ -1,192 +1,999 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Fund Wallet - ResultPin.ng</title>
+    <title>Fund Wallet | ResultPin</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <link
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+        rel="stylesheet"
+    >
 
     <style>
+
         :root {
-            --green: #008751;
-            --dark: #0b2c3d;
-            --light: #f7f9f8;
+            --primary: #0b2c3d;
+            --primary-dark: #071a28;
+            --primary-light: #154760;
             --accent: #ff6d00;
+            --accent-dark: #e86100;
+            --background: #f5f8fa;
+            --surface: #ffffff;
+            --text: #17212b;
+            --muted: #6b7280;
+            --border: #e6ecef;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
-            background: var(--light);
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--background);
+            color: var(--text);
         }
 
-        .navbar {
-            background: var(--dark);
+
+        /* =========================
+           NAVBAR
+        ========================= */
+
+        .wallet-navbar {
+            width: 100%;
+            min-height: 72px;
+            background: var(--primary);
+            border-bottom: 1px solid rgba(255,255,255,.08);
+            display: flex;
+            align-items: center;
         }
 
-        .card {
-            border: none;
-            border-radius: 16px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        .navbar-shell {
+            width: 94%;
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
         }
 
-        footer {
-            background: var(--dark);
+        .navbar-brand-custom {
             color: #fff;
-            padding: 2rem 0;
-            margin-top: 4rem;
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -.03em;
+            text-decoration: none;
         }
+
+        .navbar-brand-custom span {
+            color: var(--accent);
+        }
+
+        .navbar-actions {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .navbar-user {
+            color: rgba(255,255,255,.7);
+            font-size: .84rem;
+            margin-right: 8px;
+        }
+
+        .navbar-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 13px;
+            border-radius: 9px;
+            color: rgba(255,255,255,.88);
+            font-size: .9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: .2s ease;
+        }
+
+        .navbar-link:hover {
+            background: rgba(255,255,255,.08);
+            color: #fff;
+        }
+
+        .navbar-wallet {
+            background: #fff;
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .navbar-wallet:hover {
+            background: var(--accent);
+            color: #fff;
+        }
+
+
+        /* =========================
+           PAGE
+        ========================= */
+
+        .fund-page {
+            min-height: calc(100vh - 72px);
+            padding: 65px 0 90px;
+        }
+
+        .fund-shell {
+            width: 94%;
+            max-width: 1350px;
+            margin: 0 auto;
+        }
+
+
+        /* =========================
+           HEADER
+        ========================= */
+
+        .fund-header {
+            text-align: center;
+            margin-bottom: 38px;
+        }
+
+        .fund-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            font-size: .75rem;
+            font-weight: 800;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .fund-header h1 {
+            color: var(--primary);
+            font-size: clamp(2.3rem, 4vw, 3.5rem);
+            font-weight: 800;
+            letter-spacing: -.045em;
+            margin-bottom: 12px;
+        }
+
+        .fund-header p {
+            color: var(--muted);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+
+
+        /* =========================
+           MAIN LAYOUT
+        ========================= */
+
+        .fund-grid {
+            display: grid;
+            grid-template-columns: 1fr .8fr;
+            gap: 24px;
+            align-items: stretch;
+            max-width: 1050px;
+            margin: 0 auto;
+        }
+
+        .fund-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 32px;
+        }
+
+        .fund-card-title {
+            color: var(--primary);
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .fund-card-subtitle {
+            color: var(--muted);
+            font-size: .86rem;
+            margin-bottom: 25px;
+        }
+
+
+        /* =========================
+           FORM
+        ========================= */
+
+        .form-label {
+            color: var(--primary);
+            font-size: .8rem;
+            font-weight: 750;
+            margin-bottom: 7px;
+        }
+
+        .amount-wrap {
+            position: relative;
+        }
+
+        .currency-symbol {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary);
+            font-size: 1rem;
+            font-weight: 800;
+        }
+
+        .amount-input {
+            height: 56px;
+            border: 1px solid #dfe6ea;
+            border-radius: 12px;
+            padding: 0 16px 0 42px;
+            font-size: 1.05rem;
+            font-weight: 650;
+            box-shadow: none !important;
+        }
+
+        .amount-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(11,44,61,.08) !important;
+        }
+
+        .minimum-text {
+            display: block;
+            margin-top: 7px;
+            color: var(--muted);
+            font-size: .76rem;
+        }
+
+
+        /* =========================
+           QUICK AMOUNTS
+        ========================= */
+
+        .quick-label {
+            display: block;
+            margin: 24px 0 10px;
+            color: var(--primary);
+            font-size: .8rem;
+            font-weight: 750;
+        }
+
+        .quick-amounts {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 9px;
+        }
+
+        .quick-amount {
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--primary);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: .8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: .2s ease;
+        }
+
+        .quick-amount:hover {
+            border-color: var(--primary);
+            background: #f3f7f8;
+        }
+
+
+        /* =========================
+           BUTTON
+        ========================= */
+
+        .fund-btn {
+            width: 100%;
+            border: 0;
+            border-radius: 12px;
+            padding: 14px 20px;
+            margin-top: 25px;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 800;
+            transition: .2s ease;
+        }
+
+        .fund-btn:hover {
+            background: var(--accent-dark);
+            transform: translateY(-1px);
+        }
+
+        .fund-btn:disabled {
+            opacity: .65;
+        }
+
+
+        /* =========================
+           SUMMARY CARD
+        ========================= */
+
+        .wallet-preview {
+            background:
+                linear-gradient(
+                    135deg,
+                    var(--primary-dark),
+                    var(--primary),
+                    var(--primary-light)
+                );
+
+            color: #fff;
+            border-radius: 24px;
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .wallet-preview::after {
+            content: "";
+            position: absolute;
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.035);
+            right: -80px;
+            top: -100px;
+        }
+
+        .wallet-preview-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .preview-icon {
+            width: 58px;
+            height: 58px;
+            border-radius: 16px;
+            background: rgba(255,255,255,.09);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            font-size: 1.4rem;
+            margin-bottom: 24px;
+        }
+
+        .wallet-preview small {
+            color: rgba(255,255,255,.55);
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-weight: 700;
+        }
+
+        .wallet-preview h3 {
+            font-size: 2.1rem;
+            font-weight: 850;
+            margin: 5px 0 24px;
+        }
+
+        .preview-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: rgba(255,255,255,.76);
+            font-size: .85rem;
+            margin-bottom: 13px;
+        }
+
+        .preview-item i {
+            color: #54d6a3;
+        }
+
+
+        /* =========================
+           FOOTER LINK
+        ========================= */
+
+        .back-link {
+            text-align: center;
+            margin-top: 26px;
+        }
+
+        .back-link a {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--primary);
+            font-size: .83rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .back-link a:hover {
+            color: var(--accent);
+        }
+
+
+        /* =========================
+           MOBILE
+        ========================= */
+
+        @media(max-width: 850px) {
+
+            .fund-grid {
+                grid-template-columns: 1fr;
+            }
+
+        }
+
+        @media(max-width: 768px) {
+
+            .navbar-user {
+                display: none;
+            }
+
+            .navbar-shell {
+                width: 92%;
+            }
+
+            .fund-page {
+                padding: 45px 0 65px;
+            }
+
+            .fund-shell {
+                width: 92%;
+            }
+
+            .fund-card,
+            .wallet-preview {
+                padding: 24px;
+                border-radius: 20px;
+            }
+
+            .quick-amounts {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+        }
+
     </style>
+
 </head>
+
 
 <body>
 
-<!-- NAVBAR -->
-<nav class="navbar navbar-expand-lg navbar-dark">
-    <div class="container">
-        <a class="navbar-brand" href="{% url 'home' %}">
-            <img src="{% static 'store/images/logo.jpg' %}" height="55" alt="ResultPin.ng">
+
+<!-- =========================
+     NAVBAR
+========================= -->
+
+<nav class="wallet-navbar">
+
+    <div class="navbar-shell">
+
+        <a
+            href="{% url 'home' %}"
+            class="navbar-brand-custom"
+        >
+            Result<span>Pin</span>
         </a>
-        <div class="d-flex align-items-center gap-3">
-            <span class="text-white fw-bold">
-                Welcome, {{ user.first_name|default:user.username }}
+
+
+        <div class="navbar-actions">
+
+            <span class="navbar-user">
+                {{ user.first_name|default:user.username }}
             </span>
-            <a href="{% url 'wallet' %}" class="btn btn-outline-light btn-sm">Wallet</a>
-            <a href="{% url 'logout' %}" class="btn btn-outline-light btn-sm">Logout</a>
+
+            <a
+                href="{% url 'wallet' %}"
+                class="navbar-link navbar-wallet"
+            >
+                <i class="fas fa-wallet"></i>
+                Wallet
+            </a>
+
+            <a
+                href="{% url 'logout' %}"
+                class="navbar-link"
+            >
+                Logout
+            </a>
+
         </div>
+
     </div>
+
 </nav>
 
-<div class="container my-5">
 
-    <h1 class="text-center mb-5 fw-bold" style="color: var(--green);">
-        Fund Your Wallet
-    </h1>
 
-    <!-- FUND FORM -->
-    <div class="card p-4 mb-5">
-        <h4 class="fw-bold text-center">Add Funds</h4>
+<!-- =========================
+     PAGE
+========================= -->
 
-        <form id="fund-form">
-            {% csrf_token %}
+<section class="fund-page">
 
-            <div class="mb-3">
-                <label for="amount" class="form-label">Amount (₦)</label>
-                <input 
-                    type="number" 
-                    class="form-control" 
-                    id="amount" 
-                    min="100" 
-                    step="1" 
-                    required 
-                    placeholder="e.g. 1000"
-                >
-                <small class="text-muted">Minimum: ₦100</small>
+<div class="fund-shell">
+
+
+    <div class="fund-header">
+
+        <div class="fund-eyebrow">
+            <i class="fas fa-wallet"></i>
+            Wallet
+        </div>
+
+        <h1>
+            Fund your wallet
+        </h1>
+
+        <p>
+            Add money securely to your wallet and use it
+            across supported digital services.
+        </p>
+
+    </div>
+
+
+
+    <div class="fund-grid">
+
+
+        <!-- =====================
+             FUND FORM
+        ====================== -->
+
+        <div class="fund-card">
+
+            <div class="fund-card-title">
+                Add funds
             </div>
 
-            <button type="submit" class="btn btn-success btn-lg w-100">
-                <i class="fas fa-plus-circle"></i> Fund Now with Paystack
-            </button>
-        </form>
+            <div class="fund-card-subtitle">
+                Enter the amount you want to add to your wallet.
+            </div>
+
+
+            <form id="fund-form">
+
+                {% csrf_token %}
+
+
+                <label
+                    for="amount"
+                    class="form-label"
+                >
+                    Amount
+                </label>
+
+
+                <div class="amount-wrap">
+
+                    <span class="currency-symbol">
+                        ₦
+                    </span>
+
+                    <input
+                        type="number"
+                        id="amount"
+                        class="form-control amount-input"
+                        min="100"
+                        step="1"
+                        placeholder="1000"
+                        required
+                    >
+
+                </div>
+
+                <span class="minimum-text">
+                    Minimum wallet funding amount: ₦100
+                </span>
+
+
+                <span class="quick-label">
+                    Quick amount
+                </span>
+
+                <div class="quick-amounts">
+
+                    <button
+                        type="button"
+                        class="quick-amount"
+                        data-amount="500"
+                    >
+                        ₦500
+                    </button>
+
+                    <button
+                        type="button"
+                        class="quick-amount"
+                        data-amount="1000"
+                    >
+                        ₦1,000
+                    </button>
+
+                    <button
+                        type="button"
+                        class="quick-amount"
+                        data-amount="2000"
+                    >
+                        ₦2,000
+                    </button>
+
+                    <button
+                        type="button"
+                        class="quick-amount"
+                        data-amount="5000"
+                    >
+                        ₦5,000
+                    </button>
+
+                </div>
+
+
+                <button
+                    type="submit"
+                    class="fund-btn"
+                >
+                    <i class="fas fa-credit-card me-1"></i>
+                    Continue to secure payment
+                </button>
+
+            </form>
+
+        </div>
+
+
+
+        <!-- =====================
+             WALLET INFO
+        ====================== -->
+
+        <div class="wallet-preview">
+
+            <div class="wallet-preview-content">
+
+                <div class="preview-icon">
+                    <i class="fas fa-wallet"></i>
+                </div>
+
+                <small>
+                    Current Balance
+                </small>
+
+                <h3>
+                    ₦{{ user.wallet_balance|floatformat:0 }}
+                </h3>
+
+
+                <div class="preview-item">
+                    <i class="fas fa-circle-check"></i>
+                    Secure payment through Paystack
+                </div>
+
+                <div class="preview-item">
+                    <i class="fas fa-circle-check"></i>
+                    Wallet credited after payment verification
+                </div>
+
+                <div class="preview-item">
+                    <i class="fas fa-circle-check"></i>
+                    Use your balance across supported services
+                </div>
+
+            </div>
+
+        </div>
+
+
     </div>
+
+
+    <div class="back-link">
+
+        <a href="{% url 'wallet' %}">
+            <i class="fas fa-arrow-left"></i>
+            Back to wallet
+        </a>
+
+    </div>
+
 
 </div>
 
-<!-- JAVASCRIPT (CSRF SAFE + FULL DEBUG) -->
+</section>
+
+
+
 <script>
+
+
+/* =========================
+   CSRF
+========================= */
+
 function getCSRFToken() {
-    const name = 'csrftoken=';
-    const cookies = document.cookie.split(';');
+
+    const formToken =
+        document.querySelector(
+            "[name=csrfmiddlewaretoken]"
+        )?.value;
+
+    if (formToken) {
+        return formToken;
+    }
+
+
+    const name = "csrftoken=";
+
+    const cookies =
+        document.cookie.split(";");
+
 
     for (let cookie of cookies) {
+
         cookie = cookie.trim();
-        if (cookie.startsWith(name)) {
-            console.log("CSRF token found in cookie");
-            return cookie.substring(name.length);
+
+        if (
+            cookie.startsWith(name)
+        ) {
+
+            return cookie.substring(
+                name.length
+            );
+
         }
+
     }
 
-    console.warn("CSRF token NOT found");
-    return '';
+
+    return "";
 }
+
+
+/* =========================
+   BUTTON RESET
+========================= */
 
 function resetButton() {
-    const button = document.querySelector("#fund-form button[type='submit']");
+
+    const button =
+        document.querySelector(
+            "#fund-form button[type='submit']"
+        );
+
+
     if (button) {
+
         button.disabled = false;
-        button.innerHTML = '<i class="fas fa-plus-circle"></i> Fund Now with Paystack';
+
+        button.innerHTML = `
+            <i class="fas fa-credit-card me-1"></i>
+            Continue to secure payment
+        `;
+
     }
+
 }
 
-window.addEventListener("load", resetButton);
 
-document.getElementById("fund-form").addEventListener("submit", function (e) {
-    e.preventDefault();
+window.addEventListener(
+    "load",
+    resetButton
+);
 
-    const amountInput = document.getElementById("amount").value.trim();
-    const amount = parseFloat(amountInput);
 
-    console.log("Form submitted. Amount:", amount);
+/* =========================
+   QUICK AMOUNTS
+========================= */
 
-    if (!amountInput || amount < 100) {
-        alert("Please enter an amount of ₦100 or more");
-        return;
-    }
+document.querySelectorAll(
+    ".quick-amount"
+).forEach(button => {
 
-    const button = this.querySelector("button[type='submit']");
-    button.disabled = true;
-    button.innerHTML = "Initializing...";
+    button.addEventListener(
+        "click",
+        function () {
 
-    const csrfToken = getCSRFToken();
-    console.log("Using CSRF token:", csrfToken ? "OK" : "MISSING");
+            document.getElementById(
+                "amount"
+            ).value =
+                this.dataset.amount;
 
-    fetch("{% url 'wallet_fund_init' %}", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": csrfToken,
-            "X-Requested-With": "XMLHttpRequest"
-        },
-        body: JSON.stringify({ amount: amount })
-    })
-    .then(response => {
-        console.log("HTTP status:", response.status);
-
-        if (!response.ok) {
-            return response.text().then(text => {
-                console.error("Server returned HTML error:", text.substring(0, 500));
-                throw new Error("HTTP error " + response.status);
-            });
         }
+    );
 
-        return response.json();
-    })
-    .then(data => {
-        console.log("Response JSON:", data);
-
-        if (data.status && data.data && data.data.authorization_url) {
-            button.innerHTML = "Redirecting...";
-            window.location.href = data.data.authorization_url;
-        } else {
-            alert(data.message || "Invalid response");
-            resetButton();
-        }
-    })
-    .catch(err => {
-        console.error("Fetch failed:", err);
-        alert("Network or server error — check browser console (F12)");
-        resetButton();
-    });
 });
+
+
+/* =========================
+   FUND WALLET
+========================= */
+
+document.getElementById(
+    "fund-form"
+).addEventListener(
+    "submit",
+    function (event) {
+
+        event.preventDefault();
+
+
+        const amountInput =
+            document.getElementById(
+                "amount"
+            ).value.trim();
+
+
+        const amount =
+            parseFloat(
+                amountInput
+            );
+
+
+        if (
+            !amountInput ||
+            amount < 100
+        ) {
+
+            alert(
+                "Please enter an amount of ₦100 or more."
+            );
+
+            return;
+        }
+
+
+        const button =
+            this.querySelector(
+                "button[type='submit']"
+            );
+
+
+        button.disabled = true;
+
+        button.innerHTML = `
+            <i class="fas fa-spinner fa-spin me-2"></i>
+            Initializing payment...
+        `;
+
+
+        const csrfToken =
+            getCSRFToken();
+
+
+        if (!csrfToken) {
+
+            alert(
+                "Unable to verify this request. Please refresh the page."
+            );
+
+            resetButton();
+
+            return;
+        }
+
+
+        fetch(
+            "{% url 'wallet_fund_init' %}",
+            {
+
+                method: "POST",
+
+                credentials:
+                    "same-origin",
+
+                headers: {
+
+                    "Content-Type":
+                        "application/json",
+
+                    "X-CSRFToken":
+                        csrfToken,
+
+                    "X-Requested-With":
+                        "XMLHttpRequest"
+
+                },
+
+                body: JSON.stringify({
+                    amount: amount
+                })
+
+            }
+        )
+
+        .then(response => {
+
+            if (!response.ok) {
+
+                return response
+                    .text()
+                    .then(text => {
+
+                        console.error(
+                            "Wallet funding error:",
+                            text
+                        );
+
+                        throw new Error(
+                            "HTTP error " +
+                            response.status
+                        );
+
+                    });
+
+            }
+
+
+            return response.json();
+
+        })
+
+        .then(data => {
+
+            if (
+                data.status &&
+                data.data &&
+                data.data.authorization_url
+            ) {
+
+                button.innerHTML = `
+                    <i class="fas fa-spinner fa-spin me-2"></i>
+                    Redirecting...
+                `;
+
+
+                window.location.href =
+                    data.data.authorization_url;
+
+
+                return;
+            }
+
+
+            alert(
+                data.message ||
+                "Unable to initialize payment."
+            );
+
+
+            resetButton();
+
+        })
+
+        .catch(error => {
+
+            console.error(
+                "Wallet funding request failed:",
+                error
+            );
+
+
+            alert(
+                "Network or server error. Please try again."
+            );
+
+
+            resetButton();
+
+        });
+
+    }
+);
+
 </script>
 
-<footer class="text-center">
-    <p>© 2026 ResultPin.ng • Secure Wallet System</p>
-</footer>
 
 </body>
+
 </html>

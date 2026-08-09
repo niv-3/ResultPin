@@ -1,294 +1,1198 @@
 {% extends "store/base.html" %}
 {% load static %}
 
-{% block title %}{{ category.name }} | ResultPin.ng{% endblock %}
+{% block title %}
+{{ category.name }} | ResultPin
+{% endblock %}
 
 {% block extra_css %}
 <style>
-/* =========================================================
-   SERVICE DASHBOARD - Mobile collapsible with toggle icon
-========================================================= */
-@media (max-width: 768px) {
-    body { padding-top: 130px; }
-    .container.my-5 { margin-top:1rem!important; margin-bottom:2rem!important; padding:0 12px!important; }
-    .provider-toggle { padding: 16px; border-radius: 16px; cursor: pointer; transition: background 0.3s ease; position: relative; background: #f8f9fa; }
-    .provider-toggle:hover { background: #e9ecef; }
-    .provider-toggle img { height:50px; width:auto; object-fit:contain; }
-    .provider-toggle h5 { font-size:16px; margin:0; }
-    .toggle-icon { position: absolute; right:16px; top:50%; transform:translateY(-50%); font-size:24px; color:#28a745; transition: transform 0.3s ease; }
-    .provider-toggle.collapsed .toggle-icon { transform:translateY(-50%) rotate(-90deg); }
-    .provider-plans { display:none; margin-top:12px; border-radius:16px; overflow:hidden; }
-    .provider-plans.active { display:block; }
+
+:root{
+    --primary:#0b2c3d;
+    --primary-soft:#143e55;
+    --accent:#ff6d00;
+    --surface:#ffffff;
+    --background:#f5f8fa;
+    --text:#17212b;
+    --muted:#6b7280;
+    --border:#e6ecef;
+    --success:#16885f;
 }
-@media (min-width: 769px) {
-    .provider-plans { display:block !important; }
-    .provider-toggle { background:#f8f9fa; padding:16px; border-radius:16px; text-align:center; }
-    .provider-toggle img { height:60px; width:auto; object-fit:contain; max-width:160px; }
-    .toggle-icon { display:none; }
+
+.service-page{
+    background:var(--background);
+    min-height:100vh;
 }
-.selected-provider { background:#d4edda !important; border:2px solid #28a745 !important; }
-.discount-badge { background:#0d6efd; color:white; font-size:0.8em; }
-.cashback-badge { background:#ff6b00; color:white; font-size:0.8em; }
+
+.service-shell{
+    width:94%;
+    max-width:1500px;
+    margin:0 auto;
+    padding:52px 0 80px;
+}
+
+.service-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:30px;
+    margin-bottom:38px;
+}
+
+.service-eyebrow{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    color:var(--accent);
+    font-size:.76rem;
+    font-weight:800;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    margin-bottom:10px;
+}
+
+.service-header h1{
+    color:var(--primary);
+    font-size:clamp(2.3rem,4vw,3.5rem);
+    font-weight:800;
+    letter-spacing:-.045em;
+    margin:0 0 12px;
+}
+
+.service-header p{
+    max-width:650px;
+    color:var(--muted);
+    line-height:1.7;
+    margin:0;
+}
+
+.wallet-card{
+    min-width:250px;
+    background:var(--primary);
+    color:#fff;
+    padding:18px 20px;
+    border-radius:18px;
+}
+
+.wallet-card small{
+    display:block;
+    color:rgba(255,255,255,.58);
+    font-size:.72rem;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-weight:700;
+}
+
+.wallet-card strong{
+    display:block;
+    font-size:1.55rem;
+    margin:4px 0 12px;
+}
+
+.wallet-card a{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    color:#fff;
+    font-size:.8rem;
+    font-weight:700;
+}
+
+.flow-card{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:24px;
+    padding:28px;
+    margin-bottom:26px;
+}
+
+.flow-label{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+}
+
+.flow-number{
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--primary);
+    color:#fff;
+    font-size:.8rem;
+    font-weight:800;
+}
+
+.flow-label h3{
+    margin:0;
+    color:var(--primary);
+    font-size:1.05rem;
+    font-weight:800;
+}
+
+.provider-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:14px;
+}
+
+.provider-option{
+    border:1px solid var(--border);
+    background:#fff;
+    border-radius:16px;
+    padding:18px;
+    cursor:pointer;
+    transition:.2s ease;
+    text-align:center;
+}
+
+.provider-option:hover{
+    border-color:#bac8cf;
+    transform:translateY(-2px);
+}
+
+.provider-option.active{
+    border:2px solid var(--primary);
+    background:#f3f7f8;
+}
+
+.provider-logo{
+    width:58px;
+    height:58px;
+    border-radius:15px;
+    background:#f3f6f8;
+    margin:0 auto 12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.provider-logo img{
+    max-width:44px;
+    max-height:44px;
+    object-fit:contain;
+}
+
+.provider-option strong{
+    display:block;
+    color:var(--primary);
+    font-size:.9rem;
+}
+
+.plan-grid{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:14px;
+}
+
+.plan-card{
+    border:1px solid var(--border);
+    background:#fff;
+    border-radius:16px;
+    padding:18px;
+    cursor:pointer;
+    transition:.2s ease;
+}
+
+.plan-card:hover{
+    border-color:#bac8cf;
+    transform:translateY(-2px);
+}
+
+.plan-card.active{
+    border:2px solid var(--primary);
+    background:#f5f8fa;
+}
+
+.plan-card h4{
+    font-size:.95rem;
+    font-weight:800;
+    color:var(--primary);
+    margin-bottom:8px;
+}
+
+.plan-price{
+    font-size:1.25rem;
+    font-weight:850;
+    color:var(--primary);
+    margin-bottom:10px;
+}
+
+.plan-meta{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+}
+
+.plan-badge{
+    padding:4px 8px;
+    border-radius:999px;
+    font-size:.66rem;
+    font-weight:750;
+}
+
+.discount-badge{
+    background:#edf4ff;
+    color:#2257a6;
+}
+
+.cashback-badge{
+    background:#fff1e7;
+    color:#c45700;
+}
+
+.purchase-panel{
+    display:grid;
+    grid-template-columns:1.2fr .8fr;
+    gap:24px;
+}
+
+.field-label{
+    display:block;
+    font-size:.8rem;
+    font-weight:750;
+    color:var(--primary);
+    margin-bottom:7px;
+}
+
+.purchase-input{
+    height:52px;
+    border:1px solid #dfe6ea;
+    border-radius:12px;
+    padding:0 15px;
+    box-shadow:none !important;
+}
+
+.payment-options{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+}
+
+.payment-choice{
+    position:relative;
+}
+
+.payment-choice input{
+    position:absolute;
+    opacity:0;
+}
+
+.payment-choice label{
+    display:block;
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px;
+    cursor:pointer;
+    min-height:92px;
+    transition:.2s ease;
+}
+
+.payment-choice input:checked + label{
+    border:2px solid var(--primary);
+    background:#f4f8fa;
+}
+
+.payment-choice input:disabled + label{
+    opacity:.45;
+    cursor:not-allowed;
+}
+
+.payment-choice i{
+    color:var(--primary);
+    font-size:1.2rem;
+    margin-bottom:8px;
+}
+
+.payment-choice strong,
+.payment-choice span{
+    display:block;
+}
+
+.payment-choice strong{
+    color:var(--primary);
+    font-size:.86rem;
+}
+
+.payment-choice span{
+    color:var(--muted);
+    font-size:.72rem;
+    margin-top:2px;
+}
+
+.purchase-summary{
+    background:var(--primary);
+    border-radius:18px;
+    color:#fff;
+    padding:24px;
+}
+
+.purchase-summary small{
+    color:rgba(255,255,255,.55);
+    font-size:.72rem;
+    text-transform:uppercase;
+    font-weight:700;
+    letter-spacing:.07em;
+}
+
+.summary-plan{
+    font-size:1.05rem;
+    font-weight:800;
+    margin:6px 0 4px;
+}
+
+.summary-price{
+    font-size:2rem;
+    font-weight:850;
+    margin-bottom:20px;
+}
+
+.summary-placeholder{
+    color:rgba(255,255,255,.55);
+    line-height:1.6;
+    font-size:.9rem;
+}
+
+.purchase-btn{
+    width:100%;
+    border:0;
+    border-radius:12px;
+    padding:14px 18px;
+    margin-top:20px;
+    background:var(--accent);
+    color:#fff;
+    font-weight:800;
+    transition:.2s ease;
+}
+
+.purchase-btn:hover{
+    background:#e86100;
+}
+
+.purchase-btn:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+}
+
+.empty-state{
+    text-align:center;
+    color:var(--muted);
+    padding:35px 10px;
+}
+
+@media(max-width:991px){
+
+    .provider-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .plan-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .purchase-panel{
+        grid-template-columns:1fr;
+    }
+
+}
+
+@media(max-width:768px){
+
+    .service-shell{
+        width:92%;
+        padding:32px 0 55px;
+    }
+
+    .service-header{
+        display:block;
+    }
+
+    .wallet-card{
+        min-width:0;
+        width:100%;
+        margin-top:24px;
+    }
+
+    .provider-grid,
+    .plan-grid{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .flow-card{
+        padding:20px;
+        border-radius:18px;
+    }
+
+    .payment-options{
+        grid-template-columns:1fr;
+    }
+
+}
+
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container my-5 pb-5">
 
-  {% if user.is_authenticated %}
-    <div class="alert alert-info text-center mb-5 rounded-4 shadow-sm">
-      <strong class="fs-5">Wallet Balance:</strong>
-      <span class="fs-3 fw-bold text-success">
-        ₦{{ request.user.wallet_balance|floatformat:0 }}
-      </span>
-      <a href="{% url 'wallet_fund' %}" class="btn btn-outline-success btn-sm ms-3">
-        <i class="fas fa-plus"></i> Fund Wallet
-      </a>
-    </div>
-  {% endif %}
+<section class="service-page">
 
-  {% for provider in providers %}
-    <div class="provider-block mb-4">
-      <div class="card border-0 shadow-sm provider-toggle
-                  {% if selected_provider.id == provider.id %}selected-provider{% endif %}
-                  {% if selected_provider and selected_provider.id != provider.id %}collapsed{% endif %}"
-           data-provider-id="{{ provider.id }}">
-        <div class="d-flex align-items-center justify-content-center position-relative">
-          {% if provider.logo %}
-            <img src="{{ provider.logo.url }}" alt="{{ provider.name }}" class="me-3" loading="lazy">
-          {% endif %}
-          <h5 class="fw-bold">{{ provider.name }}</h5>
-          <i class="fas fa-chevron-down toggle-icon"></i>
+<div class="service-shell">
+
+<div class="service-header">
+
+    <div>
+
+        <div class="service-eyebrow">
+            <i class="fas fa-bolt"></i>
+            Digital Service
         </div>
-      </div>
 
-      <div class="provider-plans card border-0 shadow-sm
-                  {% if selected_provider.id == provider.id or not selected_provider %}active{% endif %}">
-        <div class="table-responsive">
-          <table class="table align-middle mb-0">
-            <thead class="bg-light">
-              <tr>
-                <th>Package</th>
-                <th class="text-center">Amount</th>
-                <th class="text-center">Benefits</th>
-                <th class="text-end">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for plan in plans %}
-                {% if plan.provider == provider %}
-                  <tr>
-                    <td><strong>{{ plan.name }}</strong></td>
-                    <td class="text-center fw-bold text-success">₦{{ plan.selling_price|floatformat:0 }}</td>
-                    <td class="text-center">
-                      {% if plan.discount_amount %}
-                        <span class="badge discount-badge me-1">
-                          Save ₦{{ plan.discount_amount|floatformat:0 }}
-                        </span>
-                      {% endif %}
-                      {% if plan.reward_amount %}
-                        <span class="badge cashback-badge">
-                          +₦{{ plan.reward_amount|floatformat:0 }} cashback
-                        </span>
-                      {% endif %}
-                      {% if not plan.discount_amount and not plan.reward_amount %}
-                        <small class="text-muted">—</small>
-                      {% endif %}
-                    </td>
-                    <td class="text-end">
-                      {% if user.is_authenticated %}
-                        <button class="btn btn-success btn-sm"
-                                data-bs-toggle="modal"
-                                data-bs-target="#purchaseModal"
-                                onclick="setPlan({{ plan.id }}, '{{ plan.name|escapejs }}', {{ plan.selling_price }}, '{{ category.slug }}', {{ provider.id }})">
-                          Buy
-                        </button>
-                      {% else %}
-                        <a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="btn btn-success btn-sm">Buy</a>
-                      {% endif %}
-                    </td>
-                  </tr>
-                {% endif %}
-              {% endfor %}
+        <h1>{{ category.name }}</h1>
 
-              {% if plans|length == 0 %}
-                <tr><td colspan="4" class="text-center text-muted py-4">No plans available</td></tr>
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <p>
+            Choose your provider, select a package, enter the recipient
+            details and pay securely.
+        </p>
+
     </div>
-  {% endfor %}
-
-  {% if providers|length == 0 %}
-    <div class="text-center py-5">
-      <h5 class="text-muted">No providers or plans available at this time.</h5>
-    </div>
-  {% endif %}
-
-</div>
-
-{% if user.is_authenticated %}
-<!-- Purchase Modal -->
-<div class="modal fade" id="purchaseModal" tabindex="-1" aria-labelledby="purchaseModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header bg-success text-white">
-        <h5 class="modal-title" id="modalPlanName"></h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        {% csrf_token %}
-        <input type="hidden" id="modal-service-type" value="">
-        <p class="text-center fw-bold fs-4 text-success" id="modal-plan-price"></p>
-        <div class="mb-3">
-          <label for="modal-phone" class="form-label">Phone Number</label>
-          <input type="tel" id="modal-phone" class="form-control text-center fs-5"
-                 placeholder="08012345678" maxlength="11" required>
-        </div>
-        <div class="mb-4">
-          <label class="fw-bold mb-2">Payment Method</label>
-          <div class="form-check">
-            <input class="form-check-input" type="radio" name="payment_method" id="pay-wallet" value="wallet">
-            <label class="form-check-label" for="pay-wallet">
-              Wallet (₦{{ request.user.wallet_balance|floatformat:0 }})
-            </label>
-          </div>
-          <div class="form-check">
-            <input class="form-check-input" type="radio" name="payment_method" id="pay-card" value="card" checked>
-            <label class="form-check-label" for="pay-card">Pay with Card</label>
-          </div>
-        </div>
-        <button id="pay-btn" class="btn btn-success btn-lg w-100" onclick="submitPurchase()">Complete Purchase</button>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-
-    // Mobile provider toggle
-    if(window.innerWidth <= 768){
-        document.querySelectorAll(".provider-toggle").forEach(toggle => {
-            toggle.addEventListener("click", function(e){
-                const providerId = this.dataset.providerId;
-                const targetPlans = this.parentElement.querySelector(".provider-plans");
-                if(this.classList.contains("selected-provider")){
-                    e.preventDefault();
-                    this.classList.toggle("collapsed");
-                    targetPlans.classList.toggle("active");
-                    return;
-                }
-                window.location.href = `?provider=${providerId}`;
-            });
-        });
-    }
 
     {% if user.is_authenticated %}
-    let currentPlan = null;
-    let submitting = false;
-    const walletBalance = {{ request.user.wallet_balance|default:0|floatformat:0 }};
 
-    // Reliable CSRF token getter
-    function getCSRFToken() {
-        // Try multiple ways to get the token
-        let token = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-        
-        if (!token) {
-            // Fallback: get from cookie
-            const cookieValue = document.cookie
-                .split('; ')
-                .find(row => row.startsWith('csrftoken='));
-            token = cookieValue ? cookieValue.split('=')[1] : null;
-        }
-        return token;
-    }
+    <div class="wallet-card">
 
-    window.setPlan = function(planId, planName, price, serviceType, providerId){
-        currentPlan = { planId, name: planName, price, serviceType, providerId };
-        document.getElementById("modalPlanName").textContent = planName;
-        document.getElementById("modal-plan-price").textContent = "₦" + price.toLocaleString();
-        document.getElementById("modal-service-type").value = serviceType;
+        <small>Wallet Balance</small>
 
-        const walletRadio = document.getElementById("pay-wallet");
-        walletRadio.disabled = walletBalance < price;
-        if(walletBalance >= price){ 
-            walletRadio.checked = true; 
-        } else { 
-            document.getElementById("pay-card").checked = true; 
-        }
+        <strong>
+            ₦{{ request.user.wallet_balance|floatformat:0 }}
+        </strong>
 
-        document.getElementById("modal-phone").value = "";
-    }
+        <a href="{% url 'wallet_fund' %}">
+            <i class="fas fa-plus"></i>
+            Fund Wallet
+        </a>
 
-    window.submitPurchase = function(){
-        if(submitting || !currentPlan) return;
+    </div>
 
-        const phone = document.getElementById("modal-phone").value.trim();
-        const method = document.querySelector('input[name="payment_method"]:checked');
-
-        if(!phone || !/^0\d{10}$/.test(phone)){
-            alert("Please enter a valid 11-digit phone number starting with 0");
-            return;
-        }
-        if(!method){
-            alert("Please select a payment method");
-            return;
-        }
-
-        const csrfToken = getCSRFToken();
-        if (!csrfToken) {
-            alert("CSRF token not found. Please refresh the page.");
-            return;
-        }
-
-        submitting = true;
-        const btn = document.getElementById("pay-btn");
-        btn.disabled = true;
-        btn.textContent = "Processing...";
-
-        const url = `/service/pay/${currentPlan.serviceType}/${currentPlan.planId}/`;
-
-        fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": csrfToken
-            },
-            body: JSON.stringify({
-                phone: phone,
-                payment_method: method.value
-            })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if(data.status){
-                if(data.authorization_url){
-                    window.location.href = data.authorization_url;
-                } else {
-                    alert(data.message || "Purchase successful!");
-                    window.location.href = data.redirect_url || "/";
-                }
-            } else {
-                alert(data.message || "Transaction failed");
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert("Network error. Please try again.");
-        })
-        .finally(() => {
-            submitting = false;
-            btn.disabled = false;
-            btn.textContent = "Complete Purchase";
-        });
-    }
     {% endif %}
-});
+
+</div>
+
+
+<!-- STEP 1 -->
+<div class="flow-card">
+
+    <div class="flow-label">
+
+        <div class="flow-number">1</div>
+
+        <h3>Choose provider</h3>
+
+    </div>
+
+    <div class="provider-grid">
+
+        {% for provider in providers %}
+
+        <div
+            class="provider-option"
+            data-provider-id="{{ provider.id }}"
+            onclick="selectProvider({{ provider.id }}, this)"
+        >
+
+            <div class="provider-logo">
+
+                {% if provider.logo %}
+
+                <img
+                    src="{{ provider.logo.url }}"
+                    alt="{{ provider.name }}"
+                >
+
+                {% else %}
+
+                <i class="fas fa-building"></i>
+
+                {% endif %}
+
+            </div>
+
+            <strong>{{ provider.name }}</strong>
+
+        </div>
+
+        {% empty %}
+
+        <div class="empty-state">
+            No providers available.
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+
+<!-- STEP 2 -->
+<div class="flow-card">
+
+    <div class="flow-label">
+
+        <div class="flow-number">2</div>
+
+        <h3>Choose package</h3>
+
+    </div>
+
+    <div class="plan-grid" id="plan-grid">
+
+        {% for plan in plans %}
+
+        <div
+            class="plan-card"
+            data-provider-id="{{ plan.provider.id }}"
+            data-plan-id="{{ plan.id }}"
+            data-plan-name="{{ plan.name|escapejs }}"
+            data-plan-price="{{ plan.selling_price }}"
+            onclick="
+                selectPlan(
+                    {{ plan.id }},
+                    '{{ plan.name|escapejs }}',
+                    {{ plan.selling_price }},
+                    '{{ category.slug }}',
+                    {{ plan.provider.id }},
+                    this
+                )
+            "
+            style="display:none;"
+        >
+
+            <h4>{{ plan.name }}</h4>
+
+            <div class="plan-price">
+                ₦{{ plan.selling_price|floatformat:0 }}
+            </div>
+
+            <div class="plan-meta">
+
+                {% if plan.discount_amount %}
+
+                <span class="plan-badge discount-badge">
+                    Save ₦{{ plan.discount_amount|floatformat:0 }}
+                </span>
+
+                {% endif %}
+
+                {% if plan.reward_amount %}
+
+                <span class="plan-badge cashback-badge">
+                    +₦{{ plan.reward_amount|floatformat:0 }} cashback
+                </span>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+        {% empty %}
+
+        <div class="empty-state">
+            No packages available.
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+    <div
+        class="empty-state"
+        id="plan-placeholder"
+    >
+        Choose a provider to view available packages.
+    </div>
+
+</div>
+
+
+{% if user.is_authenticated %}
+
+<!-- STEP 3 + PAYMENT -->
+<div class="flow-card">
+
+    <div class="flow-label">
+
+        <div class="flow-number">3</div>
+
+        <h3>Complete purchase</h3>
+
+    </div>
+
+    {% csrf_token %}
+
+    <div class="purchase-panel">
+
+        <div>
+
+            <div class="mb-4">
+
+                <label
+                    for="purchase-phone"
+                    class="field-label"
+                >
+                    Phone Number
+                </label>
+
+                <input
+                    type="tel"
+                    id="purchase-phone"
+                    class="form-control purchase-input"
+                    placeholder="08012345678"
+                    maxlength="11"
+                    autocomplete="tel"
+                >
+
+            </div>
+
+
+            <div>
+
+                <div class="field-label">
+                    Payment Method
+                </div>
+
+                <div class="payment-options">
+
+                    <div class="payment-choice">
+
+                        <input
+                            type="radio"
+                            id="pay-wallet"
+                            name="payment_method"
+                            value="wallet"
+                        >
+
+                        <label for="pay-wallet">
+
+                            <i class="fas fa-wallet"></i>
+
+                            <strong>Wallet</strong>
+
+                            <span>
+                                ₦{{ request.user.wallet_balance|floatformat:0 }}
+                                available
+                            </span>
+
+                        </label>
+
+                    </div>
+
+
+                    <div class="payment-choice">
+
+                        <input
+                            type="radio"
+                            id="pay-card"
+                            name="payment_method"
+                            value="card"
+                            checked
+                        >
+
+                        <label for="pay-card">
+
+                            <i class="fas fa-credit-card"></i>
+
+                            <strong>Card</strong>
+
+                            <span>
+                                Secure card payment
+                            </span>
+
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="purchase-summary">
+
+            <small>Selected Package</small>
+
+            <div
+                class="summary-plan"
+                id="summary-plan"
+            >
+                No package selected
+            </div>
+
+            <div
+                class="summary-price"
+                id="summary-price"
+            >
+                ₦0
+            </div>
+
+            <div
+                class="summary-placeholder"
+                id="summary-message"
+            >
+                Select a provider and package to continue.
+            </div>
+
+            <button
+                id="purchase-btn"
+                class="purchase-btn"
+                type="button"
+                onclick="submitPurchase()"
+                disabled
+            >
+                Complete Purchase
+                <i class="fas fa-arrow-right ms-1"></i>
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% else %}
+
+<div class="flow-card text-center">
+
+    <p class="mb-3">
+        Sign in to complete your purchase.
+    </p>
+
+    <a
+        href="{% url 'login' %}?next={{ request.path|urlencode }}"
+        class="purchase-btn d-inline-block w-auto px-4"
+    >
+        Login to Continue
+    </a>
+
+</div>
+
+{% endif %}
+
+</div>
+
+</section>
+
+{% endblock %}
+
+
+{% block extra_js %}
+
+<script>
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        let selectedProviderId = null;
+        let currentPlan = null;
+        let submitting = false;
+
+        {% if user.is_authenticated %}
+        const walletBalance =
+            {{ request.user.wallet_balance|default:0|floatformat:0 }};
+        {% endif %}
+
+
+        window.selectProvider = function (
+            providerId,
+            element
+        ) {
+
+            selectedProviderId = providerId;
+            currentPlan = null;
+
+            document
+                .querySelectorAll(".provider-option")
+                .forEach(item => {
+                    item.classList.remove("active");
+                });
+
+            element.classList.add("active");
+
+
+            let visiblePlans = 0;
+
+            document
+                .querySelectorAll(".plan-card")
+                .forEach(card => {
+
+                    const cardProviderId =
+                        Number(
+                            card.dataset.providerId
+                        );
+
+                    if (
+                        cardProviderId === providerId
+                    ) {
+
+                        card.style.display = "block";
+                        visiblePlans += 1;
+
+                    } else {
+
+                        card.style.display = "none";
+                        card.classList.remove("active");
+
+                    }
+
+                });
+
+
+            const placeholder =
+                document.getElementById(
+                    "plan-placeholder"
+                );
+
+            if (placeholder) {
+
+                placeholder.style.display =
+                    visiblePlans > 0
+                        ? "none"
+                        : "block";
+
+                if (visiblePlans === 0) {
+
+                    placeholder.textContent =
+                        "No packages are currently available for this provider.";
+
+                }
+
+            }
+
+
+            {% if user.is_authenticated %}
+
+            document.getElementById(
+                "summary-plan"
+            ).textContent =
+                "No package selected";
+
+            document.getElementById(
+                "summary-price"
+            ).textContent =
+                "₦0";
+
+            document.getElementById(
+                "summary-message"
+            ).textContent =
+                "Choose a package to continue.";
+
+            document.getElementById(
+                "purchase-btn"
+            ).disabled = true;
+
+            {% endif %}
+
+        };
+
+
+        window.selectPlan = function (
+            planId,
+            planName,
+            price,
+            serviceType,
+            providerId,
+            element
+        ) {
+
+            if (
+                selectedProviderId !== providerId
+            ) {
+                return;
+            }
+
+            currentPlan = {
+                planId,
+                name: planName,
+                price: Number(price),
+                serviceType,
+                providerId
+            };
+
+
+            document
+                .querySelectorAll(".plan-card")
+                .forEach(card => {
+                    card.classList.remove("active");
+                });
+
+            element.classList.add("active");
+
+
+            {% if user.is_authenticated %}
+
+            document.getElementById(
+                "summary-plan"
+            ).textContent =
+                planName;
+
+            document.getElementById(
+                "summary-price"
+            ).textContent =
+                "₦" +
+                Number(price).toLocaleString();
+
+
+            document.getElementById(
+                "summary-message"
+            ).textContent =
+                "Ready to complete your purchase.";
+
+
+            const walletRadio =
+                document.getElementById(
+                    "pay-wallet"
+                );
+
+
+            walletRadio.disabled =
+                walletBalance < Number(price);
+
+
+            if (
+                walletBalance >= Number(price)
+            ) {
+
+                walletRadio.checked = true;
+
+            } else {
+
+                document.getElementById(
+                    "pay-card"
+                ).checked = true;
+
+            }
+
+
+            document.getElementById(
+                "purchase-btn"
+            ).disabled = false;
+
+            {% endif %}
+
+        };
+
+
+        {% if user.is_authenticated %}
+
+        function getCSRFToken() {
+
+            let token =
+                document.querySelector(
+                    "[name=csrfmiddlewaretoken]"
+                )?.value;
+
+            if (!token) {
+
+                const cookieValue =
+                    document.cookie
+                    .split("; ")
+                    .find(
+                        row =>
+                            row.startsWith(
+                                "csrftoken="
+                            )
+                    );
+
+                token =
+                    cookieValue
+                        ? cookieValue.split("=")[1]
+                        : null;
+
+            }
+
+            return token;
+        }
+
+
+        window.submitPurchase = function () {
+
+            if (
+                submitting ||
+                !currentPlan
+            ) {
+                return;
+            }
+
+
+            const phone =
+                document.getElementById(
+                    "purchase-phone"
+                ).value.trim();
+
+
+            const paymentMethod =
+                document.querySelector(
+                    'input[name="payment_method"]:checked'
+                );
+
+
+            if (
+                !phone ||
+                !/^0\d{10}$/.test(phone)
+            ) {
+
+                alert(
+                    "Please enter a valid 11-digit phone number starting with 0."
+                );
+
+                return;
+            }
+
+
+            if (!paymentMethod) {
+
+                alert(
+                    "Please select a payment method."
+                );
+
+                return;
+            }
+
+
+            const csrfToken =
+                getCSRFToken();
+
+
+            if (!csrfToken) {
+
+                alert(
+                    "Unable to verify this request. Please refresh the page."
+                );
+
+                return;
+            }
+
+
+            submitting = true;
+
+
+            const button =
+                document.getElementById(
+                    "purchase-btn"
+                );
+
+
+            button.disabled = true;
+
+            button.innerHTML = `
+                <i class="fas fa-spinner fa-spin me-2"></i>
+                Processing...
+            `;
+
+
+            const url =
+                `/service/pay/${currentPlan.serviceType}/${currentPlan.planId}/`;
+
+
+            fetch(
+                url,
+                {
+                    method:"POST",
+
+                    headers:{
+                        "Content-Type":
+                            "application/json",
+
+                        "X-CSRFToken":
+                            csrfToken
+                    },
+
+                    body:JSON.stringify({
+                        phone:phone,
+                        payment_method:
+                            paymentMethod.value
+                    })
+                }
+            )
+
+            .then(response => response.json())
+
+            .then(data => {
+
+                if (data.status) {
+
+                    if (
+                        data.authorization_url
+                    ) {
+
+                        window.location.href =
+                            data.authorization_url;
+
+                        return;
+                    }
+
+
+                    alert(
+                        data.message ||
+                        "Purchase successful."
+                    );
+
+
+                    window.location.href =
+                        data.redirect_url ||
+                        "/";
+
+                    return;
+                }
+
+
+                alert(
+                    data.message ||
+                    "Transaction could not be completed."
+                );
+
+            })
+
+            .catch(error => {
+
+                console.error(
+                    "Purchase error:",
+                    error
+                );
+
+                alert(
+                    "Network error. Please try again."
+                );
+
+            })
+
+            .finally(() => {
+
+                submitting = false;
+
+                button.disabled = false;
+
+                button.innerHTML = `
+                    Complete Purchase
+                    <i class="fas fa-arrow-right ms-1"></i>
+                `;
+
+            });
+
+        };
+
+        {% endif %}
+
+    }
+);
+
 </script>
+
 {% endblock %}

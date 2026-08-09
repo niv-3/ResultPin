@@ -1,662 +1,2045 @@
 {% extends "store/base.html" %}
 {% load static %}
 
-{% block title %}ResultPin.ng - Buy JAMB, WAEC, NECO e-PINs Instantly{% endblock %}
+{% block title %}
+ResultPin | Digital Services Platform
+{% endblock %}
+
 
 {% block extra_css %}
 
 <style>
 
-:root {
+:root{
 
-    --primary: #0b2c3d;
-
-    --primary-soft: #143e55;
-
-    --accent: #ff6d00;
-
-    --light: #f7f9f8;
-
-    --dark: #0b2c3d;
-
-    --muted: #6b7280;
-
-    --green: #008751; /* added for consistency with base */
+--primary:#0b2c3d;
+--primary-light:#13435c;
+--accent:#ff6d00;
+--background:#f7f9fb;
+--text:#17212b;
+--muted:#6d7784;
+--border:#e9eef2;
 
 }
 
-/* ================= HERO ================= */
+body{
+background:var(--background);
+}
 
-.hero {
+/* HERO */
 
-    position: relative;
+.hero{
+position:relative;
+overflow:hidden;
+padding:110px 0 90px;
+background:
+linear-gradient(135deg,#071a28,#0b2c3d,#154760);
+color:#fff;
+}
 
-    min-height: 60vh;
+.hero::before{
 
-    background-color: var(--dark);
-
-    color: #fff;
-
-    display: flex;
-
-    flex-direction: column;
-
-    justify-content: space-between;
-
-    padding: 40px 0;
+content:"";
+position:absolute;
+width:700px;
+height:700px;
+border-radius:50%;
+right:-250px;
+top:-250px;
+background:rgba(255,255,255,.04);
 
 }
 
-.hero::after {
+.hero::after{
 
-    content: "";
-
-    position: absolute;
-
-    inset: 0;
-
-    background: linear-gradient(to bottom, rgba(11, 44, 61, 0.6), rgba(11, 44, 61, 0.95));
-
-    z-index: 1;
-
-}
-
-/* Better text readability on any background image */
-
-.hero-content h1,
-
-.hero-content p {
-
-    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+content:"";
+position:absolute;
+width:420px;
+height:420px;
+border-radius:50%;
+left:-120px;
+bottom:-150px;
+background:rgba(255,255,255,.03);
 
 }
 
-.hero-top {
+.hero-content{
 
-    display: flex;
-
-    justify-content: space-between;
-
-    align-items: center;
-
-    padding: 0 24px;
-
-    position: relative;
-
-    z-index: 2;
+position:relative;
+z-index:5;
 
 }
 
-.hero-logo { height: 80px; }
+.hero-badge{
 
-.hero-links {
-
-    display: flex;
-
-    gap: 15px;
-
-    align-items: center;
-
-}
-
-.nav-link {
-
-    color: #fff;
-
-    font-weight: 500;
-
-    transition: color 0.3s;
-
-    text-decoration: none;
+display:inline-flex;
+gap:10px;
+align-items:center;
+padding:8px 18px;
+border-radius:999px;
+background:rgba(255,255,255,.08);
+border:1px solid rgba(255,255,255,.12);
+margin-bottom:22px;
+font-size:.9rem;
 
 }
 
-.nav-link:hover { color: var(--accent); }
+.hero h1{
 
-.hero-content {
-
-    position: relative;
-
-    z-index: 2;
-
-    max-width: 700px;
-
-    margin: 0 auto;
-
-    padding: 0 20px;
-
-    text-align: left;
-
-    animation: heroSmooth 5s ease-in-out infinite;
+font-size:4rem;
+font-weight:800;
+line-height:1.05;
+margin-bottom:22px;
+letter-spacing:-2px;
 
 }
 
-@keyframes heroSmooth {
+.hero p{
 
-    0%   { opacity: 0; transform: translateY(14px); }
-
-    20%  { opacity: 1; transform: translateY(0); }
-
-    80%  { opacity: 1; transform: translateY(0); }
-
-    100% { opacity: 0; transform: translateY(-14px); }
+font-size:1.15rem;
+line-height:1.8;
+color:rgba(255,255,255,.82);
+max-width:600px;
 
 }
 
-.hero-content h1 {
+.hero-buttons{
 
-    font-size: 3.5rem;
-
-    font-weight: 800;
-
-    margin-bottom: 1rem;
-
-}
-
-.hero-content p { font-size: 1.4rem; margin-bottom: 2rem; }
-
-.hero-cta {
-
-    background: var(--accent);
-
-    color: #fff;
-
-    padding: 18px 48px;
-
-    font-size: 1.2rem;
-
-    border-radius: 50px;
-
-    font-weight: 700;
-
-    text-decoration: none;
-
-    display: inline-block;
-
-    transition: 0.3s ease;
+margin-top:35px;
+display:flex;
+gap:15px;
+flex-wrap:wrap;
 
 }
 
-.hero-cta:hover {
+.btn-main{
 
-    background: #ff8c1a;
-
-    transform: scale(1.06);
-
-}
-
-.marquee-container {
-
-    background: #fff;
-
-    border-radius: 8px;
-
-    padding: 14px;
-
-    overflow: hidden;
-
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-
-    max-width: 950px;
-
-    width: calc(100% - 40px);
-
-    margin: 0 auto 20px;
-
-    position: relative;
-
-    z-index: 2;
+background:var(--accent);
+padding:15px 28px;
+border-radius:12px;
+font-weight:700;
+color:#fff;
+transition:.25s;
 
 }
 
-.marquee {
+.btn-main:hover{
 
-    white-space: nowrap;
-
-    animation: scroll 20s linear infinite;
-
-    color: var(--green);
-
-    font-weight: 700;
-
-    font-size: 1.2rem;
+background:#ea6200;
+transform:translateY(-3px);
+color:#fff;
 
 }
 
-@keyframes scroll {
+.btn-outline-hero{
 
-    from { transform: translateX(100%); }
-
-    to   { transform: translateX(-100%); }
-
-}
-
-.marquee-container:hover .marquee { animation-play-state: paused; }
-
-.service-card {
-
-    background: #fff;
-
-    border-radius: 18px;
-
-    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
-
-    transition: all 0.3s ease;
+border:1px solid rgba(255,255,255,.2);
+background:rgba(255,255,255,.06);
+padding:15px 28px;
+border-radius:12px;
+font-weight:600;
+color:#fff;
+backdrop-filter:blur(12px);
 
 }
 
-.service-card:hover {
+.btn-outline-hero:hover{
 
-    transform: translateY(-10px);
-
-    box-shadow: 0 25px 50px rgba(0,0,0,0.18);
-
-}
-
-.service-icon {
-
-    height: 140px;
-
-    object-fit: contain;
-
-    margin: 1.5rem auto;
+background:#fff;
+color:#0b2c3d;
 
 }
 
-.btn-buy,
+/* DASHBOARD */
 
-.service-card span.btn {
+.hero-dashboard{
 
-    background: var(--primary);
-
-    color: #fff;
-
-    border-radius: 50px;
-
-    padding: 14px 32px;
-
-    font-weight: 600;
-
-    transition: 0.3s;
+background:rgba(255,255,255,.08);
+backdrop-filter:blur(16px);
+border:1px solid rgba(255,255,255,.12);
+padding:30px;
+border-radius:24px;
+box-shadow:0 25px 60px rgba(0,0,0,.30);
 
 }
 
-.btn-buy:hover,
+.dashboard-title{
 
-.service-card span.btn:hover {
-
-    background: var(--primary-soft);
-
-}
-
-.faq-container {
-
-    max-width: 700px;
-
-    margin: 30px auto;
-
-    padding: 20px;
-
-    border-radius: 8px;
-
-    background: #f1f5f9;
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:25px;
 
 }
 
-/* ========== MOBILE FIXES ========== */
-
-@media (max-width: 768px) {
-
-    .col-md-4, .col-lg-4 {
-
-        flex: 0 0 50% !important;
-
-        max-width: 50% !important;
-
-    }
-
-    .service-card {
-
-        padding: 16px 12px !important;     /* ← More breathing room */
-
-        border-radius: 14px !important;
-
-    }
-
-    .service-card h5 {
-
-        font-size: 14px !important;        /* ← Slightly larger, easier to read */
-
-        margin-bottom: 4px !important;
-
-    }
-
-    /* Consistent icon size for both <img> and Font Awesome fallbacks */
-
-    .service-card img,
-
-    .service-card i,
-
-    .service-icon {
-
-        width: auto !important;
-
-        height: 90px !important;           /* ← Balanced size for mobile cards */
-
-        margin: 12px auto !important;
-
-        object-fit: contain;
-
-    }
-
-    .service-card .btn {
-
-        width: auto !important;
-
-        min-width: 96px !important;
-
-        padding: 6px 14px !important;
-
-        font-size: 12px !important;
-
-        border-radius: 999px !important;
-
-        margin: 8px auto 0 !important;
-
-        display: inline-flex !important;
-
-        justify-content: center !important;
-
-        align-items: center !important;
-
-        gap: 6px !important;
-
-    }
-
-    /* Mobile hero overrides */
-
-    .hero {
-
-        min-height: 460px !important;
-
-        padding: 0 !important;
-
-        background-size: 72% auto !important;
-
-        background-position: center 12% !important;
-
-        background-repeat: no-repeat !important;
-
-        overflow: hidden !important;
-
-    }
-
-    .hero::before {
-
-        content: "" !important;
-
-        position: absolute !important;
-
-        inset: 0 !important;
-
-        background: rgba(20, 40, 55, 0.45) !important;
-
-        z-index: 1 !important;
-
-    }
-
-    .hero-top {
-
-        position: fixed !important;
-
-        top: 0 !important;
-
-        left: 0 !important;
-
-        right: 0 !important;
-
-        height: 56px !important;
-
-        padding: 8px 12px !important;
-
-        background: rgba(10, 30, 45, 0.96) !important;
-
-        backdrop-filter: blur(6px);
-
-        z-index: 9999 !important;
-
-    }
-
-    .hero-logo { height: 36px !important; }
-
-    .hero-links .nav-link, .hero-links .btn { font-size: 13px !important; }
-
-    .hero-content {
-
-        position: absolute !important;
-
-        left: 16px !important;
-
-        bottom: 20px !important;
-
-        max-width: calc(100% - 32px) !important;
-
-        text-align: left !important;
-
-        z-index: 3 !important;
-
-        margin: 0 !important;
-
-        padding: 0 !important;
-
-    }
-
-    .hero-content h1 { font-size: 20px !important; line-height: 1.25 !important; margin-bottom: 4px !important; }
-
-    .hero-content p { font-size: 13px !important; margin-bottom: 8px !important; opacity: 0.95 !important; }
-
-    .hero-cta { font-size: 13px !important; padding: 9px 18px !important; border-radius: 999px !important; }
-
-    /* Improved marquee visibility on mobile */
-
-    .hero .marquee-container {
-
-        position: absolute !important;
-
-        left: 0 !important;
-
-        right: 0 !important;
-
-        bottom: 0 !important;
-
-        padding: 10px 12px !important;
-
-        text-align: center !important;
-
-        z-index: 2 !important;
-
-        background: rgba(255,255,255,0.95) !important;
-
-        backdrop-filter: blur(4px);
-
-    }
-
-    .hero .marquee {
-
-        font-size: 12.5px !important;
-
-        font-weight: 800;
-
-        color: var(--primary);
-
-    }
+.dashboard-item{
+
+display:flex;
+justify-content:space-between;
+padding:15px 0;
+border-bottom:1px solid rgba(255,255,255,.08);
 
 }
-/* ================= DESKTOP HERO NAV FIX ================= */
-@media (min-width: 992px) {
-    .hero-top {
-        display: flex !important;
-        flex-direction: row !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        padding: 0 24px !important;
-    }
 
-    .hero-links {
-        display: flex !important;
-        flex-direction: row !important;
-        gap: 20px !important;
-        align-items: center !important;
-    }
+.dashboard-item:last-child{
 
-    .hero-links .nav-link,
-    .hero-links .btn {
-        display: inline-flex !important;
-        align-items: center !important;
-        gap: 6px !important;
-    }
+border:none;
 
-    .hero-logo {
-        height: 80px !important;
-    }
+}
+
+/* TRUST */
+
+.trust{
+
+background:#fff;
+padding:26px 0;
+border-bottom:1px solid var(--border);
+
+}
+
+.trust-item{
+
+display:flex;
+align-items:center;
+justify-content:center;
+gap:12px;
+font-weight:600;
+color:#5c6673;
+
+}
+
+.trust-item i{
+
+color:#1ea672;
+
+}
+
+/* SECTION */
+
+.section{
+
+padding:90px 0;
+
+}
+
+.section-title{
+
+font-size:2.6rem;
+font-weight:800;
+text-align:center;
+margin-bottom:15px;
+color:#0b2c3d;
+
+}
+
+.section-sub{
+
+max-width:650px;
+margin:auto;
+text-align:center;
+color:#687380;
+margin-bottom:55px;
+
+}
+
+@media(max-width:768px){
+
+.hero{
+
+padding:70px 0;
+
+}
+
+.hero h1{
+
+font-size:2.6rem;
+
+}
+
+.hero-dashboard{
+
+margin-top:45px;
+
+}
+
+}
+
+/* ===========================
+PREMIUM SERVICE CARDS
+=========================== */
+
+.service-card{
+position:relative;
+display:flex;
+flex-direction:column;
+height:100%;
+min-height:260px;
+padding:28px;
+background:#fff;
+border:1px solid #e6ecef;
+border-radius:22px;
+overflow:hidden;
+transition:
+transform .25s ease,
+box-shadow .25s ease,
+border-color .25s ease;
+}
+
+.service-card::before{
+content:"";
+position:absolute;
+top:0;
+left:0;
+right:0;
+height:4px;
+background:#0b2c3d;
+opacity:0;
+transition:.25s ease;
+}
+
+.service-card:hover{
+transform:translateY(-6px);
+border-color:transparent;
+box-shadow:0 22px 50px rgba(11,44,61,.11);
+}
+
+.service-card:hover::before{
+opacity:1;
+}
+
+.service-card-top{
+display:flex;
+align-items:flex-start;
+justify-content:space-between;
+margin-bottom:28px;
+}
+
+.service-icon{
+width:64px;
+height:64px;
+border-radius:17px;
+display:flex;
+align-items:center;
+justify-content:center;
+background:#f0f5f7;
+}
+
+.service-icon img{
+width:44px;
+height:44px;
+object-fit:contain;
+}
+
+.service-icon i{
+font-size:1.6rem;
+color:#0b2c3d;
+}
+
+.service-status{
+font-size:.7rem;
+font-weight:700;
+color:#16885f;
+background:#eaf8f2;
+padding:6px 10px;
+border-radius:999px;
+}
+
+.service-card-body{
+flex:1;
+}
+
+.service-card h3{
+font-size:1.15rem;
+font-weight:800;
+color:#0b2c3d;
+margin-bottom:10px;
+letter-spacing:-.02em;
+}
+
+.service-card p{
+font-size:.9rem;
+line-height:1.65;
+color:#707b86;
+margin:0;
+max-width:310px;
+}
+
+.service-card-footer{
+display:flex;
+align-items:center;
+justify-content:space-between;
+margin-top:28px;
+padding-top:18px;
+border-top:1px solid #eef2f4;
+font-size:.88rem;
+font-weight:700;
+color:#0b2c3d;
+}
+
+.service-arrow{
+width:34px;
+height:34px;
+display:flex;
+align-items:center;
+justify-content:center;
+border-radius:50%;
+background:#f1f5f7;
+transition:.25s ease;
+}
+
+.service-card:hover .service-arrow{
+background:#ff6d00;
+color:#fff;
+transform:translateX(3px);
 }
 
 
+/* SERVICE PERSONALITY */
 
+.service-airtime .service-icon{
+background:#fff6df;
+}
+
+.service-internet-data .service-icon{
+background:#edf4ff;
+}
+
+.service-cable .service-icon{
+background:#eef8ff;
+}
+
+.service-electricity .service-icon{
+background:#fff1eb;
+}
+
+.service-education .service-icon{
+background:#f2edff;
+}
+
+.service-insurance .service-icon{
+background:#eaf8f2;
+}
+
+
+/* MOBILE */
+
+@media(max-width:768px){
+
+.service-card{
+min-height:230px;
+padding:22px;
+}
+
+.service-icon{
+width:56px;
+height:56px;
+}
+
+.service-icon img{
+width:38px;
+height:38px;
+}
+
+}
+
+/* ===========================
+WHY CHOOSE US
+=========================== */
+
+.why-section{
+background:#eef4f7;
+}
+
+.why-card{
+background:#fff;
+padding:30px;
+border-radius:20px;
+border:1px solid #e4ebef;
+transition:.28s ease;
+}
+
+.why-card:hover{
+transform:translateY(-6px);
+box-shadow:0 18px 40px rgba(11,44,61,.09);
+}
+
+.why-icon{
+width:58px;
+height:58px;
+display:flex;
+align-items:center;
+justify-content:center;
+border-radius:16px;
+background:rgba(255,109,0,.10);
+color:#ff6d00;
+font-size:1.45rem;
+margin-bottom:20px;
+}
+
+.why-card h4{
+font-size:1.05rem;
+font-weight:750;
+color:#0b2c3d;
+margin-bottom:10px;
+}
+
+.why-card p{
+font-size:.9rem;
+line-height:1.65;
+color:#697480;
+margin:0;
+}
+
+.stats-panel{
+background:#0b2c3d;
+color:#fff;
+border-radius:24px;
+padding:38px 25px;
+box-shadow:0 20px 45px rgba(11,44,61,.15);
+}
+
+.stat-value{
+font-size:2rem;
+font-weight:800;
+color:#fff;
+margin-bottom:6px;
+}
+
+.stat-value i{
+color:#ff6d00;
+}
+
+.stat-label{
+font-size:.85rem;
+color:rgba(255,255,255,.65);
+}
+
+@media(max-width:768px){
+
+.why-card{
+padding:22px;
+}
+
+.why-icon{
+width:52px;
+height:52px;
+}
+
+.stats-panel{
+padding:30px 16px;
+}
+
+}
+
+/* ===========================
+PLATFORM SHOWCASE
+=========================== */
+
+.platform-section{
+background:#fff;
+}
+
+.platform-panel{
+position:relative;
+overflow:hidden;
+background:linear-gradient(135deg,#071d2c,#0b2c3d 55%,#124760);
+border-radius:30px;
+padding:70px;
+color:#fff;
+box-shadow:0 25px 60px rgba(11,44,61,.16);
+}
+
+.platform-panel::after{
+content:"";
+position:absolute;
+width:420px;
+height:420px;
+border-radius:50%;
+background:rgba(255,255,255,.035);
+right:-120px;
+top:-160px;
+}
+
+.platform-panel .row{
+position:relative;
+z-index:2;
+}
+
+.platform-badge{
+display:inline-flex;
+align-items:center;
+gap:9px;
+padding:8px 14px;
+background:rgba(255,109,0,.15);
+color:#ff9b52;
+border:1px solid rgba(255,109,0,.25);
+border-radius:999px;
+font-size:.82rem;
+font-weight:700;
+margin-bottom:20px;
+}
+
+.platform-panel h2{
+font-size:2.8rem;
+font-weight:800;
+letter-spacing:-1px;
+max-width:540px;
+margin-bottom:20px;
+}
+
+.platform-panel p{
+color:rgba(255,255,255,.70);
+line-height:1.8;
+max-width:540px;
+}
+
+.platform-features{
+margin:28px 0;
+display:flex;
+flex-direction:column;
+gap:13px;
+}
+
+.platform-feature{
+display:flex;
+align-items:center;
+gap:12px;
+font-size:.95rem;
+}
+
+.platform-feature i{
+width:25px;
+height:25px;
+border-radius:50%;
+display:flex;
+align-items:center;
+justify-content:center;
+background:rgba(31,166,114,.18);
+color:#54d6a3;
+font-size:.7rem;
+}
+
+.platform-btn{
+display:inline-flex;
+align-items:center;
+gap:10px;
+background:#ff6d00;
+color:#fff;
+padding:14px 22px;
+border-radius:12px;
+font-weight:700;
+transition:.25s;
+}
+
+.platform-btn:hover{
+background:#fff;
+color:#0b2c3d;
+transform:translateY(-2px);
+}
+
+
+/* PLATFORM VISUAL */
+
+.platform-visual{
+min-height:380px;
+position:relative;
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+.platform-main-icon{
+width:170px;
+height:170px;
+border-radius:40px;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:4rem;
+color:#fff;
+background:rgba(255,255,255,.08);
+border:1px solid rgba(255,255,255,.12);
+box-shadow:0 25px 60px rgba(0,0,0,.18);
+backdrop-filter:blur(15px);
+}
+
+.platform-card{
+position:absolute;
+background:#fff;
+color:#0b2c3d;
+padding:14px 18px;
+border-radius:15px;
+display:flex;
+align-items:center;
+gap:12px;
+min-width:175px;
+box-shadow:0 15px 35px rgba(0,0,0,.18);
+}
+
+.platform-card strong,
+.platform-card span{
+display:block;
+}
+
+.platform-card strong{
+font-size:.9rem;
+}
+
+.platform-card span{
+font-size:.72rem;
+color:#77818b;
+}
+
+.platform-small-icon{
+width:36px;
+height:36px;
+border-radius:10px;
+background:#fff2e8;
+color:#ff6d00;
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+.platform-card-one{
+top:25px;
+left:5px;
+}
+
+.platform-card-two{
+right:0;
+top:95px;
+}
+
+.platform-card-three{
+bottom:30px;
+right:30px;
+}
+
+.platform-card-four{
+bottom:20px;
+left:15px;
+}
+
+
+@media(max-width:768px){
+
+.platform-panel{
+padding:40px 24px;
+border-radius:22px;
+}
+
+.platform-panel h2{
+font-size:2rem;
+}
+
+.platform-visual{
+min-height:330px;
+margin-top:20px;
+}
+
+.platform-main-icon{
+width:130px;
+height:130px;
+font-size:3rem;
+}
+
+.platform-card{
+min-width:145px;
+padding:11px 13px;
+}
+
+}
+/* EDUCATION VISUAL */
+
+.education-visual{
+min-height:360px;
+position:relative;
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+.edu-main-icon{
+width:170px;
+height:170px;
+border-radius:40px;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:4.5rem;
+color:#fff;
+background:rgba(255,255,255,.08);
+border:1px solid rgba(255,255,255,.12);
+box-shadow:0 25px 60px rgba(0,0,0,.18);
+backdrop-filter:blur(15px);
+}
+
+.edu-card{
+position:absolute;
+background:#fff;
+color:#0b2c3d;
+padding:14px 18px;
+border-radius:15px;
+display:flex;
+align-items:center;
+gap:12px;
+min-width:175px;
+box-shadow:0 15px 35px rgba(0,0,0,.18);
+}
+
+.edu-card strong,
+.edu-card span{
+display:block;
+}
+
+.edu-card strong{
+font-size:.9rem;
+}
+
+.edu-card span{
+font-size:.72rem;
+color:#77818b;
+}
+
+.edu-small-icon{
+width:36px;
+height:36px;
+border-radius:10px;
+background:#fff2e8;
+color:#ff6d00;
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+.edu-card-one{
+top:30px;
+left:10px;
+}
+
+.edu-card-two{
+right:0;
+top:135px;
+}
+
+.edu-card-three{
+bottom:20px;
+left:40px;
+}
+
+
+/* ===========================
+HOW IT WORKS
+=========================== */
+
+.how-section{
+background:#f7f9fb;
+}
+
+.section-eyebrow{
+display:block;
+font-size:.72rem;
+font-weight:800;
+letter-spacing:2px;
+color:#ff6d00;
+margin-bottom:12px;
+}
+
+.step-card{
+position:relative;
+background:#fff;
+border:1px solid #e6ecef;
+border-radius:22px;
+padding:35px;
+height:100%;
+transition:.25s;
+}
+
+.step-card:hover{
+transform:translateY(-6px);
+box-shadow:0 18px 40px rgba(11,44,61,.08);
+}
+
+.step-number{
+position:absolute;
+top:25px;
+right:28px;
+font-size:2.5rem;
+font-weight:800;
+color:#edf1f3;
+}
+
+.step-icon{
+width:58px;
+height:58px;
+border-radius:16px;
+background:#eef5f8;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:1.4rem;
+color:#0b2c3d;
+margin-bottom:25px;
+}
+
+.step-card h4{
+font-size:1.1rem;
+font-weight:750;
+color:#0b2c3d;
+margin-bottom:12px;
+}
+
+.step-card p{
+color:#697480;
+font-size:.9rem;
+line-height:1.7;
+margin:0;
+}
+
+
+/* MOBILE */
+
+@media(max-width:768px){
+
+.education-panel{
+padding:40px 24px;
+border-radius:22px;
+}
+
+.education-panel h2{
+font-size:2rem;
+}
+
+.education-visual{
+min-height:310px;
+margin-top:20px;
+}
+
+.edu-main-icon{
+width:130px;
+height:130px;
+font-size:3.3rem;
+}
+
+.edu-card{
+min-width:150px;
+padding:11px 13px;
+}
+
+.edu-card-one{
+left:0;
+}
+
+.edu-card-two{
+right:0;
+}
+
+.edu-card-three{
+left:10px;
+}
+
+}
+
+/* ===========================
+FAQ
+=========================== */
+
+.faq-section{
+background:#fff;
+}
+
+.faq-shell{
+max-width:850px;
+margin:0 auto;
+}
+
+.accordion-item{
+border:1px solid #e5ebef !important;
+border-radius:14px !important;
+overflow:hidden;
+margin-bottom:14px;
+background:#fff;
+}
+
+.accordion-button{
+font-weight:700;
+color:#0b2c3d;
+padding:20px 22px;
+box-shadow:none !important;
+}
+
+.accordion-button:not(.collapsed){
+background:#f4f8fa;
+color:#0b2c3d;
+}
+
+.accordion-button:focus{
+box-shadow:none;
+border-color:transparent;
+}
+
+.accordion-body{
+color:#68737f;
+line-height:1.7;
+padding:0 22px 22px;
+}
+
+.faq-link{
+display:inline-flex;
+align-items:center;
+gap:8px;
+font-weight:700;
+color:#0b2c3d;
+}
+
+.faq-link:hover{
+color:#ff6d00;
+}
+
+
+/* ===========================
+FINAL CTA
+=========================== */
+
+.final-cta-section{
+background:#f7f9fb;
+padding-top:60px;
+}
+
+.final-cta{
+position:relative;
+overflow:hidden;
+background:
+linear-gradient(135deg,#071a28,#0b2c3d,#154760);
+border-radius:28px;
+padding:55px;
+color:#fff;
+box-shadow:0 25px 60px rgba(11,44,61,.16);
+}
+
+.final-cta::after{
+content:"";
+position:absolute;
+width:350px;
+height:350px;
+border-radius:50%;
+background:rgba(255,255,255,.035);
+right:-100px;
+top:-150px;
+}
+
+.final-cta .row{
+position:relative;
+z-index:2;
+}
+
+.cta-label{
+display:block;
+font-size:.72rem;
+font-weight:800;
+letter-spacing:2px;
+color:#ff9a4c;
+margin-bottom:12px;
+}
+
+.final-cta h2{
+font-size:2.4rem;
+font-weight:800;
+letter-spacing:-1px;
+max-width:700px;
+margin-bottom:15px;
+}
+
+.final-cta p{
+color:rgba(255,255,255,.68);
+max-width:650px;
+margin:0;
+line-height:1.7;
+}
+
+.cta-primary{
+display:inline-flex;
+align-items:center;
+gap:10px;
+background:#ff6d00;
+color:#fff;
+padding:15px 22px;
+border-radius:12px;
+font-weight:700;
+white-space:nowrap;
+transition:.25s;
+}
+
+.cta-primary:hover{
+background:#fff;
+color:#0b2c3d;
+transform:translateY(-2px);
+}
+
+
+/* FINAL MOBILE POLISH */
+
+@media(max-width:768px){
+
+.section{
+padding:65px 0;
+}
+
+.section-title{
+font-size:2rem;
+}
+
+.section-sub{
+margin-bottom:38px;
+}
+
+.service-card{
+padding:20px;
+}
+
+.service-icon{
+width:58px;
+height:58px;
+}
+
+.service-icon img{
+width:40px;
+height:40px;
+}
+
+.final-cta{
+padding:35px 24px;
+text-align:center;
+border-radius:22px;
+}
+
+.final-cta h2{
+font-size:1.9rem;
+}
+
+.cta-primary{
+margin-top:20px;
+}
+
+.accordion-button{
+padding:17px 18px;
+font-size:.95rem;
+}
+
+}
+/* ===========================
+WIDE DESKTOP LAYOUT
+=========================== */
+
+@media (min-width: 1200px){
+
+  .hero > .container,
+  .trust > .container,
+  .section > .container{
+    width:94%;
+    max-width:1600px;
+    margin-left:auto;
+    margin-right:auto;
+  }
+
+  .faq-shell{
+    max-width:1100px;
+  }
+
+  .education-panel,
+  .final-cta,
+  .stats-panel{
+    width:100%;
+  }
+
+}
+
+@media (min-width:1600px){
+
+  .hero > .container,
+  .trust > .container,
+  .section > .container{
+    width:96%;
+    max-width:1750px;
+  }
+
+}
 </style>
 
 {% endblock %}
 
 {% block content %}
-    {% if hero %}
-    <section class="hero" {% if hero.background_image %} style="background:url('{{ hero.background_image.url }}') center center / contain no-repeat;" {% endif %}>
-        
-  <!-- HERO TOPBAR (desktop logo only) -->
-<div class="hero-top d-none d-lg-flex">
-    <img src="{% static 'store/images/logo.jpg' %}" class="hero-logo" alt="ResultPin.ng">
-    <!-- Removed hero-links to prevent duplicate nav items -->
+<section class="hero">
+
+<div class="container">
+
+<div class="row align-items-center">
+
+<div class="col-lg-6 hero-content">
+
+<div class="hero-badge">
+
+<i class="fas fa-bolt"></i>
+
+Modern Digital Services
+
 </div>
 
-        <!-- HERO CONTENT -->
-        <div class="hero-content" style="margin: 0; padding-left: 60px; padding-right: 20px; text-align: left; max-width: 800px;">
-            <h1>{{ hero.title }}</h1>
-            <p>{{ hero.subtitle }}</p>
-            <a href="{{ hero.cta_link }}" class="hero-cta">{{ hero.cta_text }}</a>
-        </div>
+<h1>
 
-        <!-- MARQUEE -->
-        <div class="marquee-container">
-            <div class="marquee">
-                Instant Delivery • Secure Paystack Payments • 24/7 Support • Over 50,000+ Happy Students
-            </div>
-        </div>
+Everything Digital.
 
-    </section>
-    {% endif %}
-    <section class="container my-5">
-        <h2 class="section-title text-center mb-2">
-            What Would You Like To Do Today?
-        </h2>
-        <p class="text-center text-muted mb-5">
-            Fast, secure and instant transactions
-        </p>
+One Platform.
 
-        <div class="row g-4 justify-content-center">
-            {% for service in services %}
-            <div class="col-12 col-md-4">
-                <a href="{% url 'service_dashboard' service.slug %}" class="text-decoration-none">
-                    <div class="service-card text-center p-4 h-100 d-flex flex-column">
-                        <h5 class="fw-bold text-dark mb-2">{{ service.name }}</h5>
+</h1>
 
-                        {% if service.icon %}
-                            <img src="{{ service.icon.url }}" class="service-icon mx-auto my-2" style="height:80px; width:auto;" alt="{{ service.name }}">
-                        {% else %}
-                            <i class="fas fa-layer-group fa-4x my-2 text-success"></i>
-                        {% endif %}
+<p>
 
-                        {% if service.short_description %}
-                            <p class="small text-muted px-3 mb-3">{{ service.short_description }}</p>
-                        {% endif %}
+Buy airtime, mobile data, electricity, cable TV,
+educational products and manage payments from one secure platform.
 
-                        <span class="btn btn-success mt-auto">Buy Now →</span>
-                    </div>
-                </a>
-            </div>
-            {% endfor %}
-        </div>
+</p>
 
-        {% if products %}
-        <div class="row g-4 justify-content-center mt-4">
-            <div class="col-12 col-md-4">
-                <a href="{% url 'exam_pins_page' %}" class="text-decoration-none">
-                    <div class="service-card text-center p-4 h-100 d-flex flex-column">
-                        <i class="fas fa-graduation-cap fa-4x mb-3 text-success"></i>
-                        <p class="small text-muted px-3 mt-auto">
-                            Buy JAMB, WAEC, NECO result checker pins instantly
-                        </p>
-                        <span class="btn btn-success mt-3">Buy Now →</span>
-                    </div>
-                </a>
-            </div>
-        </div>
-        {% endif %}
+<div class="hero-buttons">
 
-        <!-- New FAQ card (replaces old accordion) -->
-        <div class="row g-4 justify-content-center mt-4">
-            <div class="col-12 col-md-4">
-                <a href="{% url 'faq_page' %}" class="text-decoration-none">
-                    <div class="service-card text-center p-4 h-100 d-flex flex-column">
-                        <i class="fas fa-question-circle fa-4x mb-3 text-primary"></i>
-                        <h5 class="fw-bold text-dark mb-2">Frequently Asked Questions</h5>
-                        
-                        <span class="btn btn-primary mt-auto">View FAQs →</span>
-                    </div>
-                </a>
-            </div>
-        </div>
+<a href="#services" class="btn-main">
 
-        {% if not services and not products %}
-        <p class="text-center text-muted">
-            No services available at the moment.
-        </p>
-        {% endif %}
-    </section>
-{% endblock %}
+Explore Services
 
-{% block extra_js %}
-    <script src="https://js.paystack.co/v1/inline.js"></script>
-    <script>
-    function updatePrice(productId, unitPrice){
-        let qty = parseInt(document.getElementById('quantity-' + productId).value) || 1;
-        document.getElementById('total-' + productId).innerText =
-            (unitPrice * qty).toLocaleString('en-NG',{maximumFractionDigits:0});
-    }
+</a>
 
-    function payWithPaystack(productId, unitPrice, productDbId){
-        let email = document.getElementById('email-' + productId).value;
-        let phone = document.getElementById('phone-' + productId).value;
-        let quantity = parseInt(document.getElementById('quantity-' + productId).value) || 1;
-        if(!email || !phone){
-            alert("Please enter both email and phone");
-            return;
-        }
-        fetch(`/initiate-payment/${productDbId}/`,{
-            method:'POST',
-            headers:{
-                'X-CSRFToken':'{{ csrf_token }}',
-                'Content-Type':'application/json'
-            },
-            body: JSON.stringify({ email, phone, quantity })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.status && data.authorization_url){
-                window.location.href = data.authorization_url;
-            } else {
-                alert(data.message || "Payment initiation failed.");
-            }
-        })
-        .catch(err => alert("Payment error: " + err));
-    }
-    </script>
+{% if user.is_authenticated %}
+
+<a href="{% url 'wallet' %}" class="btn-outline-hero">
+
+My Wallet
+
+</a>
+
+{% else %}
+
+<a href="{% url 'register' %}" class="btn-outline-hero">
+
+Create Account
+
+</a>
+
+{% endif %}
+
+</div>
+
+</div>
+
+<div class="col-lg-6">
+
+<div class="hero-dashboard">
+
+<div class="dashboard-title">
+
+<h5 class="mb-0">
+
+Digital Services
+
+</h5>
+
+<span class="badge bg-success">
+
+Online
+
+</span>
+
+</div>
+
+<div class="dashboard-item">
+
+<span>
+
+<i class="fas fa-wallet me-2"></i>
+
+Wallet
+
+</span>
+
+<strong>
+
+Secure
+
+</strong>
+
+</div>
+
+<div class="dashboard-item">
+
+<span>
+
+📱 Airtime
+
+</span>
+
+<i class="fas fa-circle-check text-success"></i>
+
+</div>
+
+<div class="dashboard-item">
+
+<span>
+
+📶 Mobile Data
+
+</span>
+
+<i class="fas fa-circle-check text-success"></i>
+
+</div>
+
+<div class="dashboard-item">
+
+<span>
+
+⚡ Electricity
+
+</span>
+
+<i class="fas fa-circle-check text-success"></i>
+
+</div>
+
+<div class="dashboard-item">
+
+<span>
+
+📺 Cable TV
+
+</span>
+
+<i class="fas fa-circle-check text-success"></i>
+
+</div>
+
+<div class="dashboard-item">
+
+<span>
+
+🎓 Educational Products
+
+</span>
+
+<i class="fas fa-circle-check text-success"></i>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<section class="trust">
+
+<div class="container">
+
+<div class="row g-4">
+
+<div class="col-6 col-lg-3">
+
+<div class="trust-item">
+
+<i class="fas fa-lock"></i>
+
+Secure Payments
+
+</div>
+
+</div>
+
+<div class="col-6 col-lg-3">
+
+<div class="trust-item">
+
+<i class="fas fa-wallet"></i>
+
+Wallet & Card
+
+</div>
+
+</div>
+
+<div class="col-6 col-lg-3">
+
+<div class="trust-item">
+
+<i class="fas fa-bolt"></i>
+
+Instant Delivery
+
+</div>
+
+</div>
+
+<div class="col-6 col-lg-3">
+
+<div class="trust-item">
+
+<i class="fas fa-arrow-rotate-left"></i>
+
+Auto Refunds
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+<section class="section" id="services">
+
+<div class="container">
+
+<div class="text-center">
+
+<h2 class="section-title">
+Our Digital Services
+</h2>
+
+<p class="section-sub">
+Access essential digital services from one secure platform.
+Fast payments, reliable delivery and one wallet for everything.
+</p>
+
+</div>
+
+<div class="row g-4">
+
+{% for service in services %}
+
+<div class="col-12 col-md-6 col-lg-4">
+
+<a
+href="{% url 'service_dashboard' service.slug %}"
+class="text-decoration-none"
+>
+
+<article class="service-card service-{{ service.slug }}">
+
+<div class="service-card-top">
+
+<div class="service-icon">
+
+{% if service.icon %}
+
+<img
+src="{{ service.icon.url }}"
+alt="{{ service.name }}"
+>
+
+{% else %}
+
+<i class="fas fa-bolt"></i>
+
+{% endif %}
+
+</div>
+
+<span class="service-status">
+Available
+</span>
+
+</div>
+
+
+<div class="service-card-body">
+
+<h3>
+{{ service.name }}
+</h3>
+
+<p>
+
+{% if service.short_description %}
+
+{{ service.short_description }}
+
+{% else %}
+
+Fast and secure access to
+{{ service.name|lower }}.
+
+{% endif %}
+
+</p>
+
+</div>
+
+
+<div class="service-card-footer">
+
+<span>
+Use Service
+</span>
+
+<div class="service-arrow">
+<i class="fas fa-arrow-right"></i>
+</div>
+
+</div>
+
+</article>
+
+</a>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</div>
+
+</section>
+
+<section class="section why-section">
+
+<div class="container">
+
+<div class="text-center mb-5">
+
+<h2 class="section-title">
+Why Choose ResultPin?
+</h2>
+
+<p class="section-sub">
+Built for fast, secure and reliable everyday digital transactions.
+</p>
+
+</div>
+
+<div class="row g-4">
+
+<div class="col-6 col-lg-3">
+
+<div class="why-card h-100">
+
+<div class="why-icon">
+<i class="fas fa-shield-halved"></i>
+</div>
+
+<h4>Secure Transactions</h4>
+
+<p>
+Payments are handled through secure wallet and card workflows with transaction verification.
+</p>
+
+</div>
+
+</div>
+
+<div class="col-6 col-lg-3">
+
+<div class="why-card h-100">
+
+<div class="why-icon">
+<i class="fas fa-bolt"></i>
+</div>
+
+<h4>Fast Processing</h4>
+
+<p>
+Service requests are processed through connected providers with immediate status feedback.
+</p>
+
+</div>
+
+</div>
+
+<div class="col-6 col-lg-3">
+
+<div class="why-card h-100">
+
+<div class="why-icon">
+<i class="fas fa-wallet"></i>
+</div>
+
+<h4>Flexible Payments</h4>
+
+<p>
+Pay directly from your ResultPin wallet or complete purchases securely with your card.
+</p>
+
+</div>
+
+</div>
+
+<div class="col-6 col-lg-3">
+
+<div class="why-card h-100">
+
+<div class="why-icon">
+<i class="fas fa-rotate-left"></i>
+</div>
+
+<h4>Automatic Refunds</h4>
+
+<p>
+Failed wallet transactions are detected and reversed automatically when service delivery fails.
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+
+<div class="stats-panel mt-5">
+
+<div class="row text-center g-4">
+
+<div class="col-6 col-lg-3">
+<div class="stat-value">6+</div>
+<div class="stat-label">Digital Services</div>
+</div>
+
+<div class="col-6 col-lg-3">
+<div class="stat-value">
+<i class="fas fa-lock"></i>
+</div>
+<div class="stat-label">Secure Payments</div>
+</div>
+
+<div class="col-6 col-lg-3">
+<div class="stat-value">24/7</div>
+<div class="stat-label">Platform Access</div>
+</div>
+
+<div class="col-6 col-lg-3">
+<div class="stat-value">
+<i class="fas fa-bolt"></i>
+</div>
+<div class="stat-label">Fast Processing</div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<!-- =========================
+     PLATFORM SHOWCASE
+========================= -->
+<section class="section platform-section">
+
+<div class="container">
+
+<div class="platform-panel">
+
+<div class="row align-items-center g-5">
+
+<div class="col-lg-6">
+
+<span class="platform-badge">
+<i class="fas fa-layer-group"></i>
+Everyday Digital Services
+</span>
+
+<h2>
+One account.
+Multiple services.
+Less hassle.
+</h2>
+
+<p>
+Access essential digital services, manage payments
+and track transactions from one convenient platform.
+</p>
+
+<div class="platform-features">
+
+<div class="platform-feature">
+<i class="fas fa-check"></i>
+<span>Airtime, data and bill payments</span>
+</div>
+
+<div class="platform-feature">
+<i class="fas fa-check"></i>
+<span>Wallet and secure card payments</span>
+</div>
+
+<div class="platform-feature">
+<i class="fas fa-check"></i>
+<span>Fast service processing</span>
+</div>
+
+<div class="platform-feature">
+<i class="fas fa-check"></i>
+<span>Automatic refunds for failed wallet transactions</span>
+</div>
+
+</div>
+
+<a href="#services" class="platform-btn">
+Explore Services
+<i class="fas fa-arrow-right"></i>
+</a>
+
+</div>
+
+
+<div class="col-lg-6">
+
+<div class="platform-visual">
+
+<div class="platform-main-icon">
+<i class="fas fa-wallet"></i>
+</div>
+
+<div class="platform-card platform-card-one">
+
+<div class="platform-small-icon">
+<i class="fas fa-mobile-screen"></i>
+</div>
+
+<div>
+<strong>Airtime & Data</strong>
+<span>Mobile services</span>
+</div>
+
+</div>
+
+<div class="platform-card platform-card-two">
+
+<div class="platform-small-icon">
+<i class="fas fa-bolt"></i>
+</div>
+
+<div>
+<strong>Bills</strong>
+<span>Electricity & utilities</span>
+</div>
+
+</div>
+
+<div class="platform-card platform-card-three">
+
+<div class="platform-small-icon">
+<i class="fas fa-tv"></i>
+</div>
+
+<div>
+<strong>Cable TV</strong>
+<span>Subscription services</span>
+</div>
+
+</div>
+
+<div class="platform-card platform-card-four">
+
+<div class="platform-small-icon">
+<i class="fas fa-graduation-cap"></i>
+</div>
+
+<div>
+<strong>Education</strong>
+<span>Digital products</span>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- =========================
+     HOW IT WORKS
+========================= -->
+<section class="section how-section">
+
+<div class="container">
+
+<div class="text-center">
+
+<span class="section-eyebrow">
+SIMPLE PROCESS
+</span>
+
+<h2 class="section-title">
+From payment to delivery in a few steps.
+</h2>
+
+<p class="section-sub">
+Choose what you need, complete your payment and let the platform
+handle the rest.
+</p>
+
+</div>
+
+
+<div class="row g-4">
+
+<div class="col-md-4">
+
+<div class="step-card">
+
+<div class="step-number">01</div>
+
+<div class="step-icon">
+<i class="fas fa-layer-group"></i>
+</div>
+
+<h4>Choose a Service</h4>
+
+<p>
+Select airtime, data, electricity, cable TV, education or another
+available digital service.
+</p>
+
+</div>
+
+</div>
+
+
+<div class="col-md-4">
+
+<div class="step-card">
+
+<div class="step-number">02</div>
+
+<div class="step-icon">
+<i class="fas fa-credit-card"></i>
+</div>
+
+<h4>Pay Securely</h4>
+
+<p>
+Complete your transaction using your wallet or supported card
+payment option.
+</p>
+
+</div>
+
+</div>
+
+
+<div class="col-md-4">
+
+<div class="step-card">
+
+<div class="step-number">03</div>
+
+<div class="step-icon">
+<i class="fas fa-circle-check"></i>
+</div>
+
+<h4>Get Your Service</h4>
+
+<p>
+Your request is processed through the connected provider and the
+transaction status is recorded.
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<!-- =========================
+     FAQ
+========================= -->
+<section class="section faq-section" id="faq-section">
+
+<div class="container">
+
+<div class="text-center">
+
+<span class="section-eyebrow">
+HELP CENTRE
+</span>
+
+<h2 class="section-title">
+Frequently asked questions.
+</h2>
+
+<p class="section-sub">
+Quick answers about payments, service delivery and your account.
+</p>
+
+</div>
+
+<div class="faq-shell">
+
+<div class="accordion" id="homeFaq">
+
+<div class="accordion-item">
+<h2 class="accordion-header">
+<button class="accordion-button" type="button"
+data-bs-toggle="collapse"
+data-bs-target="#faqOne">
+How do payments work?
+</button>
+</h2>
+
+<div id="faqOne" class="accordion-collapse collapse show"
+data-bs-parent="#homeFaq">
+
+<div class="accordion-body">
+You can complete supported purchases using your platform wallet or card payment.
+</div>
+
+</div>
+</div>
+
+<div class="accordion-item">
+<h2 class="accordion-header">
+<button class="accordion-button collapsed" type="button"
+data-bs-toggle="collapse"
+data-bs-target="#faqTwo">
+What happens if a service fails?
+</button>
+</h2>
+
+<div id="faqTwo" class="accordion-collapse collapse"
+data-bs-parent="#homeFaq">
+
+<div class="accordion-body">
+Failed wallet purchases are automatically refunded when the service provider cannot complete the request.
+</div>
+
+</div>
+</div>
+
+<div class="accordion-item">
+<h2 class="accordion-header">
+<button class="accordion-button collapsed" type="button"
+data-bs-toggle="collapse"
+data-bs-target="#faqThree">
+How quickly are services processed?
+</button>
+</h2>
+
+<div id="faqThree" class="accordion-collapse collapse"
+data-bs-parent="#homeFaq">
+
+<div class="accordion-body">
+Most supported services are processed immediately after successful payment verification.
+</div>
+
+</div>
+</div>
+
+<div class="accordion-item">
+<h2 class="accordion-header">
+<button class="accordion-button collapsed" type="button"
+data-bs-toggle="collapse"
+data-bs-target="#faqFour">
+Can I view my transaction history?
+</button>
+</h2>
+
+<div id="faqFour" class="accordion-collapse collapse"
+data-bs-parent="#homeFaq">
+
+<div class="accordion-body">
+Yes. Your wallet and transaction pages keep a record of supported payment and service activity.
+</div>
+
+</div>
+</div>
+
+</div>
+
+<div class="text-center mt-4">
+
+<a href="{% url 'faq_page' %}" class="faq-link">
+View all FAQs
+<i class="fas fa-arrow-right"></i>
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- =========================
+     FINAL CTA
+========================= -->
+<section class="section final-cta-section">
+
+<div class="container">
+
+<div class="final-cta">
+
+<div class="row align-items-center g-4">
+
+<div class="col-lg-8">
+
+<span class="cta-label">
+ONE PLATFORM
+</span>
+
+<h2>
+Simplify the way you handle everyday digital services.
+</h2>
+
+<p>
+Manage payments, wallet transactions and supported digital services
+from one secure account.
+</p>
+
+</div>
+
+<div class="col-lg-4 text-lg-end">
+
+{% if user.is_authenticated %}
+
+<a href="#services" class="cta-primary">
+Explore Services
+<i class="fas fa-arrow-right"></i>
+</a>
+
+{% else %}
+
+<a href="{% url 'register' %}" class="cta-primary">
+Create Free Account
+<i class="fas fa-arrow-right"></i>
+</a>
+
+{% endif %}
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
 {% endblock %}

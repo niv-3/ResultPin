@@ -1,276 +1,1157 @@
 {% extends "store/base.html" %}
 {% load static %}
 
-{% block title %}My Wallet - ResultPin.ng{% endblock %}
+{% block title %}
+My Wallet | ResultPin
+{% endblock %}
+
 
 {% block extra_css %}
+
 <style>
-/* ── COMPACT MODERN WALLET ── */
-:root {
-  --navy: #0b1c2d;
-  --navy-dark: #08141f;
-  --card-bg: rgba(255, 255, 255, 0.94);
-  --shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
-  --radius: 14px;
-  --fund-blue: #2563eb;          /* ← new distinct color for Fund button */
+
+:root{
+    --primary:#0b2c3d;
+    --primary-soft:#143e55;
+    --accent:#ff6d00;
+    --accent-dark:#e86100;
+    --background:#f5f8fa;
+    --surface:#ffffff;
+    --text:#17212b;
+    --muted:#6b7280;
+    --border:#e6ecef;
+    --success:#16885f;
+    --danger:#c94b4b;
 }
 
-body {
-  background: #f5f6f8;
-  padding-top: 85px;             /* ← MAIN FIX: brings content down from under navbar */
+
+/* ===========================
+PAGE
+=========================== */
+
+.wallet-page{
+    min-height:100vh;
+    background:var(--background);
 }
 
-/* On smaller screens reduce a bit if your mobile navbar is shorter */
-@media (max-width: 991px) {
-  body {
-    padding-top: 70px;           /* adjust this if mobile navbar is very short/tall */
-  }
+.wallet-shell{
+    width:94%;
+    max-width:1500px;
+    margin:0 auto;
+    padding:55px 0 80px;
 }
 
-/* Compact Cards */
-.wallet-card {
-  background: var(--card-bg);
-  border: 1px solid rgba(230, 230, 230, 0.6);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  transition: transform 0.2s ease;
-  padding: 1.1rem 1rem;
+
+/* ===========================
+HEADER
+=========================== */
+
+.wallet-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:30px;
+    margin-bottom:35px;
 }
 
-.wallet-card:hover {
-  transform: translateY(-3px);
+.wallet-eyebrow{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+
+    color:var(--accent);
+
+    font-size:.76rem;
+    font-weight:800;
+
+    letter-spacing:.12em;
+    text-transform:uppercase;
+
+    margin-bottom:10px;
 }
 
-.stat-card {
-  text-align: center;
+.wallet-header h1{
+    color:var(--primary);
+
+    font-size:clamp(2.3rem,4vw,3.5rem);
+    font-weight:800;
+
+    letter-spacing:-.045em;
+
+    margin:0 0 12px;
 }
 
-.stat-card i {
-  font-size: 1.9rem;
-  color: var(--navy);
-  margin-bottom: 0.6rem;
+.wallet-header p{
+    color:var(--muted);
+
+    max-width:650px;
+
+    line-height:1.7;
+
+    margin:0;
 }
 
-.stat-card h3 {
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: var(--navy);
-  margin: 0.2rem 0;
+
+/* ===========================
+BALANCE
+=========================== */
+
+.balance-card{
+    position:relative;
+
+    overflow:hidden;
+
+    background:
+        linear-gradient(
+            135deg,
+            #071a28,
+            #0b2c3d,
+            #154760
+        );
+
+    color:#fff;
+
+    border-radius:26px;
+
+    padding:34px;
+
+    margin-bottom:24px;
 }
 
-.stat-card p {
-  font-size: 0.82rem;
-  color: #6c757d;
-  margin: 0;
+.balance-card::after{
+    content:"";
+
+    position:absolute;
+
+    width:300px;
+    height:300px;
+
+    border-radius:50%;
+
+    background:rgba(255,255,255,.035);
+
+    right:-90px;
+    top:-130px;
 }
 
-/* Action cards */
-.action-card h5 {
-  font-size: 1.05rem;
-  margin-bottom: 0.4rem;
-  color: var(--navy);
+.balance-content{
+    position:relative;
+    z-index:2;
 }
 
-.action-card p {
-  font-size: 0.78rem;
-  color: #6c757d;
-  margin-bottom: 0.8rem;
+.balance-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:20px;
 }
 
-/* Fund button custom color */
-.btn-fund {
-  background-color: var(--fund-blue);
-  border-color: var(--fund-blue);
-  color: white;
+.balance-label{
+    display:block;
+
+    color:rgba(255,255,255,.55);
+
+    font-size:.72rem;
+    font-weight:750;
+
+    text-transform:uppercase;
+    letter-spacing:.09em;
 }
 
-.btn-fund:hover {
-  background-color: #1d4ed8;
-  border-color: #1d4ed8;
+.balance-value{
+    font-size:clamp(2.3rem,5vw,3.5rem);
+    font-weight:850;
+
+    letter-spacing:-.04em;
+
+    margin-top:5px;
 }
 
-/* Transaction table styles (unchanged) */
-.transactions-table {
-  background: white;
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
+.balance-icon{
+    width:60px;
+    height:60px;
+
+    border-radius:17px;
+
+    background:rgba(255,255,255,.09);
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    color:var(--accent);
+
+    font-size:1.45rem;
 }
 
-.transactions-table thead {
-  background: var(--navy);
-  color: white;
+.balance-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+
+    margin-top:28px;
 }
 
-.transactions-table th,
-.transactions-table td {
-  padding: 14px 16px !important;
+.balance-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+
+    padding:11px 17px;
+
+    border-radius:11px;
+
+    font-size:.82rem;
+    font-weight:750;
+
+    transition:.2s ease;
 }
 
-.transactions-table td.description {
-  max-width: 320px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.4;
+.balance-btn-primary{
+    background:var(--accent);
+    color:#fff;
 }
 
-.transactions-table .badge {
-  padding: 0.4em 0.85em;
-  font-weight: 500;
-  border-radius: 10px;
-  font-size: 0.8rem;
+.balance-btn-primary:hover{
+    background:var(--accent-dark);
+    color:#fff;
 }
 
-/* Mobile adjustments */
-@media (max-width: 768px) {
-  .wallet-card {
-    padding: 0.9rem 0.8rem;
-  }
+.balance-btn-secondary{
+    background:rgba(255,255,255,.09);
+    border:1px solid rgba(255,255,255,.13);
 
-  .stat-card i {
-    font-size: 1.6rem;
-  }
-
-  .stat-card h3 {
-    font-size: 1.2rem;
-  }
-
-  .stat-card p,
-  .action-card p {
-    font-size: 0.75rem;
-  }
-
-  .action-card h5 {
-    font-size: 0.98rem;
-  }
+    color:#fff;
 }
+
+.balance-btn-secondary:hover{
+    background:#fff;
+    color:var(--primary);
+}
+
+
+/* ===========================
+STATS
+=========================== */
+
+.wallet-stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+
+    gap:16px;
+
+    margin-bottom:24px;
+}
+
+.stat-card{
+    background:#fff;
+
+    border:1px solid var(--border);
+
+    border-radius:18px;
+
+    padding:22px;
+}
+
+.stat-icon{
+    width:46px;
+    height:46px;
+
+    border-radius:13px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    background:#eef4f6;
+
+    color:var(--primary);
+
+    margin-bottom:17px;
+}
+
+.stat-card small{
+    display:block;
+
+    color:var(--muted);
+
+    font-size:.72rem;
+    font-weight:700;
+
+    text-transform:uppercase;
+    letter-spacing:.06em;
+}
+
+.stat-card strong{
+    display:block;
+
+    color:var(--primary);
+
+    font-size:1.35rem;
+    font-weight:850;
+
+    margin-top:4px;
+}
+
+
+/* ===========================
+ACTIONS
+=========================== */
+
+.wallet-actions-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+
+    gap:16px;
+
+    margin-bottom:35px;
+}
+
+.action-card{
+    background:#fff;
+
+    border:1px solid var(--border);
+
+    border-radius:18px;
+
+    padding:24px;
+}
+
+.action-card h3{
+    color:var(--primary);
+
+    font-size:1rem;
+    font-weight:800;
+
+    margin-bottom:7px;
+}
+
+.action-card p{
+    color:var(--muted);
+
+    font-size:.83rem;
+
+    margin-bottom:18px;
+}
+
+.action-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+
+    width:100%;
+
+    padding:11px 15px;
+
+    border-radius:10px;
+
+    background:var(--primary);
+
+    color:#fff;
+
+    font-size:.8rem;
+    font-weight:750;
+
+    transition:.2s ease;
+}
+
+.action-btn:hover{
+    background:var(--accent);
+    color:#fff;
+}
+
+
+/* ===========================
+REFERRAL
+=========================== */
+
+.referral-box{
+    display:flex;
+
+    border:1px solid var(--border);
+
+    border-radius:11px;
+
+    overflow:hidden;
+}
+
+.referral-input{
+    flex:1;
+
+    min-width:0;
+
+    border:0;
+
+    padding:11px 13px;
+
+    background:#f8fafb;
+
+    color:var(--text);
+
+    font-size:.78rem;
+
+    outline:none;
+}
+
+.copy-btn{
+    border:0;
+
+    padding:0 16px;
+
+    background:var(--primary);
+
+    color:#fff;
+
+    font-size:.78rem;
+    font-weight:700;
+}
+
+.copy-btn:hover{
+    background:var(--accent);
+}
+
+
+/* ===========================
+TRANSACTIONS
+=========================== */
+
+.transaction-card{
+    background:#fff;
+
+    border:1px solid var(--border);
+
+    border-radius:22px;
+
+    overflow:hidden;
+}
+
+.transaction-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    gap:20px;
+
+    padding:24px 26px;
+
+    border-bottom:1px solid var(--border);
+}
+
+.transaction-header h2{
+    color:var(--primary);
+
+    font-size:1.1rem;
+    font-weight:800;
+
+    margin:0;
+}
+
+.transaction-header span{
+    color:var(--muted);
+
+    font-size:.78rem;
+}
+
+
+/* TABLE */
+
+.transaction-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.transaction-table thead{
+    background:#f8fafb;
+}
+
+.transaction-table th{
+    color:#87919b;
+
+    font-size:.68rem;
+    font-weight:800;
+
+    text-transform:uppercase;
+    letter-spacing:.07em;
+
+    padding:14px 24px;
+}
+
+.transaction-table td{
+    padding:18px 24px;
+
+    border-top:1px solid #eef2f4;
+
+    color:var(--text);
+
+    font-size:.83rem;
+
+    vertical-align:middle;
+}
+
+.transaction-table tbody tr:hover{
+    background:#fbfcfd;
+}
+
+.transaction-description{
+    max-width:420px;
+
+    color:#5e6873;
+}
+
+.transaction-date{
+    white-space:nowrap;
+
+    color:#75808a;
+}
+
+
+/* TRANSACTION TYPE */
+
+.transaction-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+
+    padding:5px 9px;
+
+    border-radius:999px;
+
+    font-size:.68rem;
+    font-weight:750;
+}
+
+.transaction-credit{
+    color:#16885f;
+    background:#eaf8f2;
+}
+
+.transaction-debit{
+    color:#b64848;
+    background:#fff0f0;
+}
+
+.transaction-amount{
+    text-align:right;
+
+    font-weight:800;
+
+    white-space:nowrap;
+}
+
+.amount-credit{
+    color:var(--success);
+}
+
+.amount-debit{
+    color:var(--danger);
+}
+
+
+/* EMPTY */
+
+.transaction-empty{
+    text-align:center;
+
+    padding:65px 20px;
+
+    color:var(--muted);
+}
+
+.transaction-empty-icon{
+    width:65px;
+    height:65px;
+
+    margin:0 auto 16px;
+
+    border-radius:18px;
+
+    background:#eef3f5;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    color:var(--primary);
+
+    font-size:1.5rem;
+}
+
+
+/* ===========================
+MOBILE
+=========================== */
+
+@media(max-width:768px){
+
+    .wallet-shell{
+        width:92%;
+
+        padding:35px 0 60px;
+    }
+
+    .wallet-header{
+        display:block;
+    }
+
+    .wallet-stats{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .wallet-actions-grid{
+        grid-template-columns:1fr;
+    }
+
+    .balance-card{
+        padding:26px;
+
+        border-radius:21px;
+    }
+
+    .transaction-card{
+        border-radius:18px;
+    }
+
+    .transaction-table thead{
+        display:none;
+    }
+
+    .transaction-table,
+    .transaction-table tbody,
+    .transaction-table tr,
+    .transaction-table td{
+        display:block;
+
+        width:100%;
+    }
+
+    .transaction-table tr{
+        padding:18px;
+
+        border-top:1px solid var(--border);
+    }
+
+    .transaction-table td{
+        border:0;
+
+        padding:4px 0;
+    }
+
+    .transaction-amount{
+        text-align:left;
+
+        font-size:1rem;
+
+        margin-top:8px;
+    }
+
+    .transaction-description{
+        max-width:none;
+    }
+
+}
+
 </style>
+
 {% endblock %}
+
+
 
 {% block content %}
 
-<div class="container my-5">
-  <h1 class="text-center mb-5 fw-bold" style="color: var(--navy);">My Wallet</h1>
+<section class="wallet-page">
 
-  <!-- WALLET STATS -->
-  <div class="row g-3 mb-5 justify-content-center wallet-grid">
-    <div class="col-6 col-lg-3">
-      <div class="wallet-card stat-card">
-        <i class="fas fa-wallet"></i>
-        <h3>₦{{ user.wallet_balance|floatformat:2 }}</h3>
-        <p>Balance</p>
-      </div>
-    </div>
+<div class="wallet-shell">
 
-    <div class="col-6 col-lg-3">
-      <div class="wallet-card stat-card">
-        <i class="fas fa-users"></i>
-        <h3>{{ total_referrals }}</h3>
-        <p>Referrals</p>
-      </div>
-    </div>
 
-    <div class="col-6 col-lg-3">
-      <div class="wallet-card stat-card">
-        <i class="fas fa-money-bill-wave"></i>
-        <h3>₦{{ referral_earnings|floatformat:2 }}</h3>
-        <p>Earnings</p>
-      </div>
-    </div>
+<!-- =========================
+     HEADER
+========================= -->
 
-    <div class="col-6 col-lg-3">
-      <div class="wallet-card stat-card">
-        <i class="fas fa-link"></i>
-        <h3>Referral</h3>
-        <p>Share Link</p>
-      </div>
-    </div>
-  </div>
+<div class="wallet-header">
 
-  <!-- ACTIONS -->
-  <div class="row g-3 mb-5 justify-content-center wallet-grid">
-    <div class="col-6 col-lg-3">
-      <div class="wallet-card action-card text-center">
-        <h5>Fund Wallet</h5>
-        <p>Quick top-up</p>
-        <a href="{% url 'wallet_fund' %}" class="btn btn-fund w-100 rounded-pill py-2">
-          Fund
-        </a>
-      </div>
-    </div>
+    <div>
 
-    <div class="col-6 col-lg-3">
-      <div class="wallet-card action-card text-center">
-        <h5>Withdraw</h5>
-        <p>To bank</p>
-        <a href="{% url 'wallet_withdraw' %}" class="btn btn-outline-dark w-100 rounded-pill py-2">
-          Withdraw
-        </a>
-      </div>
-    </div>
-
-    <div class="col-12 col-lg-6">
-      <div class="wallet-card action-card text-center">
-        <h5>Referral Link</h5>
-        <div class="input-group input-group-sm mb-2">
-          <input type="text"
-                 class="form-control text-center"
-                 value="{{ request.scheme }}://{{ request.get_host }}?ref={{ user.referral_code }}"
-                 readonly>
-          <button class="btn btn-outline-dark"
-                  type="button"
-                  onclick="navigator.clipboard.writeText(this.previousElementSibling.value); this.innerHTML='Copied!'">
-            Copy
-          </button>
+        <div class="wallet-eyebrow">
+            <i class="fas fa-wallet"></i>
+            Account Wallet
         </div>
-      </div>
+
+        <h1>
+            My Wallet
+        </h1>
+
+        <p>
+            Manage your balance, fund your account,
+            track transactions and view referral activity.
+        </p>
+
     </div>
-  </div>
 
-  <!-- TRANSACTION HISTORY – completely untouched -->
-  <div class="wallet-card transactions-table">
-    <h5 class="fw-bold mb-4 text-center" style="color: var(--navy);">Transaction History</h5>
-
-    {% if wallet_transactions %}
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th style="width: 45%;">Description</th>
-              <th>Type</th>
-              <th class="text-end">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for txn in wallet_transactions %}
-            <tr>
-              <td class="text-nowrap">{{ txn.created_at|date:"d M Y" }}</td>
-              <td class="description">{{ txn.description }}</td>
-              <td>
-                <span class="badge {% if txn.transaction_type == 'credit' %}bg-success{% else %}bg-danger{% endif %}">
-                  {{ txn.transaction_type|title }}
-                </span>
-              </td>
-              <td class="text-end fw-bold">
-                {% if txn.transaction_type == 'credit' %}
-                  <span class="text-success">+₦{{ txn.amount|floatformat:2 }}</span>
-                {% else %}
-                  <span class="text-danger">-₦{{ txn.amount|floatformat:2 }}</span>
-                {% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      <div class="text-center py-5 text-muted">
-        <i class="far fa-folder-open fa-3x mb-3 d-block"></i>
-        <p class="mb-0">No transactions yet</p>
-      </div>
-    {% endif %}
-  </div>
 </div>
+
+
+
+<!-- =========================
+     BALANCE
+========================= -->
+
+<div class="balance-card">
+
+<div class="balance-content">
+
+    <div class="balance-top">
+
+        <div>
+
+            <span class="balance-label">
+                Available Balance
+            </span>
+
+            <div class="balance-value">
+                ₦{{ user.wallet_balance|floatformat:2 }}
+            </div>
+
+        </div>
+
+
+        <div class="balance-icon">
+            <i class="fas fa-wallet"></i>
+        </div>
+
+    </div>
+
+
+    <div class="balance-actions">
+
+        <a
+            href="{% url 'wallet_fund' %}"
+            class="balance-btn balance-btn-primary"
+        >
+
+            <i class="fas fa-plus"></i>
+
+            Fund Wallet
+
+        </a>
+
+
+        <a
+            href="{% url 'wallet_withdraw' %}"
+            class="balance-btn balance-btn-secondary"
+        >
+
+            <i class="fas fa-building-columns"></i>
+
+            Withdraw
+
+        </a>
+
+    </div>
+
+</div>
+
+</div>
+
+
+
+<!-- =========================
+     STATS
+========================= -->
+
+<div class="wallet-stats">
+
+
+<div class="stat-card">
+
+    <div class="stat-icon">
+        <i class="fas fa-users"></i>
+    </div>
+
+    <small>
+        Referrals
+    </small>
+
+    <strong>
+        {{ total_referrals }}
+    </strong>
+
+</div>
+
+
+
+<div class="stat-card">
+
+    <div class="stat-icon">
+        <i class="fas fa-money-bill-wave"></i>
+    </div>
+
+    <small>
+        Referral Earnings
+    </small>
+
+    <strong>
+        ₦{{ referral_earnings|floatformat:2 }}
+    </strong>
+
+</div>
+
+
+
+<div class="stat-card">
+
+    <div class="stat-icon">
+        <i class="fas fa-link"></i>
+    </div>
+
+    <small>
+        Referral Code
+    </small>
+
+    <strong>
+        {{ user.referral_code }}
+    </strong>
+
+</div>
+
+
+</div>
+
+
+
+<!-- =========================
+     WALLET ACTIONS
+========================= -->
+
+<div class="wallet-actions-grid">
+
+
+<div class="action-card">
+
+    <h3>
+        Withdraw funds
+    </h3>
+
+    <p>
+        Transfer available funds from your wallet
+        to your supported bank account.
+    </p>
+
+    <a
+        href="{% url 'wallet_withdraw' %}"
+        class="action-btn"
+    >
+
+        <i class="fas fa-arrow-up-right-from-square"></i>
+
+        Withdraw
+
+    </a>
+
+</div>
+
+
+
+<div class="action-card">
+
+    <h3>
+        Referral link
+    </h3>
+
+    <p>
+        Share your referral link with others.
+    </p>
+
+
+    <div class="referral-box">
+
+        <input
+            type="text"
+            id="referral-link"
+            class="referral-input"
+            value="{{ request.scheme }}://{{ request.get_host }}?ref={{ user.referral_code }}"
+            readonly
+        >
+
+
+        <button
+            type="button"
+            class="copy-btn"
+            id="copy-referral-btn"
+        >
+            Copy
+        </button>
+
+    </div>
+
+</div>
+
+
+</div>
+
+
+
+<!-- =========================
+     TRANSACTION LOG
+========================= -->
+
+<div class="transaction-card">
+
+
+<div class="transaction-header">
+
+    <div>
+
+        <h2>
+            Transaction History
+        </h2>
+
+        <span>
+            Wallet activity and payment records
+        </span>
+
+    </div>
+
+
+    <i
+        class="fas fa-clock-rotate-left"
+        style="color:#0b2c3d;"
+    ></i>
+
+</div>
+
+
+
+{% if wallet_transactions %}
+
+
+<div class="table-responsive">
+
+<table class="transaction-table">
+
+<thead>
+
+<tr>
+
+    <th>
+        Date
+    </th>
+
+    <th>
+        Description
+    </th>
+
+    <th>
+        Type
+    </th>
+
+    <th class="text-end">
+        Amount
+    </th>
+
+</tr>
+
+</thead>
+
+
+<tbody>
+
+{% for txn in wallet_transactions %}
+
+<tr>
+
+
+<td class="transaction-date">
+
+    {{ txn.created_at|date:"d M Y" }}
+
+</td>
+
+
+<td class="transaction-description">
+
+    {{ txn.description }}
+
+</td>
+
+
+<td>
+
+    {% if txn.transaction_type == "credit" %}
+
+        <span
+            class="
+                transaction-badge
+                transaction-credit
+            "
+        >
+
+            <i class="fas fa-arrow-down"></i>
+
+            Credit
+
+        </span>
+
+    {% else %}
+
+        <span
+            class="
+                transaction-badge
+                transaction-debit
+            "
+        >
+
+            <i class="fas fa-arrow-up"></i>
+
+            Debit
+
+        </span>
+
+    {% endif %}
+
+</td>
+
+
+<td class="transaction-amount">
+
+    {% if txn.transaction_type == "credit" %}
+
+        <span class="amount-credit">
+
+            +₦{{ txn.amount|floatformat:2 }}
+
+        </span>
+
+    {% else %}
+
+        <span class="amount-debit">
+
+            -₦{{ txn.amount|floatformat:2 }}
+
+        </span>
+
+    {% endif %}
+
+</td>
+
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+
+{% else %}
+
+
+<div class="transaction-empty">
+
+    <div class="transaction-empty-icon">
+
+        <i class="fas fa-receipt"></i>
+
+    </div>
+
+    <strong>
+        No transactions yet
+    </strong>
+
+    <p class="mb-0 mt-2">
+        Your wallet activity will appear here.
+    </p>
+
+</div>
+
+
+{% endif %}
+
+
+</div>
+
+
+</div>
+
+</section>
+
+{% endblock %}
+
+
+
+{% block extra_js %}
+
+<script>
+
+const copyButton =
+    document.getElementById(
+        "copy-referral-btn"
+    );
+
+
+if (copyButton) {
+
+    copyButton.addEventListener(
+        "click",
+        async function () {
+
+            const input =
+                document.getElementById(
+                    "referral-link"
+                );
+
+
+            try {
+
+                await navigator.clipboard.writeText(
+                    input.value
+                );
+
+
+                this.textContent =
+                    "Copied!";
+
+
+                setTimeout(
+                    () => {
+                        this.textContent =
+                            "Copy";
+                    },
+                    1500
+                );
+
+            } catch (error) {
+
+                input.select();
+
+                document.execCommand(
+                    "copy"
+                );
+
+
+                this.textContent =
+                    "Copied!";
+
+
+                setTimeout(
+                    () => {
+                        this.textContent =
+                            "Copy";
+                    },
+                    1500
+                );
+
+            }
+
+        }
+    );
+
+}
+
+</script>
 
 {% endblock %}
