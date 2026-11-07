@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements-render.txt && python manage.py collectstatic --noinput && python manage.py migrate --noinput
-    startCommand: gunicorn core.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: python manage.py load_beta_catalogue && exec gunicorn core.wsgi:application --bind 0.0.0.0:$PORT
     healthCheckPath: /health/
     envVars:
       - key: DJANGO_SETTINGS_MODULE

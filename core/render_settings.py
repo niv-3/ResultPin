@@ -15,6 +15,20 @@ SECURE_SSL_REDIRECT = True
 SECURE_REDIRECT_EXEMPT = [r"^health/$"]
 SECURE_HSTS_SECONDS = 86400
 
+BETA_BUYER_EMAILS = {
+    email.strip().casefold()
+    for email in os.getenv("BETA_BUYER_EMAILS", "").split(",")
+    if email.strip()
+}
+BETA_PAYMENTS_ENABLED = (
+    os.getenv("BETA_PAYMENTS_ENABLED") == "true"
+    and bool(BETA_BUYER_EMAILS)
+    and PAYSTACK_SECRET_KEY.startswith("sk_live_")
+    and PAYSTACK_PUBLIC_KEY.startswith("pk_live_")
+    and bool(os.getenv("CHEAPDATAHUB_API_KEY"))
+)
+VTPASS_BILLS_ENABLED = False
+
 MIDDLEWARE = [
     MIDDLEWARE[0],
     "whitenoise.middleware.WhiteNoiseMiddleware",
