@@ -914,27 +914,10 @@ document.getElementById(
 
         .then(response => {
 
-            if (!response.ok) {
-
-                return response
-                    .text()
-                    .then(text => {
-
-                        console.error(
-                            "Wallet funding error:",
-                            text
-                        );
-
-                        throw new Error(
-                            "HTTP error " +
-                            response.status
-                        );
-
-                    });
-
+            const contentType = response.headers.get("content-type") || "";
+            if (!contentType.includes("application/json")) {
+                throw new Error("Unexpected wallet funding response " + response.status);
             }
-
-
             return response.json();
 
         })
