@@ -1,8 +1,8 @@
-# 💳 KoboTap
+# 💳 Payvict
 
 A full-stack Django web application for purchasing digital services such as airtime, mobile data, cable TV subscriptions, electricity tokens, and educational services through secure wallet and card payments.
 
-KoboTap demonstrates real-world backend engineering concepts including payment gateway integration, wallet accounting, transaction management, third-party API integration, and secure authentication.
+Payvict demonstrates real-world backend engineering concepts including payment gateway integration, wallet accounting, transaction management, third-party API integration, and secure authentication.
 
 ---
 
@@ -53,7 +53,7 @@ KoboTap demonstrates real-world backend engineering concepts including payment g
 ## 🏗 Project Architecture
 
 ```
-KoboTap
+Payvict
 │
 ├── Authentication
 ├── Wallet System
@@ -192,7 +192,7 @@ EMAIL_HOST_PASSWORD=your_app_password
 5. Check successful, rejected, and pending payments in the sandbox before setting
    `VTPASS_TEST_MODE=False` on the live instance with live credentials.
 
-Customers pay from their KoboTap wallet and can reopen recent receipts to check
+Customers pay from their Payvict wallet and can reopen recent receipts to check
 pending payments or retrieve prepaid tokens.
 
 ## Current Status
@@ -222,7 +222,7 @@ pending payments or retrieve prepaid tokens.
 
 ## About This Project
 
-KoboTap was built as a portfolio project to demonstrate practical experience with Django, payment integration, REST APIs, backend architecture, authentication, and financial transaction workflows.
+Payvict was built as a portfolio project to demonstrate practical experience with Django, payment integration, REST APIs, backend architecture, authentication, and financial transaction workflows.
 
 The application focuses on clean architecture, secure payment processing, and handling real-world scenarios such as failed provider requests and transaction verification.
 

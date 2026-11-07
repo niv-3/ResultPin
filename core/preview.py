@@ -27,13 +27,13 @@ class PreviewPaymentsMiddleware:
             if request.user.is_authenticated and request.user.email.casefold() in settings.BETA_BUYER_EMAILS:
                 return None
             return JsonResponse(
-                {"status": False, "message": "Payments are available to invited KoboTap testers."},
+                {"status": False, "message": "Payments are available to invited Payvict testers."},
                 status=403,
             )
         if route in self.paused_routes or (
             not payment_enabled and route in self.buyer_routes | self.settlement_routes
         ):
             return JsonResponse(
-                {"status": False, "message": "Payments are paused on the KoboTap preview."},
+                {"status": False, "message": "Payments are paused on the Payvict preview."},
                 status=503,
             )

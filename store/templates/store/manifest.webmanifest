@@ -1,15 +1,15 @@
 {% load static %}{
   "id": "/",
-  "name": "KoboTap",
-  "short_name": "KoboTap",
-  "description": "Buy airtime, data and pay bills with KoboTap.",
+  "name": "Payvict",
+  "short_name": "Payvict",
+  "description": "Buy airtime, data and pay bills with Payvict.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0b2c3d",
   "icons": [
-    {"src": "{% static 'store/images/kobotap-app-192.png' %}", "sizes": "192x192", "type": "image/png"},
-    {"src": "{% static 'store/images/kobotap-app-512.png' %}", "sizes": "512x512", "type": "image/png"}
+    {"src": "{% static 'store/images/payvict-app-192.png' %}", "sizes": "192x192", "type": "image/png"},
+    {"src": "{% static 'store/images/payvict-app-512.png' %}", "sizes": "512x512", "type": "image/png"}
   ]
 }

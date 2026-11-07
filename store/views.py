@@ -1076,7 +1076,7 @@ def password_is_strong(password: str) -> bool:
 
 def send_otp(email: str, otp: str):
     send_mail(
-        subject="KoboTap Verification Code",
+        subject="Payvict Verification Code",
         message=f"Your verification code is {otp}\n\nValid for 10 minutes.",
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[email],

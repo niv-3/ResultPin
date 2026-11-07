@@ -44,7 +44,7 @@ def normalize_label(label):
 
 
 class Command(BaseCommand):
-    help = "Refresh CheapDataHub quotes for mapped KoboTap data products without changing retail prices."
+    help = "Refresh CheapDataHub quotes for mapped Payvict data products without changing retail prices."
 
     def handle(self, *args, **options):
         try:

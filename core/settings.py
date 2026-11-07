@@ -1,5 +1,5 @@
 """
-Django settings for KoboTap.
+Django settings for Payvict.
 """
 
 from pathlib import Path
@@ -280,7 +280,7 @@ EMAIL_HOST_PASSWORD = os.getenv(
 
 DEFAULT_FROM_EMAIL = os.getenv(
     "DEFAULT_FROM_EMAIL",
-    "KoboTap <resultpin.solutions@gmail.com>"
+    "Payvict <resultpin.solutions@gmail.com>"
 )
 
 

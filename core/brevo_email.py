@@ -15,7 +15,7 @@ class BrevoEmailBackend(BaseEmailBackend):
                     "https://api.brevo.com/v3/smtp/email",
                     headers={"api-key": settings.BREVO_API_KEY},
                     json={
-                        "sender": {"email": address, "name": name or "KoboTap"},
+                        "sender": {"email": address, "name": name or "Payvict"},
                         "to": [{"email": parseaddr(recipient)[1]} for recipient in message.to],
                         "subject": message.subject,
                         "textContent": message.body,
