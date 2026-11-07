@@ -1234,8 +1234,7 @@ def custom_login(request):
 
 def custom_logout(request):
     logout(request)
-    messages.success(request, "Logged out successfully.")
-    return redirect("home")
+    return redirect("login")
 
 ## ==================================
 # SERVICE DASHBOARD - Airtime/Data
