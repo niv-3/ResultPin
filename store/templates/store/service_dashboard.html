@@ -266,6 +266,27 @@
     color:#c45700;
 }
 
+.network-plan,
+.network-plan:hover{
+    border-top:4px solid var(--network-ink,var(--primary));
+}
+
+.network-plan h4{
+    color:var(--network-ink,var(--primary));
+    margin-bottom:4px;
+}
+
+.plan-validity{
+    color:var(--muted);
+    font-size:.82rem;
+    margin-bottom:8px;
+}
+
+.network-plan .plan-badge{
+    background:var(--network-tint,#eaf3f8);
+    color:var(--network-ink,var(--primary));
+}
+
 .empty-state{
     text-align:center;
     color:var(--muted);
@@ -457,13 +478,16 @@
         {% for plan in plans %}
 
         <a
-            class="plan-card text-decoration-none"
+            class="plan-card text-decoration-none{% if category.slug == 'internet-data' or category.slug == 'data' %} network-plan provider-{{ plan.provider.name|slugify }}{% endif %}"
             href="{% url 'service_checkout' category.slug plan.id %}"
             data-provider-id="{{ plan.provider.id }}"
             style="display:none;"
         >
 
-            <h4>{{ plan.name }}</h4>
+            <h4>{{ plan.display_title|default:plan.name }}</h4>
+            {% if plan.display_validity %}
+                <p class="plan-validity">Valid for {{ plan.display_validity }}</p>
+            {% endif %}
 
             <div class="plan-price">
                 ₦{{ plan.selling_price|floatformat:0 }}
@@ -535,14 +559,15 @@ document.addEventListener(
 
         function positionPackages() {
             const selected = document.querySelector(".provider-option.active");
+            packageTitle.textContent = selected
+                ? selected.querySelector("strong").textContent + " packages"
+                : "Choose package";
             if (mobilePackages.matches && selected) {
                 selected.after(packageStep);
                 packageStep.classList.add("inline-provider-packages");
-                packageTitle.textContent = selected.querySelector("strong").textContent + " packages";
             } else {
                 packagePosition.after(packageStep);
                 packageStep.classList.remove("inline-provider-packages");
-                packageTitle.textContent = "Choose package";
             }
             packageStep.hidden = mobilePackages.matches && !selected;
         }

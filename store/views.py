@@ -1267,6 +1267,12 @@ def service_checkout(request, slug, plan_id):
 def service_dashboard(request, slug):
     category = get_object_or_404(ServiceCategory.objects.exclude(slug="insurance"), slug=slug, is_active=True)
     plans = listed_service_plans(slug)
+    if slug in ("data", "internet-data"):
+        for plan in plans:
+            title, separator, suffix = plan.name.rpartition(" (")
+            if separator and re.fullmatch(r"\d+\s+days?\)", suffix, re.IGNORECASE):
+                plan.display_title = title
+                plan.display_validity = suffix[:-1].lower()
     providers = ServiceProvider.objects.filter(
         category=category, is_active=True,
     ).order_by("order")
