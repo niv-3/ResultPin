@@ -471,7 +471,7 @@
 
             <div class="plan-meta">
 
-                {% if plan.discount_amount %}
+                {% if plan.discount_amount > 0 %}
 
                 <span class="plan-badge discount-badge">
                     Save ₦{{ plan.discount_amount|floatformat:0 }}
