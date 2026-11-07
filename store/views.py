@@ -1112,6 +1112,12 @@ def register(request):
 
         otp = str(random.randint(100000, 999999))
 
+        try:
+            send_otp(email, otp)
+        except OSError:
+            messages.error(request, "We couldn't send your verification email. Please try again later.")
+            return redirect("register")
+
         request.session["pending_user"] = {
             "email": email,
             "password": password,
@@ -1122,7 +1128,6 @@ def register(request):
         }
         request.session.modified = True
 
-        send_otp(email, otp)
         messages.success(request, "Verification code sent!")
         return redirect("verify_otp")
 
@@ -1185,6 +1190,12 @@ def resend_otp(request):
         return redirect("register")
 
     new_otp = str(random.randint(100000, 999999))
+    try:
+        send_otp(data["email"], new_otp)
+    except OSError:
+        messages.error(request, "We couldn't send your verification email. Please try again later.")
+        return redirect("verify_otp")
+
     data.update({
         "otp": new_otp,
         "expires_at": int(time.time()) + 600,
@@ -1194,7 +1205,6 @@ def resend_otp(request):
     request.session["pending_user"] = data
     request.session.modified = True
 
-    send_otp(data["email"], new_otp)
     messages.success(request, "New code sent!")
     return redirect("verify_otp")
 

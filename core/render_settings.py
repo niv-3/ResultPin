@@ -29,6 +29,11 @@ BETA_PAYMENTS_ENABLED = (
 )
 VTPASS_BILLS_ENABLED = False
 
+EMAIL_TIMEOUT = 8
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+if BREVO_API_KEY and os.getenv("DEFAULT_FROM_EMAIL"):
+    EMAIL_BACKEND = "core.brevo_email.BrevoEmailBackend"
+
 MIDDLEWARE = [
     MIDDLEWARE[0],
     "whitenoise.middleware.WhiteNoiseMiddleware",
