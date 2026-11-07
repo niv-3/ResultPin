@@ -1171,7 +1171,6 @@ def verify_otp(request):
         user.save(update_fields=["password", "is_active"])
 
         login(request, user)
-        messages.success(request, "Welcome! Account ready.")
         return redirect("home")
 
     return render(request, "store/verify_otp.html")
