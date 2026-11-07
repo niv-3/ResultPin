@@ -650,7 +650,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                         provider=plan.provider,
                         provider_id=plan.vendor_provider_id,
                         phone=phone,
-                        amount=amount,
+                        amount=airtime_face_value(plan, amount),
                     )
 
                     if hasattr(api_response, "json"):
@@ -983,7 +983,7 @@ def complete_card_service_order(order, payment):
         elif service_type == "airtime":
             delivery = purchase_airtime(
                 provider=plan.provider, provider_id=order.provider_id or plan.vendor_provider_id,
-                phone=order.phone, amount=order.amount_paid,
+                phone=order.phone, amount=airtime_face_value(plan, order.amount_paid),
             )
         else:
             response = requests.post(
@@ -1410,6 +1410,12 @@ def purchase_data(network, plan_id, phone):
             "status": "false",
             "message": "Network error"
         }
+
+def airtime_face_value(plan, charged_amount):
+    if plan.code == "MTN-100":
+        return 100
+    return charged_amount
+
 
 def purchase_airtime(provider, provider_id, phone, amount):
     print("=== HIT CHEAPDATA AIRTIME ENDPOINT ===")
