@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}
-{{ category.name }} | ResultPin
+{{ category.name }} | KoboTap
 {% endblock %}
 
 {% block extra_css %}
@@ -164,7 +164,9 @@
     width:58px;
     height:58px;
     border-radius:15px;
-    background:#f3f6f8;
+    background:var(--network-tint,#eaf3f8);
+    color:var(--network-ink,var(--primary));
+    font-size:1.25rem;
     margin:0 auto 12px;
     display:flex;
     align-items:center;
@@ -179,8 +181,27 @@
 
 .provider-option strong{
     display:block;
-    color:var(--primary);
-    font-size:.9rem;
+    color:var(--network-ink,var(--primary));
+    font-size:1rem;
+    font-weight:800;
+    overflow-wrap:anywhere;
+}
+
+.provider-mtn{
+    --network-tint:#ffdc53;
+    --network-ink:#755000;
+}
+
+.provider-airtel{
+    --network-tint:#ffe6e8;
+    --network-ink:#aa1227;
+}
+
+.provider-glo,
+.provider-9mobile,
+.provider-etisalat{
+    --network-tint:#e5f5e7;
+    --network-ink:#18652e;
 }
 
 .plan-grid{
@@ -245,139 +266,6 @@
     color:#c45700;
 }
 
-.purchase-panel{
-    display:grid;
-    grid-template-columns:1.2fr .8fr;
-    gap:24px;
-}
-
-.field-label{
-    display:block;
-    font-size:.8rem;
-    font-weight:750;
-    color:var(--primary);
-    margin-bottom:7px;
-}
-
-.purchase-input{
-    height:52px;
-    border:1px solid #dfe6ea;
-    border-radius:12px;
-    padding:0 15px;
-    box-shadow:none !important;
-}
-
-.payment-options{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:12px;
-}
-
-.payment-choice{
-    position:relative;
-}
-
-.payment-choice input{
-    position:absolute;
-    opacity:0;
-}
-
-.payment-choice label{
-    display:block;
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:16px;
-    cursor:pointer;
-    min-height:92px;
-    transition:.2s ease;
-}
-
-.payment-choice input:checked + label{
-    border:2px solid var(--primary);
-    background:#f4f8fa;
-}
-
-.payment-choice input:disabled + label{
-    opacity:.45;
-    cursor:not-allowed;
-}
-
-.payment-choice i{
-    color:var(--primary);
-    font-size:1.2rem;
-    margin-bottom:8px;
-}
-
-.payment-choice strong,
-.payment-choice span{
-    display:block;
-}
-
-.payment-choice strong{
-    color:var(--primary);
-    font-size:.86rem;
-}
-
-.payment-choice span{
-    color:var(--muted);
-    font-size:.72rem;
-    margin-top:2px;
-}
-
-.purchase-summary{
-    background:var(--primary);
-    border-radius:18px;
-    color:#fff;
-    padding:24px;
-}
-
-.purchase-summary small{
-    color:rgba(255,255,255,.55);
-    font-size:.72rem;
-    text-transform:uppercase;
-    font-weight:700;
-    letter-spacing:.07em;
-}
-
-.summary-plan{
-    font-size:1.05rem;
-    font-weight:800;
-    margin:6px 0 4px;
-}
-
-.summary-price{
-    font-size:2rem;
-    font-weight:850;
-    margin-bottom:20px;
-}
-
-.summary-placeholder{
-    color:rgba(255,255,255,.55);
-    line-height:1.6;
-    font-size:.9rem;
-}
-
-.purchase-btn{
-    width:100%;
-    border:0;
-    border-radius:12px;
-    padding:14px 18px;
-    margin-top:20px;
-    background:var(--accent);
-    color:#fff;
-    font-weight:800;
-    transition:.2s ease;
-}
-
-.purchase-btn:hover{
-    background:#e86100;
-}
-
-.purchase-btn:disabled{
-    opacity:.5;
-    cursor:not-allowed;
-}
-
 .empty-state{
     text-align:center;
     color:var(--muted);
@@ -394,9 +282,6 @@
         grid-template-columns:repeat(2,minmax(0,1fr));
     }
 
-    .purchase-panel{
-        grid-template-columns:1fr;
-    }
 
 }
 
@@ -433,6 +318,20 @@
 
 }
 
+@media (max-width: 767.98px) {
+    .provider-grid > .inline-provider-packages {
+        grid-column: 1 / -1;
+        min-width: 0;
+        margin: 0;
+        padding: 12px;
+        border-radius: 12px;
+        background: #f3f7f8;
+    }
+
+    .inline-provider-packages .flow-label {
+        margin-bottom: 10px;
+    }
+}
 </style>
 {% endblock %}
 
@@ -454,8 +353,7 @@
         <h1>{{ category.name }}</h1>
 
         <p>
-            Choose your provider, select a package, enter the recipient
-            details and pay securely.
+            Choose your provider, then tap a package to open checkout.
         </p>
 
     </div>
@@ -497,8 +395,11 @@
 
         {% for provider in providers %}
 
-        <div
-            class="provider-option"
+        <button
+            type="button"
+            class="provider-option provider-{{ provider.name|slugify }}"
+            aria-pressed="false"
+            aria-controls="package-step"
             data-provider-id="{{ provider.id }}"
             onclick="selectProvider({{ provider.id }}, this)"
         >
@@ -509,20 +410,22 @@
 
                 <img
                     src="{{ provider.logo.url }}"
-                    alt="{{ provider.name }}"
+                    alt=""
+                    onerror="this.nextElementSibling.hidden = false; this.hidden = true"
                 >
-
-                {% else %}
-
-                <i class="fas fa-building"></i>
-
                 {% endif %}
+
+                <i
+                    class="fas {% if category.slug == 'data' or category.slug == 'internet-data' %}fa-wifi{% elif category.slug == 'airtime' %}fa-phone{% else %}fa-bolt{% endif %}"
+                    aria-hidden="true"
+                    {% if provider.logo %}hidden{% endif %}
+                ></i>
 
             </div>
 
             <strong>{{ provider.name }}</strong>
 
-        </div>
+        </button>
 
         {% empty %}
 
@@ -538,13 +441,14 @@
 
 
 <!-- STEP 2 -->
-<div class="flow-card">
+<div id="package-position" hidden></div>
+<div class="flow-card" id="package-step">
 
     <div class="flow-label">
 
         <div class="flow-number">2</div>
 
-        <h3>Choose package</h3>
+        <h3 id="package-title">Choose package</h3>
 
     </div>
 
@@ -552,22 +456,10 @@
 
         {% for plan in plans %}
 
-        <div
-            class="plan-card"
+        <a
+            class="plan-card text-decoration-none"
+            href="{% url 'service_checkout' category.slug plan.id %}"
             data-provider-id="{{ plan.provider.id }}"
-            data-plan-id="{{ plan.id }}"
-            data-plan-name="{{ plan.name|escapejs }}"
-            data-plan-price="{{ plan.selling_price }}"
-            onclick="
-                selectPlan(
-                    {{ plan.id }},
-                    '{{ plan.name|escapejs }}',
-                    {{ plan.selling_price }},
-                    '{{ category.slug }}',
-                    {{ plan.provider.id }},
-                    this
-                )
-            "
             style="display:none;"
         >
 
@@ -597,7 +489,7 @@
 
             </div>
 
-        </div>
+        </a>
 
         {% empty %}
 
@@ -619,171 +511,6 @@
 </div>
 
 
-{% if user.is_authenticated %}
-
-<!-- STEP 3 + PAYMENT -->
-<div class="flow-card">
-
-    <div class="flow-label">
-
-        <div class="flow-number">3</div>
-
-        <h3>Complete purchase</h3>
-
-    </div>
-
-    {% csrf_token %}
-
-    <div class="purchase-panel">
-
-        <div>
-
-            <div class="mb-4">
-
-                <label
-                    for="purchase-phone"
-                    class="field-label"
-                >
-                    Phone Number
-                </label>
-
-                <input
-                    type="tel"
-                    id="purchase-phone"
-                    class="form-control purchase-input"
-                    placeholder="08012345678"
-                    maxlength="11"
-                    autocomplete="tel"
-                >
-
-            </div>
-
-
-            <div>
-
-                <div class="field-label">
-                    Payment Method
-                </div>
-
-                <div class="payment-options">
-
-                    <div class="payment-choice">
-
-                        <input
-                            type="radio"
-                            id="pay-wallet"
-                            name="payment_method"
-                            value="wallet"
-                        >
-
-                        <label for="pay-wallet">
-
-                            <i class="fas fa-wallet"></i>
-
-                            <strong>Wallet</strong>
-
-                            <span>
-                                ₦{{ request.user.wallet_balance|floatformat:0 }}
-                                available
-                            </span>
-
-                        </label>
-
-                    </div>
-
-
-                    <div class="payment-choice">
-
-                        <input
-                            type="radio"
-                            id="pay-card"
-                            name="payment_method"
-                            value="card"
-                            checked
-                        >
-
-                        <label for="pay-card">
-
-                            <i class="fas fa-credit-card"></i>
-
-                            <strong>Card</strong>
-
-                            <span>
-                                Secure card payment
-                            </span>
-
-                        </label>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <div class="purchase-summary">
-
-            <small>Selected Package</small>
-
-            <div
-                class="summary-plan"
-                id="summary-plan"
-            >
-                No package selected
-            </div>
-
-            <div
-                class="summary-price"
-                id="summary-price"
-            >
-                ₦0
-            </div>
-
-            <div
-                class="summary-placeholder"
-                id="summary-message"
-            >
-                Select a provider and package to continue.
-            </div>
-
-            <button
-                id="purchase-btn"
-                class="purchase-btn"
-                type="button"
-                onclick="submitPurchase()"
-                disabled
-            >
-                Complete Purchase
-                <i class="fas fa-arrow-right ms-1"></i>
-            </button>
-
-        </div>
-
-    </div>
-
-</div>
-
-{% else %}
-
-<div class="flow-card text-center">
-
-    <p class="mb-3">
-        Sign in to complete your purchase.
-    </p>
-
-    <a
-        href="{% url 'login' %}?next={{ request.path|urlencode }}"
-        class="purchase-btn d-inline-block w-auto px-4"
-    >
-        Login to Continue
-    </a>
-
-</div>
-
-{% endif %}
-
 </div>
 
 </section>
@@ -800,30 +527,56 @@ document.addEventListener(
     function () {
 
         let selectedProviderId = null;
-        let currentPlan = null;
-        let submitting = false;
+        {% if category.slug == "internet-data" or category.slug == "data" or category.slug == "airtime" %}
+        const mobilePackages = window.matchMedia("(max-width: 767.98px)");
+        const packageStep = document.getElementById("package-step");
+        const packagePosition = document.getElementById("package-position");
+        const packageTitle = document.getElementById("package-title");
 
-        {% if user.is_authenticated %}
-        const walletBalance =
-            {{ request.user.wallet_balance|default:0|floatformat:0 }};
+        function positionPackages() {
+            const selected = document.querySelector(".provider-option.active");
+            if (mobilePackages.matches && selected) {
+                selected.after(packageStep);
+                packageStep.classList.add("inline-provider-packages");
+                packageTitle.textContent = selected.querySelector("strong").textContent + " packages";
+            } else {
+                packagePosition.after(packageStep);
+                packageStep.classList.remove("inline-provider-packages");
+                packageTitle.textContent = "Choose package";
+            }
+            packageStep.hidden = mobilePackages.matches && !selected;
+        }
+
+        mobilePackages.addEventListener("change", positionPackages);
+        positionPackages();
         {% endif %}
-
 
         window.selectProvider = function (
             providerId,
             element
         ) {
 
-            selectedProviderId = providerId;
-            currentPlan = null;
+            {% if category.slug == "internet-data" or category.slug == "data" or category.slug == "airtime" %}
+            const collapsePackages = mobilePackages.matches && element.classList.contains("active");
+            {% else %}
+            const collapsePackages = false;
+            {% endif %}
+            selectedProviderId = collapsePackages ? null : providerId;
 
             document
                 .querySelectorAll(".provider-option")
                 .forEach(item => {
                     item.classList.remove("active");
+                    item.setAttribute("aria-pressed", "false");
                 });
 
-            element.classList.add("active");
+            if (!collapsePackages) {
+                element.classList.add("active");
+                element.setAttribute("aria-pressed", "true");
+            }
+            {% if category.slug == "internet-data" or category.slug == "data" or category.slug == "airtime" %}
+            positionPackages();
+            {% endif %}
 
 
             let visiblePlans = 0;
@@ -838,7 +591,7 @@ document.addEventListener(
                         );
 
                     if (
-                        cardProviderId === providerId
+                        cardProviderId === selectedProviderId
                     ) {
 
                         card.style.display = "block";
@@ -866,333 +619,20 @@ document.addEventListener(
                         ? "none"
                         : "block";
 
-                if (visiblePlans === 0) {
-
-                    placeholder.textContent =
-                        "No packages are currently available for this provider.";
-
-                }
+                placeholder.textContent = selectedProviderId === null
+                    ? "Choose a provider to view available packages."
+                    : "No packages are currently available for this provider.";
 
             }
 
-
-            {% if user.is_authenticated %}
-
-            document.getElementById(
-                "summary-plan"
-            ).textContent =
-                "No package selected";
-
-            document.getElementById(
-                "summary-price"
-            ).textContent =
-                "₦0";
-
-            document.getElementById(
-                "summary-message"
-            ).textContent =
-                "Choose a package to continue.";
-
-            document.getElementById(
-                "purchase-btn"
-            ).disabled = true;
-
-            {% endif %}
 
         };
 
-
-        window.selectPlan = function (
-            planId,
-            planName,
-            price,
-            serviceType,
-            providerId,
-            element
-        ) {
-
-            if (
-                selectedProviderId !== providerId
-            ) {
-                return;
-            }
-
-            currentPlan = {
-                planId,
-                name: planName,
-                price: Number(price),
-                serviceType,
-                providerId
-            };
-
-
-            document
-                .querySelectorAll(".plan-card")
-                .forEach(card => {
-                    card.classList.remove("active");
-                });
-
-            element.classList.add("active");
-
-
-            {% if user.is_authenticated %}
-
-            document.getElementById(
-                "summary-plan"
-            ).textContent =
-                planName;
-
-            document.getElementById(
-                "summary-price"
-            ).textContent =
-                "₦" +
-                Number(price).toLocaleString();
-
-
-            document.getElementById(
-                "summary-message"
-            ).textContent =
-                "Ready to complete your purchase.";
-
-
-            const walletRadio =
-                document.getElementById(
-                    "pay-wallet"
-                );
-
-
-            walletRadio.disabled =
-                walletBalance < Number(price);
-
-
-            if (
-                walletBalance >= Number(price)
-            ) {
-
-                walletRadio.checked = true;
-
-            } else {
-
-                document.getElementById(
-                    "pay-card"
-                ).checked = true;
-
-            }
-
-
-            document.getElementById(
-                "purchase-btn"
-            ).disabled = false;
-
-            {% endif %}
-
-        };
-
-
-        {% if user.is_authenticated %}
-
-        function getCSRFToken() {
-
-            let token =
-                document.querySelector(
-                    "[name=csrfmiddlewaretoken]"
-                )?.value;
-
-            if (!token) {
-
-                const cookieValue =
-                    document.cookie
-                    .split("; ")
-                    .find(
-                        row =>
-                            row.startsWith(
-                                "csrftoken="
-                            )
-                    );
-
-                token =
-                    cookieValue
-                        ? cookieValue.split("=")[1]
-                        : null;
-
-            }
-
-            return token;
+        const initialProvider = document.querySelector('.provider-option[data-provider-id="{{ selected_provider.pk }}"]');
+        if (initialProvider) {
+            initialProvider.click();
         }
-
-
-        window.submitPurchase = function () {
-
-            if (
-                submitting ||
-                !currentPlan
-            ) {
-                return;
-            }
-
-
-            const phone =
-                document.getElementById(
-                    "purchase-phone"
-                ).value.trim();
-
-
-            const paymentMethod =
-                document.querySelector(
-                    'input[name="payment_method"]:checked'
-                );
-
-
-            if (
-                !phone ||
-                !/^0\d{10}$/.test(phone)
-            ) {
-
-                alert(
-                    "Please enter a valid 11-digit phone number starting with 0."
-                );
-
-                return;
-            }
-
-
-            if (!paymentMethod) {
-
-                alert(
-                    "Please select a payment method."
-                );
-
-                return;
-            }
-
-
-            const csrfToken =
-                getCSRFToken();
-
-
-            if (!csrfToken) {
-
-                alert(
-                    "Unable to verify this request. Please refresh the page."
-                );
-
-                return;
-            }
-
-
-            submitting = true;
-
-
-            const button =
-                document.getElementById(
-                    "purchase-btn"
-                );
-
-
-            button.disabled = true;
-
-            button.innerHTML = `
-                <i class="fas fa-spinner fa-spin me-2"></i>
-                Processing...
-            `;
-
-
-            const url =
-                `/service/pay/${currentPlan.serviceType}/${currentPlan.planId}/`;
-
-
-            fetch(
-                url,
-                {
-                    method:"POST",
-
-                    headers:{
-                        "Content-Type":
-                            "application/json",
-
-                        "X-CSRFToken":
-                            csrfToken
-                    },
-
-                    body:JSON.stringify({
-                        phone:phone,
-                        payment_method:
-                            paymentMethod.value
-                    })
-                }
-            )
-
-            .then(response => response.json())
-
-            .then(data => {
-
-                if (data.status) {
-
-                    if (
-                        data.authorization_url
-                    ) {
-
-                        window.location.href =
-                            data.authorization_url;
-
-                        return;
-                    }
-
-
-                    alert(
-                        data.message ||
-                        "Purchase successful."
-                    );
-
-
-                    window.location.href =
-                        data.redirect_url ||
-                        "/";
-
-                    return;
-                }
-
-
-                alert(
-                    data.message ||
-                    "Transaction could not be completed."
-                );
-
-            })
-
-            .catch(error => {
-
-                console.error(
-                    "Purchase error:",
-                    error
-                );
-
-                alert(
-                    "Network error. Please try again."
-                );
-
-            })
-
-            .finally(() => {
-
-                submitting = false;
-
-                button.disabled = false;
-
-                button.innerHTML = `
-                    Complete Purchase
-                    <i class="fas fa-arrow-right ms-1"></i>
-                `;
-
-            });
-
-        };
-
-        {% endif %}
-
     }
 );
-
 </script>
-
 {% endblock %}

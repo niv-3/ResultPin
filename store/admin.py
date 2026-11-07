@@ -3,6 +3,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import *
+from .supplier_pricing import estimated_data_margin
 
 
 @admin.register(User)
@@ -38,3 +39,20 @@ admin.site.register(BlogPost)
 admin.site.register(HeroBanner)
 admin.site.register(FAQ)
 admin.site.register(Review)
+
+
+@admin.register(SupplierQuote)
+class SupplierQuoteAdmin(admin.ModelAdmin):
+    list_display = ("plan", "vendor", "external_id", "cost", "estimated_margin", "estimated_card_margin", "available", "approved", "checked_at")
+    list_filter = ("vendor", "available", "approved")
+    list_select_related = ("plan", "vendor")
+    search_fields = ("plan__name", "external_id", "label")
+
+    @admin.display(description="Est. wallet margin")
+    def estimated_margin(self, quote):
+        return estimated_data_margin(quote.plan, quote.cost)
+
+
+    @admin.display(description="Est. card margin")
+    def estimated_card_margin(self, quote):
+        return estimated_data_margin(quote.plan, quote.cost, payment_method="card")

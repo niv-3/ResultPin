@@ -23,3 +23,5 @@ Thumbs.db
 
 # Keep the template environment file
 !.env.example
+/output/
+/ngrok-webhook-test-policy.yml

@@ -1,8 +1,8 @@
-# 💳 ResultPin
+# 💳 KoboTap
 
 A full-stack Django web application for purchasing digital services such as airtime, mobile data, cable TV subscriptions, electricity tokens, and educational services through secure wallet and card payments.
 
-ResultPin demonstrates real-world backend engineering concepts including payment gateway integration, wallet accounting, transaction management, third-party API integration, and secure authentication.
+KoboTap demonstrates real-world backend engineering concepts including payment gateway integration, wallet accounting, transaction management, third-party API integration, and secure authentication.
 
 ---
 
@@ -53,7 +53,7 @@ ResultPin demonstrates real-world backend engineering concepts including payment
 ## 🏗 Project Architecture
 
 ```
-ResultPin
+KoboTap
 │
 ├── Authentication
 ├── Wallet System
@@ -178,6 +178,23 @@ EMAIL_HOST_PASSWORD=your_app_password
 
 ---
 
+## TV and electricity setup
+
+1. Run `python manage.py migrate`.
+2. Add `VTPASS_API_KEY` and `VTPASS_SECRET_KEY` to your local environment. Use
+   `VTPASS_TEST_MODE=True` and `VTPASS_BILLS_ENABLED=True` in a test instance with
+   a separate database and test wallet balances.
+3. In Django admin, set the VTpass service ID on each active TV or electricity
+   provider. For example, use `dstv` for DStv or `ikeja-electric` for Ikeja Electric.
+   The category slugs are `tv` or `cable` for TV and `electricity` for electricity.
+4. For TV, configure each plan's VTpass variation code and selling price. Use the
+   provider's current variation list to populate the catalogue.
+5. Check successful, rejected, and pending payments in the sandbox before setting
+   `VTPASS_TEST_MODE=False` on the live instance with live credentials.
+
+Customers pay from their KoboTap wallet and can reopen recent receipts to check
+pending payments or retrieve prepaid tokens.
+
 ## Current Status
 
 ### Completed
@@ -205,7 +222,7 @@ EMAIL_HOST_PASSWORD=your_app_password
 
 ## About This Project
 
-ResultPin was built as a portfolio project to demonstrate practical experience with Django, payment integration, REST APIs, backend architecture, authentication, and financial transaction workflows.
+KoboTap was built as a portfolio project to demonstrate practical experience with Django, payment integration, REST APIs, backend architecture, authentication, and financial transaction workflows.
 
 The application focuses on clean architecture, secure payment processing, and handling real-world scenarios such as failed provider requests and transaction verification.
 

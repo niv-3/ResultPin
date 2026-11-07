@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
 
-    <title>Login | ResultPin</title>
+    <title>Login | KoboTap</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -462,7 +462,7 @@
     <div class="login-brand">
 
         <a href="{% url 'home' %}">
-            Result<span>Pin</span>
+            {% include 'store/brand_logo.html' %}
         </a>
 
     </div>
@@ -526,7 +526,15 @@
 
             <!-- FORM -->
 
+            {% if google_enabled %}
+                <a class="btn btn-outline-dark w-100 py-2 fw-semibold" href="{% url 'google_signin' %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
+                    Continue with Google
+                </a>
+                <p class="text-center text-muted my-3">or continue with email</p>
+            {% endif %}
+
             <form method="post">
+                <input type="hidden" name="next" value="{{ next_url }}">
 
                 {% csrf_token %}
 

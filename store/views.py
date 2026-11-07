@@ -3,7 +3,7 @@ import uuid
 import hmac
 import hashlib
 import requests
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import re
 import time
 import random
@@ -14,12 +14,13 @@ from django.contrib.auth import get_user_model, login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
 from django.db import transaction
-from django.http import JsonResponse, HttpResponse
+from django.http import Http404, JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from datetime import timedelta
 from django.db.models import Sum
 from django.core.paginator import Paginator
@@ -28,8 +29,6 @@ from django.core.exceptions import ValidationError
 User = get_user_model()
 
 from .models import (
-    Product,
-    HeroBanner,
     FAQ,
     ServiceCategory,
     ServiceProvider,
@@ -44,7 +43,10 @@ from .models import (
     ElectricityTransaction,
 )
 
-from .paystack import initialize_paystack
+from .bills import BILL_MODELS, TV_CATEGORY_SLUGS
+from .google_auth import google_enabled
+from .paystack import initialize_paystack, verify_paystack
+from .supplier_pricing import data_quote_allows_checkout
 
 # views.py
 def get_service_type_from_plan(plan):
@@ -99,27 +101,14 @@ RESELLER_HEADERS = {
 # VIEWS
 # ==============================
 def home(request):
-    hero = HeroBanner.objects.filter(page="home", is_active=True).first()
-    products = Product.objects.filter(is_active=True)
-    faq_list = FAQ.objects.filter(is_active=True)
-    services = ServiceCategory.objects.filter(is_active=True).order_by("order")
+    categories = ServiceCategory.objects.filter(is_active=True).exclude(slug="insurance").order_by("order", "pk")
+    tv_category = categories.filter(slug="cable-tv").first() or categories.filter(slug__in=TV_CATEGORY_SLUGS).first()
+    services = [
+        category for category in categories
+        if category.slug not in TV_CATEGORY_SLUGS or category == tv_category
+    ]
 
-    wallet_balance = (
-        request.user.wallet_balance if request.user.is_authenticated else Decimal("0.00")
-    )
-
-    return render(
-        request,
-        "store/home.html",
-        {
-            "hero": hero,
-            "products": products,
-            "services": services,
-            "faq_list": faq_list,
-            "quantity_options": range(1, 11),
-            "wallet_balance": wallet_balance,
-        },
-    )
+    return render(request, "store/home.html", {"services": services})
 
 def faq_view(request):
     faq_list = FAQ.objects.all().order_by('id')  # ← safe option
@@ -128,61 +117,95 @@ def faq_view(request):
     return render(request, 'store/faq.html', {'faq_list': faq_list})
 
     
+def confirm_wallet_topup(topup, payment):
+    if (
+        not isinstance(payment, dict)
+        or payment.get("status") != "success"
+        or payment.get("reference") != topup.reference
+        or payment.get("currency") != "NGN"
+        or type(payment.get("amount")) is not int
+        or payment["amount"] != int(topup.amount * 100)
+    ):
+        return False
+
+    updated = WalletTransaction.objects.filter(pk=topup.pk, status="pending").update(status="success")
+    return bool(updated) or WalletTransaction.objects.filter(pk=topup.pk, status="success").exists()
+
+
 @csrf_exempt
+@require_POST
 def paystack_webhook(request):
-    signature = request.headers.get("x-paystack-signature")
-    if not signature:
-        return HttpResponse("No signature", status=400)
+    signature = request.headers.get("x-paystack-signature", "")
+    secret = settings.PAYSTACK_SECRET_KEY
+    if not secret or not signature:
+        return HttpResponse("Missing webhook credentials", status=400)
 
-    computed = hmac.new(
-        settings.PAYSTACK_SECRET_KEY.encode(),
-        request.body,
-        hashlib.sha512
-    ).hexdigest()
-
+    computed = hmac.new(secret.encode(), request.body, hashlib.sha512).hexdigest()
     if not hmac.compare_digest(computed, signature):
         return HttpResponse("Invalid signature", status=400)
 
     try:
         payload = json.loads(request.body)
-    except json.JSONDecodeError:
+    except (ValueError, UnicodeDecodeError):
         return HttpResponse("Invalid JSON", status=400)
 
+    if not isinstance(payload, dict):
+        return HttpResponse("Invalid event", status=400)
     if payload.get("event") != "charge.success":
-        return HttpResponse("Ignored event", status=200)
+        return HttpResponse("Ignored event")
 
-    ref = payload.get("data", {}).get("reference")
-    if not ref or not ref.startswith("WALLET-"):
-        return HttpResponse("Invalid reference", status=200)
+    payment = payload.get("data")
+    reference = payment.get("reference") if isinstance(payment, dict) else None
+    if isinstance(reference, str) and reference.startswith(("CARD-AIRTIME-", "CARD-DATA-")):
+        order = card_service_orders().filter(reference=reference).first()
+        if order and not complete_card_service_order(order, payment):
+            return HttpResponse("Payment does not match service order", status=400)
+        return HttpResponse("OK")
 
-    try:
-        txn = WalletTransaction.objects.get(reference=ref)
-    except WalletTransaction.DoesNotExist:
-        return HttpResponse("Unknown reference", status=200)
+    if not isinstance(reference, str) or not reference.startswith("WALLET-"):
+        return HttpResponse("Ignored reference")
 
-    if txn.status == "success":
-        return HttpResponse("Already processed", status=200)
-
-    if txn.status == "pending":
-        try:
-            with transaction.atomic():
-                locked_txn = WalletTransaction.objects.select_for_update().get(reference=ref)
-                if locked_txn.status == "pending":
-                    locked_txn.status = "success"
-                    locked_txn.save(update_fields=["status"])
-        except WalletTransaction.DoesNotExist:
-            pass
-
-    return HttpResponse("OK", status=200)
+    topup = WalletTransaction.objects.filter(
+        reference=reference, transaction_type="credit", source="funding",
+    ).first()
+    if topup and not confirm_wallet_topup(topup, payment):
+        return HttpResponse("Payment does not match wallet funding", status=400)
+    return HttpResponse("OK")
 
 
 @login_required
 def wallet(request):
     user = request.user
-    transactions_qs = user.wallet_transactions.order_by("-created_at")
-    paginator = Paginator(transactions_qs, 25)
-    page_number = request.GET.get("page")
-    wallet_transactions = paginator.get_page(page_number)
+    cutoff = timezone.now() - timedelta(days=7)
+    history = list(user.wallet_transactions.filter(created_at__gte=cutoff))
+    for entry in history:
+        if entry.status != "success":
+            entry.payment_status = entry.status
+    debits = {txn.reference: txn for txn in history if txn.transaction_type == "debit"}
+    for kind, model in BILL_MODELS.items():
+        bills = model.objects.filter(user=user, reference__in=debits)
+        for bill in bills:
+            entry = debits[bill.reference]
+            entry.receipt_url = reverse("bill_receipt", args=[kind, bill.reference])
+            entry.payment_status = bill.status
+
+    card_payments = AirtimeTransaction.objects.filter(
+        user=user, payment_method="card", created_at__gte=cutoff,
+    ).select_related("service_plan")
+    for payment in card_payments:
+        history.append({
+            "created_at": payment.created_at,
+            "description": payment.service_plan.name if payment.service_plan else "Service purchase",
+            "transaction_type": "card",
+            "amount": payment.amount_paid,
+            "payment_status": payment.status,
+        })
+
+    def created_at(entry):
+        return entry["created_at"] if isinstance(entry, dict) else entry.created_at
+
+    history.sort(key=created_at, reverse=True)
+    wallet_transactions = Paginator(history, 25).get_page(request.GET.get("page"))
 
     referral_earnings = (
         user.wallet_transactions.filter(
@@ -198,6 +221,7 @@ def wallet(request):
         "total_referrals": user.total_referrals,
         "referral_earnings": referral_earnings,
         "wallet_transactions": wallet_transactions,
+        "withdrawals_enabled": settings.WALLET_WITHDRAWALS_ENABLED,
     }
     return render(request, "store/wallet.html", context)
 
@@ -217,95 +241,87 @@ def wallet_fund(request):
 def wallet_fund_init(request):
     try:
         data = json.loads(request.body)
-        amount = Decimal(data.get("amount", "0"))
+        amount = Decimal(str(data["amount"]))
+        if not amount.is_finite() or not Decimal("100") <= amount <= Decimal("5000000"):
+            raise ValueError
+        if amount != amount.quantize(Decimal("0.01")):
+            raise ValueError
+    except (InvalidOperation, KeyError, TypeError, ValueError):
+        return JsonResponse({"status": False, "message": "Enter an amount from ₦100 to ₦5,000,000 with up to two decimal places."})
 
-        if amount < Decimal("100"):
-            return JsonResponse({"status": False, "message": "Minimum funding amount is ₦100"})
-
-        if amount > Decimal("5000000"):  # Reasonable cap
-            return JsonResponse({"status": False, "message": "Amount too high"})
-
-        reference = f"WALLET-{uuid.uuid4().hex[:12].upper()}"
-
-        request.session["pending_wallet_fund"] = {
-            "reference": reference,
-            "amount": str(amount),
-        }
-        request.session.modified = True
-
+    topup = WalletTransaction.objects.create(
+        user=request.user, amount=amount, transaction_type="credit", source="funding",
+        description="Wallet top-up", status="pending",
+        reference=f"WALLET-{uuid.uuid4().hex.upper()}",
+    )
+    try:
         result = initialize_paystack(
             email=request.user.email,
             amount=int(amount * 100),
-            reference=reference,
+            reference=topup.reference,
             callback_url=request.build_absolute_uri(reverse("verify_wallet_funding")),
         )
-
-        if not result.get("status"):
-            request.session.pop("pending_wallet_fund", None)
-            return JsonResponse({"status": False, "message": result.get("message", "Payment failed")})
-
-        return JsonResponse({
-            "status": True,
-            "data": {"authorization_url": result["data"]["authorization_url"]}
-        })
-
-    except Exception as e:
-        print("Wallet fund init error:", e)
-        return JsonResponse({"status": False, "message": "Service unavailable"})
+        if result.get("status") is True:
+            url = result["data"]["authorization_url"]
+            if isinstance(url, str) and url:
+                return JsonResponse({"status": True, "data": {"authorization_url": url}})
+    except (requests.RequestException, ValueError, KeyError, TypeError, AttributeError):
+        # A request can fail after Paystack accepts it. Retain the reference for settlement.
+        pass
+    return JsonResponse({"status": False, "message": "Could not open Paystack checkout. Please try again."})
 
 
 @login_required
 def verify_wallet_funding(request):
-    reference = request.GET.get("reference")
-    if not reference:
-        messages.error(request, "Invalid reference")
+    reference = request.GET.get("reference", "")
+    if not re.fullmatch(r"WALLET-[0-9A-F]{12,32}", reference):
+        messages.error(request, "Invalid funding reference.")
         return redirect("wallet")
 
-    pending = request.session.get("pending_wallet_fund")
-    if not pending or pending.get("reference") != reference:
-        messages.info(request, "Session expired or invalid")
+    funding = request.user.wallet_transactions.filter(transaction_type="credit", source="funding")
+    topup = funding.filter(reference=reference).first()
+    if topup and topup.status == "success":
+        messages.info(request, "This top-up has already been credited.")
         return redirect("wallet")
 
-    if WalletTransaction.objects.filter(reference=reference, status="success").exists():
-        messages.info(request, "Already credited")
-        request.session.pop("pending_wallet_fund", None)
+    # In-flight checkouts created before pending top-ups were persisted.
+    legacy = request.session.get("pending_wallet_fund")
+    if topup is None and (not legacy or legacy.get("reference") != reference):
+        messages.error(request, "Wallet top-up was not found.")
         return redirect("wallet")
 
-    headers = {"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"}
     try:
-        response = requests.get(
-            f"https://api.paystack.co/transaction/verify/{reference}",
-            headers=headers,
-            timeout=30
-        )
-        result = response.json()
-    except Exception as e:
-        messages.error(request, "Verification failed")
+        result = verify_paystack(reference)
+        payment = result.get("data") if result.get("status") is True else None
+        if topup is None and isinstance(payment, dict) and payment.get("status") == "success":
+            topup, _ = WalletTransaction.objects.get_or_create(
+                reference=reference,
+                defaults={
+                    "user": request.user, "amount": Decimal(legacy["amount"]),
+                    "transaction_type": "credit", "source": "funding",
+                    "description": "Wallet top-up", "status": "pending",
+                },
+            )
+            if topup.user_id != request.user.pk or topup.transaction_type != "credit" or topup.source != "funding":
+                topup = None
+    except (requests.RequestException, ValueError, InvalidOperation, KeyError, TypeError, AttributeError):
+        messages.info(request, "Could not verify this payment yet. Please check your wallet history shortly.")
         return redirect("wallet")
 
-    if not result.get("status") or result["data"]["status"] != "success":
-        messages.error(request, "Payment failed")
-        return redirect("wallet")
-
-    amount = Decimal(pending["amount"])
-
-    with transaction.atomic():
-        WalletTransaction.objects.create(
-            user=request.user,
-            amount=amount,
-            transaction_type="credit",
-            source="funding",
-            status="success",
-            reference=reference,
-        )
-
-    request.session.pop("pending_wallet_fund", None)
-    messages.success(request, f"Wallet credited with ₦{amount:,}!")
+    if topup and confirm_wallet_topup(topup, payment):
+        if legacy and legacy.get("reference") == reference:
+            request.session.pop("pending_wallet_fund", None)
+        messages.success(request, f"Wallet credited with ₦{topup.amount:,}!")
+    else:
+        messages.info(request, "This wallet payment has not been confirmed.")
     return redirect("wallet")
 
 
 @login_required
 def add_bank_account(request):
+    if not settings.WALLET_WITHDRAWALS_ENABLED:
+        raise Http404
+
     if request.method == "POST":
         account_number = request.POST.get("account_number")
         bank_code = request.POST.get("bank_code")
@@ -374,6 +390,9 @@ def add_bank_account(request):
 
 @login_required
 def wallet_withdraw(request):
+    if not settings.WALLET_WITHDRAWALS_ENABLED:
+        raise Http404
+
     bank_account = getattr(request.user, "bank_account", None)
 
     if request.method == "POST":
@@ -533,6 +552,14 @@ def initiate_service_payment(request, plan_id, category_slug=None):
             })
 
         amount = Decimal(plan.selling_price)
+        if "expected_price" in data:
+            try:
+                price_matches = Decimal(str(data["expected_price"])) == amount
+            except (InvalidOperation, ValueError):
+                price_matches = False
+            if not price_matches:
+                return JsonResponse({"status": False, "message": "The price changed. Reload this page to review the new total."})
+
 
         if amount <= Decimal("0.00"):
             return JsonResponse({
@@ -562,6 +589,11 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                     "message": "This data bundle is not configured correctly."
                 })
 
+            if settings.DATA_QUOTE_GUARD_ENABLED and not data_quote_allows_checkout(plan, payment_method):
+                return JsonResponse({
+                    "status": False,
+                    "message": "This data bundle is temporarily unavailable.",
+                })
             provider_id = None
             bundle_id = plan.vendor_bundle_id
 
@@ -920,905 +952,131 @@ def initiate_service_payment(request, plan_id, category_slug=None):
             "message": "Service temporarily unavailable."
         })
 
-@login_required
-def verify_service_payment(request):
-    """
-    Paystack callback for Airtime and Data card payments.
-
-    Flow:
-    1. Verify payment with Paystack.
-    2. Confirm amount matches.
-    3. Deliver airtime/data through provider.
-    4. Mark transaction successful or failed.
-    5. Request Paystack refund if delivery fails.
-    """
-
-    reference = (
-        request.GET.get("reference")
-        or request.GET.get("trxref")
+def card_service_orders():
+    return AirtimeTransaction.objects.filter(payment_method="card").select_related(
+        "user", "service_plan__provider__category", "service_plan__provider__vendor",
     )
 
-    if not reference:
-        messages.error(
-            request,
-            "Invalid payment reference."
-        )
-        return redirect("payment_success")
 
-    txn = (
-        AirtimeTransaction.objects
-        .select_related(
-            "service_plan",
-            "service_plan__provider",
-            "service_plan__provider__category",
-            "service_plan__provider__vendor",
-        )
-        .filter(reference=reference)
-        .first()
-    )
-
-    if not txn:
-        messages.error(
-            request,
-            "Transaction could not be found."
-        )
-        return redirect("payment_success")
-
-    if txn.user_id != request.user.id:
-        messages.error(
-            request,
-            "This transaction does not belong to your account."
-        )
-        return redirect("payment_success")
-
-    if txn.status == "success":
-        messages.info(
-            request,
-            "This transaction has already been processed."
-        )
-        return redirect(
-            reverse("payment_success")
-            + f"?reference={reference}"
-        )
-
-    if txn.payment_method != "card":
-        messages.error(
-            request,
-            "Invalid payment method for this callback."
-        )
-        return redirect("payment_success")
-
-    plan = txn.service_plan
-
-    service_type = get_service_type_from_plan(plan)
-
-    if service_type not in ("airtime", "data"):
-
-        txn.status = "failed"
-        txn.save(
-            update_fields=["status"]
-        )
-
-        messages.error(
-            request,
-            "Invalid service configuration."
-        )
-
-        return redirect("payment_success")
-
-    # =========================================================
-    # VERIFY PAYSTACK PAYMENT
-    # =========================================================
-    try:
-        response = requests.get(
-            (
-                "https://api.paystack.co/"
-                f"transaction/verify/{reference}"
-            ),
-            headers={
-                "Authorization": (
-                    f"Bearer "
-                    f"{settings.PAYSTACK_SECRET_KEY}"
-                )
-            },
-            timeout=30,
-        )
-
-        result = response.json()
-
-    except requests.RequestException as exc:
-
-        if settings.DEBUG:
-            print(
-                "Paystack verification network error:",
-                exc,
-            )
-
-        messages.error(
-            request,
-            "Unable to verify your payment right now."
-        )
-
-        return redirect(
-            reverse("payment_success")
-            + f"?reference={reference}"
-        )
-
-    except ValueError:
-
-        messages.error(
-            request,
-            "Paystack returned an invalid response."
-        )
-
-        return redirect(
-            reverse("payment_success")
-            + f"?reference={reference}"
-        )
-
-    paystack_data = result.get("data", {})
-
+def complete_card_service_order(order, payment):
     if (
-        not result.get("status")
-        or paystack_data.get("status") != "success"
+        not isinstance(payment, dict)
+        or payment.get("status") != "success"
+        or payment.get("reference") != order.reference
+        or payment.get("currency") != "NGN"
+        or type(payment.get("amount")) is not int
+        or payment["amount"] != int(order.amount_paid * 100)
     ):
+        return False
 
-        txn.status = "failed"
-        txn.save(
-            update_fields=["status"]
-        )
+    if not AirtimeTransaction.objects.filter(pk=order.pk, status="pending").update(status="processing"):
+        return True
 
-        messages.error(
-            request,
-            "Card payment was not successful."
-        )
+    plan = order.service_plan
+    service_type = get_service_type_from_plan(plan)
+    if service_type not in ("airtime", "data") or not order.user_id:
+        return True
 
-        return redirect(
-            reverse("payment_success")
-            + f"?reference={reference}"
-        )
-
-    # =========================================================
-    # VERIFY PAID AMOUNT
-    # =========================================================
-    paid_amount = (
-        Decimal(
-            str(paystack_data.get("amount", 0))
-        )
-        / Decimal("100")
-    )
-
-    if abs(
-        paid_amount - txn.amount_paid
-    ) > Decimal("0.01"):
-
-        txn.status = "failed"
-        txn.save(
-            update_fields=["status"]
-        )
-
-        messages.error(
-            request,
-            "Payment amount did not match the transaction."
-        )
-
-        return redirect(
-            reverse("payment_success")
-            + f"?reference={reference}"
-        )
-
-    # =========================================================
-    # DELIVER SERVICE
-    # =========================================================
     try:
-
-        if service_type == "airtime":
-
-            if not plan.vendor_provider_id:
-                raise ValueError(
-                    "Missing airtime provider ID."
-                )
-
-            api_response = purchase_airtime(
-                provider=plan.provider,
-                provider_id=plan.vendor_provider_id,
-                phone=txn.phone,
-                amount=txn.amount_paid,
+        if settings.PAYSTACK_SECRET_KEY.startswith("sk_test_"):
+            delivery = {"status": "success"}
+        elif service_type == "airtime":
+            delivery = purchase_airtime(
+                provider=plan.provider, provider_id=order.provider_id or plan.vendor_provider_id,
+                phone=order.phone, amount=order.amount_paid,
             )
-
-            if hasattr(api_response, "json"):
-                api_response = api_response.json()
-
         else:
-
-            if not plan.vendor_bundle_id:
-                raise ValueError(
-                    "Missing data bundle ID."
-                )
-
-            api_url = (
-                f"{RESELLER_BASE_URL.rstrip('/')}"
-                "/api/v1/resellers/data/purchase/"
-            )
-
-            provider_response = requests.post(
-                api_url,
+            response = requests.post(
+                f"{RESELLER_BASE_URL.rstrip('/')}/api/v1/resellers/data/purchase/",
                 headers=RESELLER_HEADERS,
-                json={
-                    "bundle_id": int(
-                        plan.vendor_bundle_id
-                    ),
-                    "phone_number": txn.phone,
-                },
+                json={"bundle_id": order.bundle_id or plan.vendor_bundle_id, "phone_number": order.phone},
                 timeout=30,
             )
+            response.raise_for_status()
+            delivery = response.json()
+    except (requests.RequestException, ValueError, AttributeError):
+        # Delivery may have happened before the provider timed out. Leave it for reconciliation.
+        return True
 
-            content_type = (
-                provider_response.headers.get(
-                    "Content-Type",
-                    ""
-                )
-                .lower()
-            )
-
-            if "application/json" in content_type:
-
-                try:
-                    api_response = (
-                        provider_response.json()
-                    )
-
-                except ValueError:
-                    api_response = {
-                        "status": "false",
-                        "message": (
-                            "Data provider returned "
-                            "an invalid response."
-                        ),
-                    }
-
-            else:
-
-                if settings.DEBUG:
-                    print(
-                        "Data provider returned non-JSON:",
-                        provider_response.status_code,
-                        provider_response.text[:300],
-                    )
-
-                api_response = {
-                    "status": "false",
-                    "message": (
-                        "Data service is temporarily unavailable."
-                    ),
-                }
-
-    except requests.RequestException as exc:
-
-        if settings.DEBUG:
-            print(
-                f"{service_type} delivery network error:",
-                exc,
-            )
-
-        api_response = {
-            "status": "false",
-            "message": (
-                f"{service_type.capitalize()} "
-                "provider is temporarily unavailable."
-            ),
-        }
-
-    except Exception as exc:
-
-        if settings.DEBUG:
-            print(
-                f"{service_type} delivery error:",
-                exc,
-            )
-
-        api_response = {
-            "status": "false",
-            "message": (
-                f"{service_type.capitalize()} "
-                "delivery failed."
-            ),
-        }
-
-    provider_success = (
-        isinstance(api_response, dict)
-        and str(
-            api_response.get("status", "")
-        ).lower()
-        in (
-            "true",
-            "success",
-        )
-    )
-
-    # =========================================================
-    # DELIVERY SUCCESS
-    # =========================================================
-    if provider_success:
-
-        txn.status = "success"
-        txn.save(
-            update_fields=["status"]
-        )
-
-        reward = plan.reward_amount
-
-        if reward > Decimal("0.00"):
-
-            reward_reference = (
-                f"REWARD-{reference}"
-            )
-
-            if not WalletTransaction.objects.filter(
-                reference=reward_reference
-            ).exists():
-
-                request.user.credit_wallet(
-                    amount=reward,
-                    source="cashback_reward",
-                    reference=reward_reference,
-                    description=(
-                        f"Cashback reward for "
-                        f"{service_type} purchase"
-                    ),
-                )
-
-        request.session.pop(
-            f"pending_service_{reference}",
-            None,
-        )
-
-        messages.success(
-            request,
-            (
-                f"{service_type.capitalize()} "
-                "purchase successful."
-            ),
-        )
-
-        return redirect(
-            reverse("payment_success")
-            + f"?reference={reference}"
-        )
-
-    # =========================================================
-    # DELIVERY FAILED AFTER SUCCESSFUL CARD PAYMENT
-    # =========================================================
-    txn.status = "failed"
-    txn.save(
-        update_fields=["status"]
-    )
-
-    refund_started = False
-
-    try:
-        refund_response = requests.post(
-            "https://api.paystack.co/refund",
-            headers={
-                "Authorization": (
-                    f"Bearer "
-                    f"{settings.PAYSTACK_SECRET_KEY}"
-                ),
-                "Content-Type": "application/json",
-            },
-            json={
-                "transaction": reference,
-                "amount": int(
-                    txn.amount_paid * 100
-                ),
-            },
-            timeout=30,
-        )
-
-        refund_result = refund_response.json()
-
-        refund_started = bool(
-            refund_result.get("status")
-        )
-
-        if settings.DEBUG:
-            print(
-                "Paystack refund response:",
-                refund_result,
-            )
-
-    except Exception as exc:
-
-        if settings.DEBUG:
-            print(
-                "Paystack refund error:",
-                exc,
-            )
-
-    request.session.pop(
-        f"pending_service_{reference}",
-        None,
-    )
-
-    provider_message = None
-
-    if isinstance(api_response, dict):
-        provider_message = (
-            api_response.get("message")
-        )
-
-    if refund_started:
-
-        messages.error(
-            request,
-            (
-                f"{service_type.capitalize()} delivery "
-                "could not be completed. "
-                "A card refund has been initiated."
-            ),
-        )
-
-    else:
-
-        messages.error(
-            request,
-            (
-                provider_message
-                or (
-                    f"{service_type.capitalize()} "
-                    "delivery failed. "
-                    "Please contact support regarding "
-                    "your card payment."
-                )
-            ),
-        )
-
-    return redirect(
-        reverse("payment_success")
-        + f"?reference={reference}"
-    )
-
-@login_required
-@require_POST
-@csrf_protect
-def initiate_cable_payment(request, plan_id):
-    try:
-        data = json.loads(request.body)
-        smartcard = data.get("smartcard", "").strip()
-        phone = data.get("phone", "").strip()  # optional, for notification
-        payment_method = data.get("payment_method")
-
-        if not smartcard or payment_method not in ["wallet", "card"]:
-            return JsonResponse({"status": False, "message": "Invalid data"})
-
-        if len(smartcard) < 10:
-            return JsonResponse({"status": False, "message": "Invalid Smartcard/IUC number"})
-
-        plan = get_object_or_404(ServicePlan, id=plan_id, is_active=True)
-
-        # Safety check
-        if not plan.vendor_plan_id:
-            return JsonResponse({"status": False, "message": "This plan is not configured for cable"})
-
-        amount_naira = float(plan.selling_price)
-        reference = f"CABLE-{uuid.uuid4().hex[:12].upper()}"
-        user = request.user
-
-        if payment_method == "wallet":
-            if user.wallet_balance < amount_naira:
-                return JsonResponse({"status": False, "message": "Insufficient balance"})
-            
-            with transaction.atomic():
-                user.debit_wallet(amount=amount_naira, source="cable_purchase", reference=reference)
-                
-                cable_txn = CableTransaction.objects.create(
-                    user=user,
-                    service_plan=plan,
-                    card_number=smartcard,
-                    phone=phone,
-                    amount_paid=amount_naira,
-                    payment_method="wallet",
-                    reference=reference,
-                    status="pending"
-                )
-
-                # CALL CHEAPDATAHUB
-                api_response = purchase_cable(plan.vendor_plan_id, smartcard, phone)
-
-                if api_response.get("status") == "true":
-                    cable_txn.status = "success"
-                    cable_txn.save(update_fields=["status"])
-                    
-                    # Cashback
-                    reward = plan.reward_amount or Decimal("0.00")
-                    if reward > 0:
-                        user.credit_wallet(reward, source="cashback_reward", reference=f"REWARD-{reference}")
-
-                    return JsonResponse({
-                        "status": True,
-                        "message": "Subscription successful!",
-                        "redirect_url": reverse("payment_success") + f"?reference={reference}"
-                    })
-                else:
-                    # Refund on failure
-                    user.credit_wallet(amount_naira, source="cable_refund", reference=f"REFUND-{reference}")
-                    cable_txn.status = "failed"
-                    cable_txn.save(update_fields=["status"])
-                    return JsonResponse({
-                        "status": False,
-                        "message": api_response.get("message", "Subscription failed")
-                    })
-
-        # Card payment
-        CableTransaction.objects.filter(user=user, status="pending").delete()
-        
+    status = str(delivery.get("status", "")).lower() if isinstance(delivery, dict) else ""
+    if status in ("true", "success"):
         with transaction.atomic():
-            cable_txn = CableTransaction.objects.create(
-                user=user,
-                service_plan=plan,
-                card_number=smartcard,
-                phone=phone,
-                amount_paid=amount_naira,
-                payment_method="card",
-                reference=reference,
-                status="pending"
-            )
-            
-            request.session[f"pending_cable_{reference}"] = {
-                "plan_id": plan.id,
-                "smartcard": smartcard,
-                "phone": phone,
-                "amount_naira": amount_naira,
-            }
-            request.session.modified = True
-
-        result = initialize_paystack(
-            email=user.email,
-            amount=int(amount_naira * 100),
-            reference=reference,
-            callback_url=request.build_absolute_uri(reverse("verify_cable_payment")),
-        )
-
-        if result.get("status"):
-            return JsonResponse({
-                "status": True,
-                "authorization_url": result["data"]["authorization_url"]
-            })
-        else:
-            CableTransaction.objects.filter(reference=reference).delete()
-            request.session.pop(f"pending_cable_{reference}", None)
-            return JsonResponse({"status": False, "message": "Payment failed to initialize"})
-
-    except Exception as e:
-        print("Cable payment error:", e)
-        return JsonResponse({"status": False, "message": "Service unavailable"})
-
-
-
-@login_required
-def verify_cable_payment(request):
-    reference = request.GET.get("reference")
-    if not reference:
-        messages.error(request, "No reference provided")
-        return redirect("payment_success")
-
-    # Find pending cable transaction
-    txn = CableTransaction.objects.filter(reference=reference, status="pending").first()
-    if not txn:
-        messages.info(request, "Transaction not found or already processed")
-        return redirect("payment_success")
-
-    # Verify payment with Paystack
-    try:
-        response = requests.get(
-            f"https://api.paystack.co/transaction/verify/{reference}",
-            headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"},
-            timeout=30
-        )
-        result = response.json()
-    except Exception as e:
-        print("Paystack verification error:", e)
-        messages.error(request, "Failed to verify payment with bank")
-        return redirect("payment_success")
-
-    if not result.get("status") or result["data"]["status"] != "success":
-        txn.status = "failed"
-        txn.save(update_fields=["status"])
-        messages.error(request, "Payment failed or was cancelled")
-        return redirect("payment_success")
-
-    paid_amount = Decimal(result["data"]["amount"]) / 100
-    if abs(paid_amount - txn.amount_paid) > Decimal("0.01"):
-        txn.status = "failed"
-        txn.save(update_fields=["status"])
-        messages.error(request, "Payment amount does not match")
-        return redirect("payment_success")
-
-    # PAYMENT SUCCESSFUL — NOW CALL CHEAPDATAHUB TO ACTIVATE SUBSCRIPTION
-    try:
-        api_response = purchase_cable(
-            plan_id=txn.service_plan.vendor_plan_id,
-            cardnumber=txn.card_number,
-            phone=txn.phone or ""
-        )
-
-        if api_response.get("status") == "true":
-            txn.status = "success"
-            txn.save(update_fields=["status"])
-
-            # Give cashback reward
-            reward = txn.service_plan.reward_amount or Decimal("0.00")
-            if reward > 0:
-                request.user.credit_wallet(
-                    amount=reward,
-                    source="cashback_reward",
-                    reference=f"REWARD-{reference}"
+            AirtimeTransaction.objects.filter(pk=order.pk).update(status="success")
+            reward = plan.reward_amount
+            if reward and not settings.PAYSTACK_SECRET_KEY.startswith("sk_test_"):
+                order.user.credit_wallet(
+                    reward, source="cashback_reward", reference=f"REWARD-{order.reference}",
+                    description=f"Cashback reward for {service_type} purchase",
                 )
-
-            messages.success(request, "Cable subscription successful! Enjoy your channels!")
-        else:
-            txn.status = "failed"
-            txn.save(update_fields=["status"])
-            error_msg = api_response.get("message", "Unknown error from provider")
-            messages.error(request, f"Subscription failed: {error_msg}")
-    except Exception as e:
-        print("CheapDataHub cable error:", e)
-        txn.status = "failed"
-        txn.save(update_fields=["status"])
-        messages.error(request, "Network error while activating subscription")
-
-    return redirect(reverse("payment_success") + f"?reference={reference}")
-
-
-@login_required
-@require_POST
-@csrf_protect
-def initiate_electricity_payment(request, plan_id):
-    try:
-        data = json.loads(request.body)
-        meter_number = data.get("meter_number", "").strip()
-        phone = data.get("phone", "").strip()
-        meter_type = data.get("meter_type", "prepaid")
-        amount_str = data.get("amount", "0").strip()  # ← NEW: user input amount
-        payment_method = data.get("payment_method")
-
-        # Validation
-        if not meter_number or not amount_str or payment_method not in ["wallet", "card"]:
-            return JsonResponse({"status": False, "message": "Missing required fields"})
-
-        if len(meter_number) < 10:
-            return JsonResponse({"status": False, "message": "Invalid meter number (min 10 digits)"})
-
-        if meter_type not in ["prepaid", "postpaid"]:
-            return JsonResponse({"status": False, "message": "Invalid meter type"})
-
+    elif status in ("false", "failed"):
         try:
-            amount_naira = float(amount_str)
-            if amount_naira < 100 or amount_naira > 100000:
-                return JsonResponse({"status": False, "message": "Amount must be between ₦100 and ₦100,000"})
-        except ValueError:
-            return JsonResponse({"status": False, "message": "Invalid amount format"})
-
-        # Get disco (provider/plan)
-        plan = get_object_or_404(ServicePlan, id=plan_id, is_active=True)
-        disco_id = plan.vendor_plan_id  # assuming this stores disco_id
-
-        if not disco_id:
-            return JsonResponse({"status": False, "message": "Provider not configured for electricity"})
-
-        reference = f"ELEC-{uuid.uuid4().hex[:12].upper()}"
-        user = request.user
-
-        if payment_method == "wallet":
-            if user.wallet_balance < amount_naira:
-                return JsonResponse({"status": False, "message": f"Insufficient balance. Need ₦{amount_naira:,.2f}"})
-
-            with transaction.atomic():
-                user.debit_wallet(amount=amount_naira, source="electricity_purchase", reference=reference)
-
-                elec_txn = ElectricityTransaction.objects.create(
-                    user=user,
-                    service_plan=plan,  # optional
-                    meter_number=meter_number,
-                    disco_id=disco_id,
-                    meter_type=meter_type,
-                    phone=phone,
-                    amount_paid=amount_naira,
-                    payment_method="wallet",
-                    reference=reference,
-                    status="pending"
-                )
-
-                # Call CheapDataHub
-                api_response = purchase_electricity(
-                    disco_id=disco_id,
-                    meter_number=meter_number,
-                    amount=amount_naira,
-                    phone=phone,
-                    meter_type=meter_type
-                )
-
-                if api_response.get("status") == "true":
-                    elec_txn.status = "success"
-                    elec_txn.token = api_response.get("token")
-                    elec_txn.save(update_fields=["status", "token"])
-
-                    # Cashback (if plan has reward, optional)
-                    reward = plan.reward_amount or Decimal("0.00")
-                    if reward > 0:
-                        user.credit_wallet(reward, source="cashback_reward", reference=f"REWARD-{reference}")
-
-                    return JsonResponse({
-                        "status": True,
-                        "message": f"Electricity payment successful! Token: {api_response.get('token', 'Processing...')}",
-                        "redirect_url": reverse("payment_success") + f"?reference={reference}"
-                    })
-                else:
-                    user.credit_wallet(amount_naira, source="electricity_refund", reference=f"REFUND-{reference}")
-                    elec_txn.status = "failed"
-                    elec_txn.save(update_fields=["status"])
-                    return JsonResponse({
-                        "status": False,
-                        "message": api_response.get("message", "Payment failed")
-                    })
-
-        # Card payment (Paystack)
-        ElectricityTransaction.objects.filter(user=user, status="pending").delete()
-
-        with transaction.atomic():
-            elec_txn = ElectricityTransaction.objects.create(
-                user=user,
-                service_plan=plan,
-                meter_number=meter_number,
-                disco_id=disco_id,
-                meter_type=meter_type,
-                phone=phone,
-                amount_paid=amount_naira,
-                payment_method="card",
-                reference=reference,
-                status="pending"
+            response = requests.post(
+                "https://api.paystack.co/refund",
+                headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"},
+                json={"transaction": order.reference, "amount": int(order.amount_paid * 100)},
+                timeout=30,
             )
-
-            request.session[f"pending_elec_{reference}"] = {
-                "plan_id": plan.id,
-                "meter_number": meter_number,
-                "meter_type": meter_type,
-                "phone": phone,
-                "amount_naira": amount_naira,
-            }
-            request.session.modified = True
-
-        result = initialize_paystack(
-            email=user.email,
-            amount=int(amount_naira * 100),
-            reference=reference,
-            callback_url=request.build_absolute_uri(reverse("verify_electricity_payment")),
-        )
-
-        if result.get("status"):
-            return JsonResponse({
-                "status": True,
-                "authorization_url": result["data"]["authorization_url"]
-            })
-        else:
-            ElectricityTransaction.objects.filter(reference=reference).delete()
-            request.session.pop(f"pending_elec_{reference}", None)
-            return JsonResponse({"status": False, "message": "Payment failed to initialize"})
-
-    except Exception as e:
-        print("Electricity payment error:", e)
-        return JsonResponse({"status": False, "message": "Service unavailable"})
+            response.raise_for_status()
+            if response.json().get("status") is True:
+                AirtimeTransaction.objects.filter(pk=order.pk).update(status="refund_pending")
+        except (requests.RequestException, ValueError, AttributeError):
+            pass
+    return True
 
 
 @login_required
-def verify_electricity_payment(request):
-    reference = request.GET.get("reference")
-    if not reference:
-        messages.error(request, "No reference provided")
-        return redirect("payment_success")
+def verify_service_payment(request):
+    reference = request.GET.get("reference") or request.GET.get("trxref")
+    order = card_service_orders().filter(user=request.user, reference=reference).first()
+    if order is None:
+        messages.error(request, "Transaction could not be found.")
+        return redirect("wallet")
 
-    # Find pending electricity transaction
-    txn = ElectricityTransaction.objects.filter(reference=reference, status="pending").first()
-    if not txn:
-        messages.info(request, "Transaction not found or already processed")
-        return redirect("payment_success")
+    if order.status == "pending":
+        try:
+            result = verify_paystack(order.reference)
+            if result.get("status") is True:
+                complete_card_service_order(order, result.get("data"))
+        except (requests.RequestException, ValueError, AttributeError):
+            pass
+    request.session.pop(f"pending_service_{order.reference}", None)
+    return redirect(reverse("payment_success") + f"?reference={order.reference}")
 
-    # Verify payment with Paystack
-    try:
-        response = requests.get(
-            f"https://api.paystack.co/transaction/verify/{reference}",
-            headers={"Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}"},
-            timeout=30
-        )
-        result = response.json()
-    except Exception as e:
-        print("Paystack verification error:", e)
-        messages.error(request, "Failed to verify payment with bank")
-        return redirect("payment_success")
-
-    if not result.get("status") or result["data"]["status"] != "success":
-        txn.status = "failed"
-        txn.save(update_fields=["status"])
-        messages.error(request, "Payment failed or was cancelled")
-        return redirect("payment_success")
-
-    paid_amount = Decimal(result["data"]["amount"]) / 100
-    if abs(paid_amount - txn.amount_paid) > Decimal("0.01"):
-        txn.status = "failed"
-        txn.save(update_fields=["status"])
-        messages.error(request, "Payment amount does not match")
-        return redirect("payment_success")
-
-    # PAYMENT SUCCESSFUL — NOW CALL CHEAPDATAHUB TO PURCHASE ELECTRICITY
-    try:
-        api_response = purchase_electricity(
-            disco_id=txn.disco_id,
-            meter_number=txn.meter_number,
-            amount=txn.amount_paid,
-            phone=txn.phone or "",
-            meter_type=txn.meter_type
-        )
-
-        if api_response.get("status") == "true":
-            txn.status = "success"
-            txn.token = api_response.get("token")  # save token for prepaid
-            txn.save(update_fields=["status", "token"])
-
-            # Give cashback reward
-            reward = txn.service_plan.reward_amount or Decimal("0.00")
-            if reward > 0:
-                request.user.credit_wallet(
-                    amount=reward,
-                    source="cashback_reward",
-                    reference=f"REWARD-{reference}"
-                )
-
-            messages.success(request, f"Electricity payment successful! Token: {txn.token or 'Processing...'}")
-        else:
-            txn.status = "failed"
-            txn.save(update_fields=["status"])
-            error_msg = api_response.get("message", "Unknown error from provider")
-            messages.error(request, f"Payment failed: {error_msg}")
-    except Exception as e:
-        print("CheapDataHub electricity error:", e)
-        txn.status = "failed"
-        txn.save(update_fields=["status"])
-        messages.error(request, "Network error while processing payment")
-
-    return redirect(reverse("payment_success") + f"?reference={reference}")
 
 def payment_success(request):
-    reference = request.GET.get("reference")
+    reference = request.GET.get("reference", "")
     txn = None
-    if reference:
+    if request.user.is_authenticated:
         if reference.startswith("WALLET-"):
-            txn = WalletTransaction.objects.filter(reference=reference, status="success").first()
-        elif reference.startswith("AIRTIME-"):
-            txn = AirtimeTransaction.objects.filter(reference=reference, status="success").first()
+            txn = WalletTransaction.objects.filter(user=request.user, reference=reference, status="success").first()
+        else:
+            txn = AirtimeTransaction.objects.filter(user=request.user, reference=reference).first()
 
-    return render(
-        request,
-        "store/payment_successful.html",
-        {"reference": reference, "txn": txn},
-    )
+    return render(request, "store/payment_successful.html", {
+        "reference": reference, "txn": txn,
+        "test_purchase": bool(txn and getattr(txn, "payment_method", None) == "card" and settings.PAYSTACK_SECRET_KEY.startswith("sk_test_")),
+    })
 
 
 # ==============================
 # AUTH & OTP
 # ==============================
+SIGNUP_PASSWORD_SYMBOL_PATTERN = r"[!@#$%^&*()_+=\-{}[\]:;\"'<>,.?/]"
+
+
 def password_is_strong(password: str) -> bool:
     return (
         len(password) >= 8
         and re.search(r"[A-Z]", password)
         and re.search(r"[a-z]", password)
         and re.search(r"[0-9]", password)
-        and re.search(r"[!@#$%^&*()_+=\-{}[\]:;\"'<>,.?/]", password)
+        and re.search(SIGNUP_PASSWORD_SYMBOL_PATTERN, password)
     )
 
 
 def send_otp(email: str, otp: str):
     send_mail(
-        subject="ResultPin Verification Code",
+        subject="KoboTap Verification Code",
         message=f"Your verification code is {otp}\n\nValid for 10 minutes.",
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[email],
@@ -1868,7 +1126,7 @@ def register(request):
         messages.success(request, "Verification code sent!")
         return redirect("verify_otp")
 
-    return render(request, "store/register.html")
+    return render(request, "store/register.html", {"password_symbol_pattern": SIGNUP_PASSWORD_SYMBOL_PATTERN, "google_enabled": google_enabled()})
 
 
 @csrf_protect
@@ -1943,23 +1201,26 @@ def resend_otp(request):
 
 @csrf_protect
 def custom_login(request):
+    next_url = request.POST.get("next") or request.GET.get("next", "")
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = ""
     if request.method == "POST":
         email = request.POST.get("username", "").strip().lower()
         password = request.POST.get("password")
 
         if not email or not password:
             messages.error(request, "Email and password required.")
-            return redirect("login")
+            return redirect(request.get_full_path())
 
         user = authenticate(request, username=email, password=password)
         if user:
             login(request, user)
-            return redirect("home")
+            return redirect(next_url or "home")
 
         messages.error(request, "Invalid credentials.")
-        return redirect("login")
+        return redirect(request.get_full_path())
 
-    return render(request, "store/login.html")
+    return render(request, "store/login.html", {"google_enabled": google_enabled(), "next_url": next_url})
 
 
 def custom_logout(request):
@@ -1971,27 +1232,38 @@ def custom_logout(request):
 # SERVICE DASHBOARD - Airtime/Data
 # ===================================
 
+def listed_service_plans(slug):
+    plans = ServicePlan.objects.filter(
+        provider__category__slug=slug, provider__category__is_active=True, provider__is_active=True, is_active=True,
+    ).select_related("provider")
+    if slug in ("airtime", "data", "internet-data"):
+        vendor_id_field = "vendor_provider_id" if slug == "airtime" else "vendor_bundle_id"
+        plans = plans.filter(selling_price__gt=0, **{f"{vendor_id_field}__gt": 0})
+        if slug == "airtime":
+            plans = plans.exclude(provider__vendor__api_url="").filter(
+                provider__vendor__isnull=False,
+            )
+
+    return plans
+
+
+@login_required
+def service_checkout(request, slug, plan_id):
+    if slug not in ("airtime", "data", "internet-data"):
+        raise Http404
+    plan = get_object_or_404(listed_service_plans(slug), pk=plan_id)
+    return render(request, "store/service_checkout.html", {"plan": plan, "slug": slug})
+
+
 def service_dashboard(request, slug):
-    category = get_object_or_404(ServiceCategory, slug=slug, is_active=True)
-    
+    category = get_object_or_404(ServiceCategory.objects.exclude(slug="insurance"), slug=slug, is_active=True)
+    plans = listed_service_plans(slug)
     providers = ServiceProvider.objects.filter(
-        category=category, is_active=True
-    ).order_by('order')
+        category=category, is_active=True,
+    ).order_by("order")
 
     provider_id = request.GET.get("provider")
-    selected_provider = None
-    if provider_id:
-        selected_provider = providers.filter(id=provider_id).first()
-
-    # ONLY ServicePlan (airtime/data bundles)
-    if selected_provider:
-        plans = ServicePlan.objects.filter(
-            provider=selected_provider, is_active=True
-        ).select_related('provider')
-    else:
-        plans = ServicePlan.objects.filter(
-            provider__category=category, is_active=True
-        ).select_related('provider')
+    selected_provider = providers.filter(pk=provider_id).first() if provider_id and provider_id.isdecimal() else None
 
     # Empty querysets (no cable/electricity here)
     cable_transactions = CableTransaction.objects.none()
@@ -2011,71 +1283,6 @@ def service_dashboard(request, slug):
 ## ================================================================
 # Tv Subscription
 # ================================================================
-@login_required
-def tv_dashboard(request):
-    # Get the TV category
-    category = get_object_or_404(ServiceCategory, slug="tv", is_active=True)
-
-    # All active providers in TV category (DSTV, GOTV, etc.)
-    providers = ServiceProvider.objects.filter(
-        category=category,
-        is_active=True
-    ).order_by('order')
-
-    # Selected provider from URL ?provider=123
-    provider_id = request.GET.get("provider")
-    selected_provider = None
-    if provider_id:
-        selected_provider = providers.filter(id=provider_id).first()
-
-    # Fetch available plans — filtered by selected provider or all in category
-    if selected_provider:
-        plans = ServicePlan.objects.filter(
-            provider=selected_provider,
-            is_active=True
-        ).select_related('provider')
-    else:
-        plans = ServicePlan.objects.filter(
-            provider__category=category,
-            is_active=True
-        ).select_related('provider')
-
-    context = {
-        "category": category,
-        "providers": providers,
-        "plans": plans,
-        "selected_provider": selected_provider,
-    }
-
-    return render(request, "store/tv_dashboard.html", context)
-
-
-## ================================================================
-# Tv Subscription
-# ================================================================
-
-@login_required
-def electricity_dashboard(request):
-    category = get_object_or_404(ServiceCategory, slug="electricity", is_active=True)
-    providers = ServiceProvider.objects.filter(category=category, is_active=True).order_by('order')
-    
-    provider_id = request.GET.get("provider")
-    selected_provider = None
-    if provider_id:
-        selected_provider = providers.filter(id=provider_id).first()
-
-    context = {
-        "category": category,
-        "providers": providers,
-        "selected_provider": selected_provider,
-    }
-    return render(request, "store/electricity_dashboard.html", context)
-
-
-## ==================================================================
-# Unified Payment Processor (handles airtime, data, cable, electricity)
-# ===================================================================
-
 def process_service_payment(user, plan, phone=None, cardnumber=None, meter_number=None, 
                            meter_type="prepaid", payment_method="wallet", service_type="airtime"):
     """
@@ -2240,51 +1447,6 @@ def airtime_buy(request, plan_id):
     )
 
 
-def purchase_cable(plan_id, cardnumber, phone=""):
-    print("=== HIT CHEAPDATA CABLE ENDPOINT ===")
-    print("API URL:", f"{RESELLER_BASE_URL}/cable/purchase/")
-    print("Plan ID:", plan_id)
-    print("Cardnumber:", cardnumber)
-    print("Phone:", phone or "N/A")
-
-    payload = {
-        "plan_id": plan_id,
-        "cardnumber": cardnumber,
-        "phone": phone
-    }
-    print("Sending payload:", payload)
-
-    response = requests.post(
-        f"{RESELLER_BASE_URL}/cable/purchase/",
-        json=payload,
-        headers=RESELLER_HEADERS,
-        timeout=30,
-    )
-
-    print("HTTP Status:", response.status_code)
-    print("CheapData response:", response.text)
-    return response.json()
-
-
-
-def purchase_electricity(disco_id, meter_number, amount, phone, meter_type):
-    return requests.post(
-        f"{RESELLER_BASE_URL}/electricity/purchase/",
-        json={
-            "disco_id": disco_id,
-            "meter_number": meter_number,
-            "amount": int(amount),
-            "phone": phone,
-            "meter_type": meter_type,
-        },
-        headers=RESELLER_HEADERS,
-        timeout=30,
-    ).json()
-
-
-# ------------------------------
-# BLOG & REVIEWS
-# ------------------------------
 def blog_list(request):
     posts = BlogPost.objects.filter(published=True).order_by("-created_at")
     return render(request, "blog/blog_list.html", {"posts": posts})

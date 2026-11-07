@@ -1,5 +1,5 @@
 """
-Django settings for ResultPin.
+Django settings for KoboTap.
 """
 
 from pathlib import Path
@@ -280,7 +280,7 @@ EMAIL_HOST_PASSWORD = os.getenv(
 
 DEFAULT_FROM_EMAIL = os.getenv(
     "DEFAULT_FROM_EMAIL",
-    "ResultPin <resultpin.solutions@gmail.com>"
+    "KoboTap <resultpin.solutions@gmail.com>"
 )
 
 
@@ -342,3 +342,16 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 # 1 hour
 SESSION_COOKIE_AGE = 3600
+# VTpass bill payments
+VTPASS_BILLS_ENABLED = os.getenv("VTPASS_BILLS_ENABLED", "False").lower() == "true"
+VTPASS_TEST_MODE = os.getenv("VTPASS_TEST_MODE", "True").lower() == "true"
+VTPASS_API_KEY = os.getenv("VTPASS_API_KEY", "")
+VTPASS_SECRET_KEY = os.getenv("VTPASS_SECRET_KEY", "")
+
+WALLET_WITHDRAWALS_ENABLED = os.getenv("WALLET_WITHDRAWALS_ENABLED", "False").lower() == "true"
+
+DATA_QUOTE_GUARD_ENABLED = os.getenv("DATA_QUOTE_GUARD_ENABLED", "False").lower() == "true"
+
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
+GOOGLE_OAUTH_REDIRECT_URI = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "")

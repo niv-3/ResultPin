@@ -4,8 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b2c3d">
+  <link rel="manifest" href="{% url 'web_app_manifest' %}">
+  <link rel="apple-touch-icon" href="{% static 'store/images/kobotap-app-192.png' %}">
 
-  <title>{% block title %}ResultPin.ng{% endblock %}</title>
+  <title>{% block title %}KoboTap{% endblock %}</title>
 
   <!-- Bootstrap -->
   <link
@@ -152,12 +155,18 @@
        MOBILE MENU
     ========================= */
 
-    .offcanvas-start {
-      width: 82%;
-      max-width: 320px;
+    #mobileMenu {
+      --bs-offcanvas-width: min(62vw, 220px);
+      width: var(--bs-offcanvas-width);
+      box-shadow: 0 12px 28px rgba(8, 31, 44, .24);
       background: var(--primary);
       color: var(--white);
     }
+
+    #mobileMenu .offcanvas-header { padding: 10px 14px; }
+    #mobileMenu .offcanvas-body { padding: 4px 8px 10px; }
+    #mobileMenu .nav-link { padding: 8px 10px; }
+    #mobileMenu .section-label { margin-top: 10px; }
 
     .offcanvas-title {
       font-weight: 800;
@@ -248,15 +257,65 @@
       font-size: 0.88rem;
     }
 
+    .top-bar-mobile {
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 60px;
+      padding: 8px 16px;
+      background: var(--primary);
+    }
+
+    .top-bar-mobile .hamburger,
+    .btn-wallet-mobile {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 44px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, .3);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--white);
+      font: inherit;
+      font-weight: 700;
+    }
+
+    .top-bar-mobile .hamburger { min-width: 44px; }
+    .mobile-brand { display: block; width: clamp(86px, 28vw, 108px); min-width: 0; }
+
     @media (max-width: 767.98px) {
       .site-footer {
-        text-align: center;
-        padding-top: 35px;
+        padding: 16px 0 12px;
+        margin-top: 24px;
+        font-size: .85rem;
       }
 
-      .site-footer .footer-column {
-        margin-bottom: 25px;
+      .footer-layout {
+        align-items: center;
+        justify-content: space-between;
+        row-gap: 10px;
       }
+
+      .site-footer .footer-column { width: auto; }
+      .site-footer .footer-brand { font-size: 1.05rem; margin-bottom: 0 !important; }
+      .footer-about p,
+      .site-footer h5 { display: none; }
+      .site-footer .footer-links {
+        flex-direction: row !important;
+        flex-wrap: wrap;
+      }
+      .site-footer .footer-contact {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 16px;
+      }
+      .footer-contact p { margin-bottom: 0 !important; }
+      .footer-contact a { overflow-wrap: anywhere; }
+      .footer-bottom { margin-top: 10px; padding-top: 8px; font-size: .75rem; }
     }
   </style>
 
@@ -279,7 +338,7 @@
   </button>
 
   <a href="{% url 'home' %}" class="mobile-brand">
-    Result<span>Pin</span>
+    {% include 'store/brand_logo.html' %}
   </a>
 
   {% if user.is_authenticated %}
@@ -295,8 +354,6 @@
 
 </div>
 
-<div class="top-bar-offset d-md-none"></div>
-
 
 <!-- MOBILE OFFCANVAS -->
 <div
@@ -307,7 +364,7 @@
 
   <div class="offcanvas-header">
     <h5 class="offcanvas-title">
-      Result<span style="color:#ff6d00;">Pin</span>
+      {% include 'store/brand_logo.html' %}
     </h5>
 
     <button
@@ -400,7 +457,7 @@
   <div class="navbar-shell">
 
     <a href="{% url 'home' %}" class="navbar-brand-custom">
-      Result<span>Pin</span>
+      {% include 'store/brand_logo.html' %}
     </a>
 
     <div class="navbar-nav">
@@ -493,11 +550,11 @@
 <footer class="site-footer" id="contact-section">
   <div class="container">
 
-    <div class="row">
+    <div class="row footer-layout">
 
-      <div class="col-md-5 footer-column">
+      <div class="col-md-5 footer-column footer-about">
         <div class="footer-brand mb-2">
-          Result<span>Pin</span>
+          {% include 'store/brand_logo.html' with logo_width=96 %}
         </div>
 
         <p class="mb-0">
@@ -509,7 +566,7 @@
       <div class="col-md-3 footer-column">
         <h5>Quick Links</h5>
 
-        <div class="d-flex flex-column gap-2">
+        <div class="d-flex flex-column gap-2 footer-links">
           <a href="{% url 'home' %}">Home</a>
           <a href="{% url 'faq_page' %}">FAQ</a>
           <a href="{% url 'blog_list' %}">Blog</a>
@@ -517,7 +574,7 @@
         </div>
       </div>
 
-      <div class="col-md-4 footer-column">
+      <div class="col-md-4 footer-column footer-contact">
         <h5>Contact</h5>
 
         <p class="mb-2">
@@ -538,7 +595,7 @@
     </div>
 
     <div class="footer-bottom text-center">
-      © {% now "Y" %} ResultPin.ng · Portfolio & educational project
+      © {% now "Y" %} KoboTap · Portfolio & educational project
     </div>
 
   </div>

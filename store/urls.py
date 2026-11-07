@@ -1,6 +1,6 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from . import views
+from . import bills, google_auth, views
 from .views import paystack_webhook
 
 urlpatterns = [
@@ -23,8 +23,15 @@ urlpatterns = [
     # ======================
     # SERVICES - Specific pages FIRST (order matters!)
     # ======================
-    path("services/tv/", views.tv_dashboard, name="tv_dashboard"),
-    path("services/electricity/", views.electricity_dashboard, name="electricity_dashboard"),
+    path("services/tv/", bills.dashboard, {"kind": "cable"}, name="tv_dashboard"),
+    path("services/cable-tv/", bills.dashboard, {"kind": "cable"}),
+    path("services/cable/", bills.dashboard, {"kind": "cable"}),
+    path("services/dstv/", bills.dashboard, {"kind": "cable"}),
+    path("services/electricity/", bills.dashboard, {"kind": "electricity"}, name="electricity_dashboard"),
+
+    path("services/education/", bills.dashboard, {"kind": "education"}, name="education_dashboard"),
+
+    path("services/<slug:slug>/checkout/<int:plan_id>/", views.service_checkout, name="service_checkout"),
 
     # GENERIC SERVICE PAGES (airtime, data, etc.) — AFTER specific ones
     path(
@@ -34,9 +41,11 @@ urlpatterns = [
     ),
 
     # Payment initiation - SERVICE-SPECIFIC (this fixes the issue)
+    path("service/pay/cable/", bills.purchase, {"kind": "cable"}, name="initiate_cable_payment"),
+    path("service/pay/electricity/", bills.purchase, {"kind": "electricity"}, name="initiate_electricity_payment"),
+    path("service/pay/education/", bills.purchase, {"kind": "education"}, name="initiate_education_payment"),
+    path("bills/<str:kind>/<str:reference>/", bills.receipt, name="bill_receipt"),
     path("service/pay/<slug:category_slug>/<int:plan_id>/", views.initiate_service_payment, name="initiate_service_payment"),
-    path("service/pay/cable/<int:plan_id>/", views.initiate_cable_payment, name="initiate_cable_payment"),
-    path("service/pay/electricity/<int:plan_id>/", views.initiate_electricity_payment, name="initiate_electricity_payment"),
     
     #=========
     #debug url
@@ -55,6 +64,8 @@ urlpatterns = [
     # ======================
     # AUTH
     # ======================
+    path("auth/google/", google_auth.start, name="google_signin"),
+    path("auth/google/callback/", google_auth.callback, name="google_callback"),
     path("register/", views.register, name="register"),
     path("login/", views.custom_login, name="login"),
     path("logout/", views.custom_logout, name="logout"),

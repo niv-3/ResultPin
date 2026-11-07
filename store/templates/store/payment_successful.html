@@ -1,43 +1,31 @@
 {% extends "store/base.html" %}
 
-{% block title %}Payment Successful | ResultPin.ng{% endblock %}
+{% block title %}Payment Status | KoboTap{% endblock %}
 
 {% block content %}
 <div class="container my-5 text-center" style="max-width:600px;">
 
     <div class="card shadow-sm border-0 rounded-4 p-5">
 
-        <div class="mb-4">
-            <i class="bi bi-check-circle-fill text-success" style="font-size:4rem;"></i>
-        </div>
-
-        <h4 class="fw-bold mb-2">Payment Successful!</h4>
-
-        {% if txn %}
-            {% if txn.service_plan.provider.category.slug == "airtime" %}
-                <p class="text-muted mb-4">
-                    Airtime of ₦{{ txn.amount_paid|floatformat:0 }} has been sent to {{ txn.phone }}.
-                </p>
-            {% elif txn.service_plan.provider.category.slug == "data" %}
-                <p class="text-muted mb-4">
-                    Data bundle ({{ txn.service_plan.name }}) activated on {{ txn.phone }}.
-                </p>
-            {% elif txn.service_plan.provider.category.slug == "tv" %}
-                <p class="text-muted mb-4">
-                    Cable subscription ({{ txn.service_plan.name }}) activated on Smartcard {{ txn.cardnumber }}.
-                </p>
-            {% elif txn.service_plan.provider.category.slug == "electricity" %}
-                <p class="text-muted mb-4">
-                    Electricity payment of ₦{{ txn.amount_paid|floatformat:0 }} processed for meter {{ txn.meter_number }}.
-                    {% if txn.token %}
-                        <br><strong>Token:</strong> <code>{{ txn.token }}</code>
-                    {% endif %}
-                </p>
-            {% else %}
-                <p class="text-muted mb-4">Your service has been processed successfully.</p>
+        {% if txn.status == "success" %}
+            <div class="mb-4"><i class="bi bi-check-circle-fill text-success fs-1" aria-hidden="true"></i></div>
+            <h1 class="h4 fw-bold mb-2">{% if test_purchase %}Test payment complete{% else %}Payment complete{% endif %}</h1>
+            {% if test_purchase %}
+                <p class="text-muted">The test payment was confirmed. No airtime or data was sent.</p>
+            {% elif txn.service_plan %}
+                <p class="text-muted">{{ txn.service_plan.name }} was delivered to {{ txn.phone }}.</p>
             {% endif %}
+        {% elif txn.status == "refund_pending" %}
+            <h1 class="h4 fw-bold mb-2">Refund requested</h1>
+            <p class="text-muted">The provider reported a failed delivery. A card refund has been requested.</p>
+        {% elif txn.status == "failed" %}
+            <h1 class="h4 fw-bold mb-2">Purchase unsuccessful</h1>
+            <p class="text-muted">If you were charged, contact support with your payment reference.</p>
+        {% elif txn %}
+            <h1 class="h4 fw-bold mb-2">Purchase pending</h1>
+            <p class="text-muted">Check Wallet History for the latest status before trying again.</p>
         {% else %}
-            <p class="text-muted mb-4">Your payment has been received. Service will be activated shortly.</p>
+            <h1 class="h4 fw-bold mb-2">Payment details unavailable</h1>
         {% endif %}
 
         <a href="{% url 'home' %}" class="btn btn-success fw-semibold px-4">

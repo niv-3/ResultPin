@@ -1,0 +1,69 @@
+{% extends "store/base.html" %}
+{% load static %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'store/css/service-checkout.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container service-checkout-page py-4 py-md-5" style="max-width: 680px">
+  <a href="{% url 'home' %}#services" class="text-decoration-none">Back to services</a>
+  {% if kind == "electricity" %}
+    <div class="service-checkout-hero rounded-4 p-4 my-3 text-white">
+      <h1 class="h2"><i class="fas fa-plug me-2" aria-hidden="true"></i>Pay your electricity bill</h1>
+      <p class="mb-0">Pay a postpaid bill or buy a prepaid token with your KoboTap wallet.</p>
+    </div>
+  {% else %}
+    <div class="service-checkout-hero rounded-4 p-4 my-3 text-white">
+      <h1 class="h2"><i class="fas fa-tv me-2" aria-hidden="true"></i>Cable TV subscription</h1>
+      <p class="mb-0">Choose a TV package and pay with your KoboTap wallet.</p>
+    </div>
+  {% endif %}
+  {% if options %}
+    <p class="text-muted">Choose a provider and enter your account details to pay from your wallet.</p>
+    <div class="card service-checkout-product shadow-sm rounded-4">
+      <div class="card-body p-3 p-md-4">
+        <form method="post" action="{% if kind == 'cable' %}{% url 'initiate_cable_payment' %}{% elif kind == 'education' %}{% url 'initiate_education_payment' %}{% else %}{% url 'initiate_electricity_payment' %}{% endif %}">
+          {% csrf_token %}
+          <input type="hidden" name="checkout" value="{{ checkout }}">
+          <div class="mb-3">
+            <label for="bill-option" class="form-label">{% if kind == "cable" %}Provider and package{% elif kind == "education" %}Exam product{% else %}Electricity provider{% endif %}</label>
+            <select id="bill-option" name="selection" class="form-select" required>
+              <option value="">Choose an option</option>
+              {% for option in options %}<option value="{{ option.id }}">{{ option.label }}</option>{% endfor %}
+            </select>
+          </div>
+          {% if kind != "education" %}
+          <div class="mb-3">
+            <label for="bill-account" class="form-label">{% if kind == "cable" %}Smartcard or IUC number{% else %}Meter number{% endif %}</label>
+            <input id="bill-account" name="account_number" class="form-control" inputmode="numeric" pattern="[0-9]{8,20}" required>
+          </div>
+          {% endif %}
+          {% if kind == "electricity" %}
+            <div class="mb-3">
+              <label for="bill-type" class="form-label">Meter type</label>
+              <select id="bill-type" name="meter_type" class="form-select" required>
+                <option value="prepaid">Prepaid</option>
+                <option value="postpaid">Postpaid</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="bill-amount" class="form-label">Amount in naira</label>
+              <input id="bill-amount" name="amount" class="form-control" type="number" min="100" max="100000" step="0.01" inputmode="decimal" required>
+            </div>
+          {% endif %}
+          <div class="mb-3">
+            <label for="bill-phone" class="form-label">Phone number</label>
+            <input id="bill-phone" name="phone" class="form-control" type="tel" autocomplete="tel-national" pattern="0[0-9]{10}" maxlength="11" placeholder="08012345678" required>
+          </div>
+          <div class="d-flex justify-content-between gap-2 mb-3">
+            <span>Wallet balance <strong>₦{{ request.user.wallet_balance|floatformat:2 }}</strong></span>
+            <a href="{% url 'wallet_fund' %}">Fund wallet</a>
+          </div>
+          <button type="submit" class="btn service-checkout-pay w-100">Pay from wallet</button>
+        </form>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-info" role="status">This service is currently unavailable. Please check back later.</div>
+  {% endif %}
+</div>
+{% endblock %}

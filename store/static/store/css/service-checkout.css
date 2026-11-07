@@ -1,0 +1,25 @@
+.service-checkout-hero {
+    background: linear-gradient(135deg, #0b2c3d, #13435c);
+    border-left: 4px solid #ff6d00;
+  }
+  .service-checkout-hero i { color: #ff9b50; }
+  .service-checkout-product {
+    color: #0b2c3d;
+    background: linear-gradient(145deg, #fff0e5, #fff 65%);
+    border: 1px solid #f3dac9;
+  }
+  .service-checkout-product .form-control:focus {
+    border-color: #b94d00;
+    box-shadow: 0 0 0 .2rem rgb(255 109 0 / 20%);
+  }
+  .service-checkout-page .service-checkout-pay {
+    color: #fff;
+    background: #0b2c3d;
+    font-weight: 700;
+  }
+  .service-checkout-page .service-checkout-pay:hover,
+  .service-checkout-page .service-checkout-pay:focus-visible {
+    color: #fff;
+    background: #13435c;
+  }
+  .service-checkout-page a { color: #0b2c3d; }

@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: kobotap-preview
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-render.txt && python manage.py collectstatic --noinput && python manage.py migrate --noinput
+    startCommand: gunicorn core.wsgi:application --bind 0.0.0.0:$PORT
+    healthCheckPath: /health/
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: core.render_settings
+      - key: PYTHON_VERSION
+        value: 3.14.2
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kobotap-preview-db
+          property: connectionString
+
+databases:
+  - name: kobotap-preview-db
+    plan: free
+    ipAllowList: []

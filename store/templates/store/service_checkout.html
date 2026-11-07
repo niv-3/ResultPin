@@ -1,0 +1,73 @@
+{% extends "store/base.html" %}
+{% load static %}
+{% block title %}Checkout | KoboTap{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'store/css/service-checkout.css' %}">
+{% endblock %}
+{% block content %}
+<div class="container service-checkout-page py-4" style="max-width: 620px">
+  <a href="{% url 'service_dashboard' slug %}?provider={{ plan.provider_id }}">Back to packages</a>
+  <header class="service-checkout-hero rounded-4 p-4 my-3 text-white">
+    <p class="mb-1">{{ plan.provider.name }}</p>
+    <h1 class="h4">{{ plan.name }}</h1>
+    <p class="fs-3 fw-bold mb-0">₦{{ plan.selling_price|floatformat:2 }}</p>
+  </header>
+  <form id="service-purchase" class="card service-checkout-product rounded-4 p-3 p-md-4"
+        action="{% url 'initiate_service_payment' slug plan.pk %}" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="expected_price" value="{{ plan.selling_price|floatformat:'2u' }}">
+    <label for="recipient-phone" class="form-label fw-semibold">Recipient phone number</label>
+    <input id="recipient-phone" name="phone" type="tel" class="form-control mb-3" autocomplete="tel-national"
+           inputmode="tel" pattern="0[0-9]{10}" maxlength="11" placeholder="08012345678" required>
+    <fieldset class="mb-3">
+      <legend class="fs-6 fw-semibold">Payment method</legend>
+      <label class="d-block mb-2"><input type="radio" name="payment_method" value="wallet" {% if request.user.wallet_balance >= plan.selling_price %}checked{% else %}disabled{% endif %}> Wallet · ₦{{ request.user.wallet_balance|floatformat:2 }}</label>
+      <label class="d-block"><input type="radio" name="payment_method" value="card" {% if request.user.wallet_balance < plan.selling_price %}checked{% endif %}> Paystack</label>
+      {% if request.user.wallet_balance < plan.selling_price %}<a class="d-inline-block mt-2" href="{% url 'wallet_fund' %}">Fund wallet</a>{% endif %}
+    </fieldset>
+    <p class="text-danger" id="purchase-error" role="alert" hidden></p>
+    <button type="submit" class="btn service-checkout-pay w-100">Pay ₦{{ plan.selling_price|floatformat:2 }}</button>
+  </form>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const purchaseForm = document.getElementById("service-purchase");
+purchaseForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = purchaseForm.querySelector("button");
+    if (button.disabled) return;
+    const message = document.getElementById("purchase-error");
+    const fields = new FormData(purchaseForm);
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    message.hidden = true;
+    try {
+        const response = await fetch(purchaseForm.action, {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "X-CSRFToken": fields.get("csrfmiddlewaretoken")},
+            body: JSON.stringify({
+                phone: fields.get("phone"),
+                payment_method: fields.get("payment_method"),
+                expected_price: fields.get("expected_price"),
+            }),
+        });
+        if (response.redirected) {
+            window.location.assign(response.url);
+            return;
+        }
+        const result = await response.json();
+        if (result.status) {
+            window.location.assign(result.authorization_url || result.redirect_url || "{% url 'wallet' %}");
+            return;
+        }
+        message.textContent = result.message || "We could not complete your purchase.";
+    } catch {
+        message.textContent = "We could not confirm the result. Check your wallet history before trying again.";
+    }
+    message.hidden = false;
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+});
+</script>
+{% endblock %}

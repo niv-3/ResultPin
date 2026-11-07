@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}
-My Wallet | ResultPin
+My Wallet | KoboTap
 {% endblock %}
 
 
@@ -428,6 +428,8 @@ TRANSACTIONS
 }
 
 .transaction-header{
+    cursor:pointer;
+    list-style:none;
     display:flex;
     justify-content:space-between;
     align-items:center;
@@ -737,6 +739,7 @@ MOBILE
         </a>
 
 
+        {% if withdrawals_enabled %}
         <a
             href="{% url 'wallet_withdraw' %}"
             class="balance-btn balance-btn-secondary"
@@ -747,6 +750,7 @@ MOBILE
             Withdraw
 
         </a>
+        {% endif %}
 
     </div>
 
@@ -827,6 +831,7 @@ MOBILE
 <div class="wallet-actions-grid">
 
 
+{% if withdrawals_enabled %}
 <div class="action-card">
 
     <h3>
@@ -850,6 +855,7 @@ MOBILE
     </a>
 
 </div>
+{% endif %}
 
 
 
@@ -896,32 +902,30 @@ MOBILE
      TRANSACTION LOG
 ========================= -->
 
-<div class="transaction-card">
+<details class="transaction-card" id="wallet-history"{% if request.GET.page %} open{% endif %}>
 
 
-<div class="transaction-header">
+<summary class="transaction-header">
 
     <div>
 
         <h2>
-            Transaction History
+            Wallet History
         </h2>
 
         <span>
-            Wallet activity and payment records
+            Payments and wallet activity from the last 7 days
         </span>
 
     </div>
 
 
     <i
-        class="fas fa-clock-rotate-left"
+        class="fas fa-chevron-down"
         style="color:#0b2c3d;"
     ></i>
 
-</div>
-
-
+</summary>
 
 {% if wallet_transactions %}
 
@@ -972,6 +976,8 @@ MOBILE
 <td class="transaction-description">
 
     {{ txn.description }}
+    {% if txn.payment_status %}<small class="d-block text-muted">{{ txn.payment_status|capfirst }}</small>{% endif %}
+    {% if txn.receipt_url %}<a href="{{ txn.receipt_url }}">View receipt</a>{% endif %}
 
 </td>
 
@@ -992,6 +998,10 @@ MOBILE
             Credit
 
         </span>
+
+    {% elif txn.transaction_type == "card" %}
+
+        <span class="transaction-badge">Card</span>
 
     {% else %}
 
@@ -1023,6 +1033,10 @@ MOBILE
 
         </span>
 
+    {% elif txn.transaction_type == "card" %}
+
+        ₦{{ txn.amount|floatformat:2 }}
+
     {% else %}
 
         <span class="amount-debit">
@@ -1047,6 +1061,14 @@ MOBILE
 </div>
 
 
+{% if wallet_transactions.has_other_pages %}
+<nav class="d-flex justify-content-between align-items-center gap-2 px-3 py-2" aria-label="Wallet history pages">
+    {% if wallet_transactions.has_previous %}<a href="?page={{ wallet_transactions.previous_page_number }}#wallet-history">Previous</a>{% endif %}
+    <span>Page {{ wallet_transactions.number }} of {{ wallet_transactions.paginator.num_pages }}</span>
+    {% if wallet_transactions.has_next %}<a href="?page={{ wallet_transactions.next_page_number }}#wallet-history">Next</a>{% endif %}
+</nav>
+{% endif %}
+
 {% else %}
 
 
@@ -1059,7 +1081,7 @@ MOBILE
     </div>
 
     <strong>
-        No transactions yet
+        No transactions in the last 7 days
     </strong>
 
     <p class="mb-0 mt-2">
@@ -1072,7 +1094,7 @@ MOBILE
 {% endif %}
 
 
-</div>
+</details>
 
 
 </div>

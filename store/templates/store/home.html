@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}
-ResultPin | Digital Services Platform
+KoboTap | Digital Services Platform
 {% endblock %}
 
 
@@ -187,33 +187,6 @@ border:none;
 
 }
 
-/* TRUST */
-
-.trust{
-
-background:#fff;
-padding:26px 0;
-border-bottom:1px solid var(--border);
-
-}
-
-.trust-item{
-
-display:flex;
-align-items:center;
-justify-content:center;
-gap:12px;
-font-weight:600;
-color:#5c6673;
-
-}
-
-.trust-item i{
-
-color:#1ea672;
-
-}
-
 /* SECTION */
 
 .section{
@@ -224,7 +197,8 @@ padding:90px 0;
 
 .section-title{
 
-font-size:2.6rem;
+font-size:clamp(1.85rem, 7vw, 2.6rem);
+letter-spacing:-.035em;
 font-weight:800;
 text-align:center;
 margin-bottom:15px;
@@ -246,7 +220,7 @@ margin-bottom:55px;
 
 .hero{
 
-padding:70px 0;
+padding:44px 0;
 
 }
 
@@ -254,6 +228,11 @@ padding:70px 0;
 
 font-size:2.6rem;
 
+}
+
+.hero p{
+font-size:1rem;
+line-height:1.6;
 }
 
 .hero-dashboard{
@@ -269,14 +248,17 @@ PREMIUM SERVICE CARDS
 =========================== */
 
 .service-card{
+--card-border:#356078;
+--card-icon:#204b62;
+--card-ink:#ffad72;
 position:relative;
 display:flex;
 flex-direction:column;
 height:100%;
 min-height:260px;
 padding:28px;
-background:#fff;
-border:1px solid #e6ecef;
+background:linear-gradient(145deg,var(--primary-light),var(--primary) 82%);
+border:1px solid var(--card-border);
 border-radius:22px;
 overflow:hidden;
 transition:
@@ -291,20 +273,15 @@ position:absolute;
 top:0;
 left:0;
 right:0;
-height:4px;
-background:#0b2c3d;
-opacity:0;
-transition:.25s ease;
+height:3px;
+background:var(--card-ink);
 }
 
-.service-card:hover{
+.service-card:hover,
+#services a:focus-visible .service-card{
 transform:translateY(-6px);
-border-color:transparent;
+border-color:var(--card-ink);
 box-shadow:0 22px 50px rgba(11,44,61,.11);
-}
-
-.service-card:hover::before{
-opacity:1;
 }
 
 .service-card-top{
@@ -321,7 +298,7 @@ border-radius:17px;
 display:flex;
 align-items:center;
 justify-content:center;
-background:#f0f5f7;
+background:var(--card-icon);
 }
 
 .service-icon img{
@@ -332,14 +309,14 @@ object-fit:contain;
 
 .service-icon i{
 font-size:1.6rem;
-color:#0b2c3d;
+color:#fff;
 }
 
 .service-status{
 font-size:.7rem;
 font-weight:700;
-color:#16885f;
-background:#eaf8f2;
+color:var(--card-ink);
+background:var(--card-icon);
 padding:6px 10px;
 border-radius:999px;
 }
@@ -351,7 +328,7 @@ flex:1;
 .service-card h3{
 font-size:1.15rem;
 font-weight:800;
-color:#0b2c3d;
+color:#fff;
 margin-bottom:10px;
 letter-spacing:-.02em;
 }
@@ -359,7 +336,7 @@ letter-spacing:-.02em;
 .service-card p{
 font-size:.9rem;
 line-height:1.65;
-color:#707b86;
+color:var(--card-ink);
 margin:0;
 max-width:310px;
 }
@@ -370,10 +347,10 @@ align-items:center;
 justify-content:space-between;
 margin-top:28px;
 padding-top:18px;
-border-top:1px solid #eef2f4;
+border-top:1px solid var(--card-border);
 font-size:.88rem;
 font-weight:700;
-color:#0b2c3d;
+color:#fff;
 }
 
 .service-arrow{
@@ -383,43 +360,31 @@ display:flex;
 align-items:center;
 justify-content:center;
 border-radius:50%;
-background:#f1f5f7;
+background:var(--card-icon);
+color:var(--card-ink);
 transition:.25s ease;
 }
 
-.service-card:hover .service-arrow{
-background:#ff6d00;
-color:#fff;
+.service-card:hover .service-arrow,
+#services a:focus-visible .service-arrow{
+background:var(--accent);
+color:var(--primary);
 transform:translateX(3px);
 }
 
 
-/* SERVICE PERSONALITY */
-
-.service-airtime .service-icon{
-background:#fff6df;
+@media(prefers-reduced-motion:reduce){
+.service-card,
+.service-arrow{
+transition:none;
 }
-
-.service-internet-data .service-icon{
-background:#edf4ff;
+.service-card:hover,
+#services a:focus-visible .service-card,
+.service-card:hover .service-arrow,
+#services a:focus-visible .service-arrow{
+transform:none;
 }
-
-.service-cable .service-icon{
-background:#eef8ff;
 }
-
-.service-electricity .service-icon{
-background:#fff1eb;
-}
-
-.service-education .service-icon{
-background:#f2edff;
-}
-
-.service-insurance .service-icon{
-background:#eaf8f2;
-}
-
 
 /* MOBILE */
 
@@ -443,699 +408,12 @@ height:38px;
 }
 
 /* ===========================
-WHY CHOOSE US
-=========================== */
-
-.why-section{
-background:#eef4f7;
-}
-
-.why-card{
-background:#fff;
-padding:30px;
-border-radius:20px;
-border:1px solid #e4ebef;
-transition:.28s ease;
-}
-
-.why-card:hover{
-transform:translateY(-6px);
-box-shadow:0 18px 40px rgba(11,44,61,.09);
-}
-
-.why-icon{
-width:58px;
-height:58px;
-display:flex;
-align-items:center;
-justify-content:center;
-border-radius:16px;
-background:rgba(255,109,0,.10);
-color:#ff6d00;
-font-size:1.45rem;
-margin-bottom:20px;
-}
-
-.why-card h4{
-font-size:1.05rem;
-font-weight:750;
-color:#0b2c3d;
-margin-bottom:10px;
-}
-
-.why-card p{
-font-size:.9rem;
-line-height:1.65;
-color:#697480;
-margin:0;
-}
-
-.stats-panel{
-background:#0b2c3d;
-color:#fff;
-border-radius:24px;
-padding:38px 25px;
-box-shadow:0 20px 45px rgba(11,44,61,.15);
-}
-
-.stat-value{
-font-size:2rem;
-font-weight:800;
-color:#fff;
-margin-bottom:6px;
-}
-
-.stat-value i{
-color:#ff6d00;
-}
-
-.stat-label{
-font-size:.85rem;
-color:rgba(255,255,255,.65);
-}
-
-@media(max-width:768px){
-
-.why-card{
-padding:22px;
-}
-
-.why-icon{
-width:52px;
-height:52px;
-}
-
-.stats-panel{
-padding:30px 16px;
-}
-
-}
-
-/* ===========================
-PLATFORM SHOWCASE
-=========================== */
-
-.platform-section{
-background:#fff;
-}
-
-.platform-panel{
-position:relative;
-overflow:hidden;
-background:linear-gradient(135deg,#071d2c,#0b2c3d 55%,#124760);
-border-radius:30px;
-padding:70px;
-color:#fff;
-box-shadow:0 25px 60px rgba(11,44,61,.16);
-}
-
-.platform-panel::after{
-content:"";
-position:absolute;
-width:420px;
-height:420px;
-border-radius:50%;
-background:rgba(255,255,255,.035);
-right:-120px;
-top:-160px;
-}
-
-.platform-panel .row{
-position:relative;
-z-index:2;
-}
-
-.platform-badge{
-display:inline-flex;
-align-items:center;
-gap:9px;
-padding:8px 14px;
-background:rgba(255,109,0,.15);
-color:#ff9b52;
-border:1px solid rgba(255,109,0,.25);
-border-radius:999px;
-font-size:.82rem;
-font-weight:700;
-margin-bottom:20px;
-}
-
-.platform-panel h2{
-font-size:2.8rem;
-font-weight:800;
-letter-spacing:-1px;
-max-width:540px;
-margin-bottom:20px;
-}
-
-.platform-panel p{
-color:rgba(255,255,255,.70);
-line-height:1.8;
-max-width:540px;
-}
-
-.platform-features{
-margin:28px 0;
-display:flex;
-flex-direction:column;
-gap:13px;
-}
-
-.platform-feature{
-display:flex;
-align-items:center;
-gap:12px;
-font-size:.95rem;
-}
-
-.platform-feature i{
-width:25px;
-height:25px;
-border-radius:50%;
-display:flex;
-align-items:center;
-justify-content:center;
-background:rgba(31,166,114,.18);
-color:#54d6a3;
-font-size:.7rem;
-}
-
-.platform-btn{
-display:inline-flex;
-align-items:center;
-gap:10px;
-background:#ff6d00;
-color:#fff;
-padding:14px 22px;
-border-radius:12px;
-font-weight:700;
-transition:.25s;
-}
-
-.platform-btn:hover{
-background:#fff;
-color:#0b2c3d;
-transform:translateY(-2px);
-}
-
-
-/* PLATFORM VISUAL */
-
-.platform-visual{
-min-height:380px;
-position:relative;
-display:flex;
-align-items:center;
-justify-content:center;
-}
-
-.platform-main-icon{
-width:170px;
-height:170px;
-border-radius:40px;
-display:flex;
-align-items:center;
-justify-content:center;
-font-size:4rem;
-color:#fff;
-background:rgba(255,255,255,.08);
-border:1px solid rgba(255,255,255,.12);
-box-shadow:0 25px 60px rgba(0,0,0,.18);
-backdrop-filter:blur(15px);
-}
-
-.platform-card{
-position:absolute;
-background:#fff;
-color:#0b2c3d;
-padding:14px 18px;
-border-radius:15px;
-display:flex;
-align-items:center;
-gap:12px;
-min-width:175px;
-box-shadow:0 15px 35px rgba(0,0,0,.18);
-}
-
-.platform-card strong,
-.platform-card span{
-display:block;
-}
-
-.platform-card strong{
-font-size:.9rem;
-}
-
-.platform-card span{
-font-size:.72rem;
-color:#77818b;
-}
-
-.platform-small-icon{
-width:36px;
-height:36px;
-border-radius:10px;
-background:#fff2e8;
-color:#ff6d00;
-display:flex;
-align-items:center;
-justify-content:center;
-}
-
-.platform-card-one{
-top:25px;
-left:5px;
-}
-
-.platform-card-two{
-right:0;
-top:95px;
-}
-
-.platform-card-three{
-bottom:30px;
-right:30px;
-}
-
-.platform-card-four{
-bottom:20px;
-left:15px;
-}
-
-
-@media(max-width:768px){
-
-.platform-panel{
-padding:40px 24px;
-border-radius:22px;
-}
-
-.platform-panel h2{
-font-size:2rem;
-}
-
-.platform-visual{
-min-height:330px;
-margin-top:20px;
-}
-
-.platform-main-icon{
-width:130px;
-height:130px;
-font-size:3rem;
-}
-
-.platform-card{
-min-width:145px;
-padding:11px 13px;
-}
-
-}
-/* EDUCATION VISUAL */
-
-.education-visual{
-min-height:360px;
-position:relative;
-display:flex;
-align-items:center;
-justify-content:center;
-}
-
-.edu-main-icon{
-width:170px;
-height:170px;
-border-radius:40px;
-display:flex;
-align-items:center;
-justify-content:center;
-font-size:4.5rem;
-color:#fff;
-background:rgba(255,255,255,.08);
-border:1px solid rgba(255,255,255,.12);
-box-shadow:0 25px 60px rgba(0,0,0,.18);
-backdrop-filter:blur(15px);
-}
-
-.edu-card{
-position:absolute;
-background:#fff;
-color:#0b2c3d;
-padding:14px 18px;
-border-radius:15px;
-display:flex;
-align-items:center;
-gap:12px;
-min-width:175px;
-box-shadow:0 15px 35px rgba(0,0,0,.18);
-}
-
-.edu-card strong,
-.edu-card span{
-display:block;
-}
-
-.edu-card strong{
-font-size:.9rem;
-}
-
-.edu-card span{
-font-size:.72rem;
-color:#77818b;
-}
-
-.edu-small-icon{
-width:36px;
-height:36px;
-border-radius:10px;
-background:#fff2e8;
-color:#ff6d00;
-display:flex;
-align-items:center;
-justify-content:center;
-}
-
-.edu-card-one{
-top:30px;
-left:10px;
-}
-
-.edu-card-two{
-right:0;
-top:135px;
-}
-
-.edu-card-three{
-bottom:20px;
-left:40px;
-}
-
-
-/* ===========================
-HOW IT WORKS
-=========================== */
-
-.how-section{
-background:#f7f9fb;
-}
-
-.section-eyebrow{
-display:block;
-font-size:.72rem;
-font-weight:800;
-letter-spacing:2px;
-color:#ff6d00;
-margin-bottom:12px;
-}
-
-.step-card{
-position:relative;
-background:#fff;
-border:1px solid #e6ecef;
-border-radius:22px;
-padding:35px;
-height:100%;
-transition:.25s;
-}
-
-.step-card:hover{
-transform:translateY(-6px);
-box-shadow:0 18px 40px rgba(11,44,61,.08);
-}
-
-.step-number{
-position:absolute;
-top:25px;
-right:28px;
-font-size:2.5rem;
-font-weight:800;
-color:#edf1f3;
-}
-
-.step-icon{
-width:58px;
-height:58px;
-border-radius:16px;
-background:#eef5f8;
-display:flex;
-align-items:center;
-justify-content:center;
-font-size:1.4rem;
-color:#0b2c3d;
-margin-bottom:25px;
-}
-
-.step-card h4{
-font-size:1.1rem;
-font-weight:750;
-color:#0b2c3d;
-margin-bottom:12px;
-}
-
-.step-card p{
-color:#697480;
-font-size:.9rem;
-line-height:1.7;
-margin:0;
-}
-
-
-/* MOBILE */
-
-@media(max-width:768px){
-
-.education-panel{
-padding:40px 24px;
-border-radius:22px;
-}
-
-.education-panel h2{
-font-size:2rem;
-}
-
-.education-visual{
-min-height:310px;
-margin-top:20px;
-}
-
-.edu-main-icon{
-width:130px;
-height:130px;
-font-size:3.3rem;
-}
-
-.edu-card{
-min-width:150px;
-padding:11px 13px;
-}
-
-.edu-card-one{
-left:0;
-}
-
-.edu-card-two{
-right:0;
-}
-
-.edu-card-three{
-left:10px;
-}
-
-}
-
-/* ===========================
-FAQ
-=========================== */
-
-.faq-section{
-background:#fff;
-}
-
-.faq-shell{
-max-width:850px;
-margin:0 auto;
-}
-
-.accordion-item{
-border:1px solid #e5ebef !important;
-border-radius:14px !important;
-overflow:hidden;
-margin-bottom:14px;
-background:#fff;
-}
-
-.accordion-button{
-font-weight:700;
-color:#0b2c3d;
-padding:20px 22px;
-box-shadow:none !important;
-}
-
-.accordion-button:not(.collapsed){
-background:#f4f8fa;
-color:#0b2c3d;
-}
-
-.accordion-button:focus{
-box-shadow:none;
-border-color:transparent;
-}
-
-.accordion-body{
-color:#68737f;
-line-height:1.7;
-padding:0 22px 22px;
-}
-
-.faq-link{
-display:inline-flex;
-align-items:center;
-gap:8px;
-font-weight:700;
-color:#0b2c3d;
-}
-
-.faq-link:hover{
-color:#ff6d00;
-}
-
-
-/* ===========================
-FINAL CTA
-=========================== */
-
-.final-cta-section{
-background:#f7f9fb;
-padding-top:60px;
-}
-
-.final-cta{
-position:relative;
-overflow:hidden;
-background:
-linear-gradient(135deg,#071a28,#0b2c3d,#154760);
-border-radius:28px;
-padding:55px;
-color:#fff;
-box-shadow:0 25px 60px rgba(11,44,61,.16);
-}
-
-.final-cta::after{
-content:"";
-position:absolute;
-width:350px;
-height:350px;
-border-radius:50%;
-background:rgba(255,255,255,.035);
-right:-100px;
-top:-150px;
-}
-
-.final-cta .row{
-position:relative;
-z-index:2;
-}
-
-.cta-label{
-display:block;
-font-size:.72rem;
-font-weight:800;
-letter-spacing:2px;
-color:#ff9a4c;
-margin-bottom:12px;
-}
-
-.final-cta h2{
-font-size:2.4rem;
-font-weight:800;
-letter-spacing:-1px;
-max-width:700px;
-margin-bottom:15px;
-}
-
-.final-cta p{
-color:rgba(255,255,255,.68);
-max-width:650px;
-margin:0;
-line-height:1.7;
-}
-
-.cta-primary{
-display:inline-flex;
-align-items:center;
-gap:10px;
-background:#ff6d00;
-color:#fff;
-padding:15px 22px;
-border-radius:12px;
-font-weight:700;
-white-space:nowrap;
-transition:.25s;
-}
-
-.cta-primary:hover{
-background:#fff;
-color:#0b2c3d;
-transform:translateY(-2px);
-}
-
-
-/* FINAL MOBILE POLISH */
-
-@media(max-width:768px){
-
-.section{
-padding:65px 0;
-}
-
-.section-title{
-font-size:2rem;
-}
-
-.section-sub{
-margin-bottom:38px;
-}
-
-.service-card{
-padding:20px;
-}
-
-.service-icon{
-width:58px;
-height:58px;
-}
-
-.service-icon img{
-width:40px;
-height:40px;
-}
-
-.final-cta{
-padding:35px 24px;
-text-align:center;
-border-radius:22px;
-}
-
-.final-cta h2{
-font-size:1.9rem;
-}
-
-.cta-primary{
-margin-top:20px;
-}
-
-.accordion-button{
-padding:17px 18px;
-font-size:.95rem;
-}
-
-}
-/* ===========================
 WIDE DESKTOP LAYOUT
 =========================== */
 
 @media (min-width: 1200px){
 
   .hero > .container,
-  .trust > .container,
   .section > .container{
     width:94%;
     max-width:1600px;
@@ -1143,27 +421,97 @@ WIDE DESKTOP LAYOUT
     margin-right:auto;
   }
 
-  .faq-shell{
-    max-width:1100px;
-  }
-
-  .education-panel,
-  .final-cta,
-  .stats-panel{
-    width:100%;
-  }
-
 }
 
 @media (min-width:1600px){
 
   .hero > .container,
-  .trust > .container,
   .section > .container{
     width:96%;
     max-width:1750px;
   }
 
+}
+@media (max-width: 767.98px) {
+  .hero {
+    display: none;
+  }
+
+  #services {
+    padding: 20px 0 28px;
+  }
+
+  #services .section-title {
+    font-size: 1.4rem;
+    margin-bottom: 12px;
+  }
+
+  #services .section-sub {
+    margin-bottom: 16px;
+    font-size: .86rem;
+    line-height: 1.45;
+  }
+
+  #services .services-grid {
+    --bs-gutter-x: 12px;
+    --bs-gutter-y: 12px;
+  }
+
+  #services .services-grid > div {
+    width: 50%;
+  }
+
+  #services .service-card {
+    min-height: 140px;
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  #services .service-card-top {
+    margin-bottom: 8px;
+  }
+
+  #services .service-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  #services .service-icon img {
+    width: 26px;
+    height: 26px;
+  }
+
+  #services .service-icon i {
+    font-size: 1.1rem;
+  }
+
+  #services .service-card h3 {
+    font-size: .9rem;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #services .service-status {
+    display: none;
+  }
+
+  #services .service-card-body p {
+    margin-top: 5px;
+    font-size: .78rem;
+    line-height: 1.4;
+  }
+
+  #services .service-card-footer {
+    margin-top: 8px;
+    padding-top: 6px;
+    font-size: .78rem;
+  }
+
+  #services .service-arrow {
+    width: 25px;
+    height: 25px;
+  }
 }
 </style>
 
@@ -1339,65 +687,6 @@ Secure
 
 </section>
 
-<section class="trust">
-
-<div class="container">
-
-<div class="row g-4">
-
-<div class="col-6 col-lg-3">
-
-<div class="trust-item">
-
-<i class="fas fa-lock"></i>
-
-Secure Payments
-
-</div>
-
-</div>
-
-<div class="col-6 col-lg-3">
-
-<div class="trust-item">
-
-<i class="fas fa-wallet"></i>
-
-Wallet & Card
-
-</div>
-
-</div>
-
-<div class="col-6 col-lg-3">
-
-<div class="trust-item">
-
-<i class="fas fa-bolt"></i>
-
-Instant Delivery
-
-</div>
-
-</div>
-
-<div class="col-6 col-lg-3">
-
-<div class="trust-item">
-
-<i class="fas fa-arrow-rotate-left"></i>
-
-Auto Refunds
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</section>
 <section class="section" id="services">
 
 <div class="container">
@@ -1409,13 +698,12 @@ Our Digital Services
 </h2>
 
 <p class="section-sub">
-Access essential digital services from one secure platform.
-Fast payments, reliable delivery and one wallet for everything.
+Fast, easy, and secure payments for everyday services.
 </p>
 
 </div>
 
-<div class="row g-4">
+<div class="row g-4 services-grid">
 
 {% for service in services %}
 
@@ -1441,7 +729,7 @@ alt="{{ service.name }}"
 
 {% else %}
 
-<i class="fas fa-bolt"></i>
+<i class="fas {% if service.slug == 'airtime' %}fa-phone{% elif service.slug == 'data' or service.slug == 'internet-data' %}fa-wifi{% elif service.slug == 'tv' or service.slug == 'cable' or service.slug == 'cable-tv' or service.slug == 'dstv' %}fa-tv{% elif service.slug == 'electricity' %}fa-plug{% elif service.slug == 'education' %}fa-graduation-cap{% else %}fa-layer-group{% endif %}" aria-hidden="true"></i>
 
 {% endif %}
 
@@ -1462,15 +750,18 @@ Available
 
 <p>
 
-{% if service.short_description %}
-
-{{ service.short_description }}
-
+{% if service.slug == 'airtime' %}
+Top up your mobile credit.
+{% elif service.slug == 'data' or service.slug == 'internet-data' %}
+Buy a mobile data bundle.
+{% elif service.slug == 'tv' or service.slug == 'cable' or service.slug == 'cable-tv' or service.slug == 'dstv' %}
+Renew your cable TV subscription.
+{% elif service.slug == 'electricity' %}
+Buy a prepaid token or pay your bill.
+{% elif service.slug == 'education' %}
+Buy WAEC and JAMB PINs.
 {% else %}
-
-Fast and secure access to
-{{ service.name|lower }}.
-
+{{ service.short_description }}
 {% endif %}
 
 </p>
@@ -1480,11 +771,7 @@ Fast and secure access to
 
 <div class="service-card-footer">
 
-<span>
-Use Service
-</span>
-
-<div class="service-arrow">
+<div class="service-arrow ms-auto" aria-hidden="true">
 <i class="fas fa-arrow-right"></i>
 </div>
 
@@ -1497,544 +784,6 @@ Use Service
 </div>
 
 {% endfor %}
-
-</div>
-
-</div>
-
-</section>
-
-<section class="section why-section">
-
-<div class="container">
-
-<div class="text-center mb-5">
-
-<h2 class="section-title">
-Why Choose ResultPin?
-</h2>
-
-<p class="section-sub">
-Built for fast, secure and reliable everyday digital transactions.
-</p>
-
-</div>
-
-<div class="row g-4">
-
-<div class="col-6 col-lg-3">
-
-<div class="why-card h-100">
-
-<div class="why-icon">
-<i class="fas fa-shield-halved"></i>
-</div>
-
-<h4>Secure Transactions</h4>
-
-<p>
-Payments are handled through secure wallet and card workflows with transaction verification.
-</p>
-
-</div>
-
-</div>
-
-<div class="col-6 col-lg-3">
-
-<div class="why-card h-100">
-
-<div class="why-icon">
-<i class="fas fa-bolt"></i>
-</div>
-
-<h4>Fast Processing</h4>
-
-<p>
-Service requests are processed through connected providers with immediate status feedback.
-</p>
-
-</div>
-
-</div>
-
-<div class="col-6 col-lg-3">
-
-<div class="why-card h-100">
-
-<div class="why-icon">
-<i class="fas fa-wallet"></i>
-</div>
-
-<h4>Flexible Payments</h4>
-
-<p>
-Pay directly from your ResultPin wallet or complete purchases securely with your card.
-</p>
-
-</div>
-
-</div>
-
-<div class="col-6 col-lg-3">
-
-<div class="why-card h-100">
-
-<div class="why-icon">
-<i class="fas fa-rotate-left"></i>
-</div>
-
-<h4>Automatic Refunds</h4>
-
-<p>
-Failed wallet transactions are detected and reversed automatically when service delivery fails.
-</p>
-
-</div>
-
-</div>
-
-</div>
-
-
-<div class="stats-panel mt-5">
-
-<div class="row text-center g-4">
-
-<div class="col-6 col-lg-3">
-<div class="stat-value">6+</div>
-<div class="stat-label">Digital Services</div>
-</div>
-
-<div class="col-6 col-lg-3">
-<div class="stat-value">
-<i class="fas fa-lock"></i>
-</div>
-<div class="stat-label">Secure Payments</div>
-</div>
-
-<div class="col-6 col-lg-3">
-<div class="stat-value">24/7</div>
-<div class="stat-label">Platform Access</div>
-</div>
-
-<div class="col-6 col-lg-3">
-<div class="stat-value">
-<i class="fas fa-bolt"></i>
-</div>
-<div class="stat-label">Fast Processing</div>
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</section>
-
-<!-- =========================
-     PLATFORM SHOWCASE
-========================= -->
-<section class="section platform-section">
-
-<div class="container">
-
-<div class="platform-panel">
-
-<div class="row align-items-center g-5">
-
-<div class="col-lg-6">
-
-<span class="platform-badge">
-<i class="fas fa-layer-group"></i>
-Everyday Digital Services
-</span>
-
-<h2>
-One account.
-Multiple services.
-Less hassle.
-</h2>
-
-<p>
-Access essential digital services, manage payments
-and track transactions from one convenient platform.
-</p>
-
-<div class="platform-features">
-
-<div class="platform-feature">
-<i class="fas fa-check"></i>
-<span>Airtime, data and bill payments</span>
-</div>
-
-<div class="platform-feature">
-<i class="fas fa-check"></i>
-<span>Wallet and secure card payments</span>
-</div>
-
-<div class="platform-feature">
-<i class="fas fa-check"></i>
-<span>Fast service processing</span>
-</div>
-
-<div class="platform-feature">
-<i class="fas fa-check"></i>
-<span>Automatic refunds for failed wallet transactions</span>
-</div>
-
-</div>
-
-<a href="#services" class="platform-btn">
-Explore Services
-<i class="fas fa-arrow-right"></i>
-</a>
-
-</div>
-
-
-<div class="col-lg-6">
-
-<div class="platform-visual">
-
-<div class="platform-main-icon">
-<i class="fas fa-wallet"></i>
-</div>
-
-<div class="platform-card platform-card-one">
-
-<div class="platform-small-icon">
-<i class="fas fa-mobile-screen"></i>
-</div>
-
-<div>
-<strong>Airtime & Data</strong>
-<span>Mobile services</span>
-</div>
-
-</div>
-
-<div class="platform-card platform-card-two">
-
-<div class="platform-small-icon">
-<i class="fas fa-bolt"></i>
-</div>
-
-<div>
-<strong>Bills</strong>
-<span>Electricity & utilities</span>
-</div>
-
-</div>
-
-<div class="platform-card platform-card-three">
-
-<div class="platform-small-icon">
-<i class="fas fa-tv"></i>
-</div>
-
-<div>
-<strong>Cable TV</strong>
-<span>Subscription services</span>
-</div>
-
-</div>
-
-<div class="platform-card platform-card-four">
-
-<div class="platform-small-icon">
-<i class="fas fa-graduation-cap"></i>
-</div>
-
-<div>
-<strong>Education</strong>
-<span>Digital products</span>
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</section>
-
-
-<!-- =========================
-     HOW IT WORKS
-========================= -->
-<section class="section how-section">
-
-<div class="container">
-
-<div class="text-center">
-
-<span class="section-eyebrow">
-SIMPLE PROCESS
-</span>
-
-<h2 class="section-title">
-From payment to delivery in a few steps.
-</h2>
-
-<p class="section-sub">
-Choose what you need, complete your payment and let the platform
-handle the rest.
-</p>
-
-</div>
-
-
-<div class="row g-4">
-
-<div class="col-md-4">
-
-<div class="step-card">
-
-<div class="step-number">01</div>
-
-<div class="step-icon">
-<i class="fas fa-layer-group"></i>
-</div>
-
-<h4>Choose a Service</h4>
-
-<p>
-Select airtime, data, electricity, cable TV, education or another
-available digital service.
-</p>
-
-</div>
-
-</div>
-
-
-<div class="col-md-4">
-
-<div class="step-card">
-
-<div class="step-number">02</div>
-
-<div class="step-icon">
-<i class="fas fa-credit-card"></i>
-</div>
-
-<h4>Pay Securely</h4>
-
-<p>
-Complete your transaction using your wallet or supported card
-payment option.
-</p>
-
-</div>
-
-</div>
-
-
-<div class="col-md-4">
-
-<div class="step-card">
-
-<div class="step-number">03</div>
-
-<div class="step-icon">
-<i class="fas fa-circle-check"></i>
-</div>
-
-<h4>Get Your Service</h4>
-
-<p>
-Your request is processed through the connected provider and the
-transaction status is recorded.
-</p>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-</section>
-
-<!-- =========================
-     FAQ
-========================= -->
-<section class="section faq-section" id="faq-section">
-
-<div class="container">
-
-<div class="text-center">
-
-<span class="section-eyebrow">
-HELP CENTRE
-</span>
-
-<h2 class="section-title">
-Frequently asked questions.
-</h2>
-
-<p class="section-sub">
-Quick answers about payments, service delivery and your account.
-</p>
-
-</div>
-
-<div class="faq-shell">
-
-<div class="accordion" id="homeFaq">
-
-<div class="accordion-item">
-<h2 class="accordion-header">
-<button class="accordion-button" type="button"
-data-bs-toggle="collapse"
-data-bs-target="#faqOne">
-How do payments work?
-</button>
-</h2>
-
-<div id="faqOne" class="accordion-collapse collapse show"
-data-bs-parent="#homeFaq">
-
-<div class="accordion-body">
-You can complete supported purchases using your platform wallet or card payment.
-</div>
-
-</div>
-</div>
-
-<div class="accordion-item">
-<h2 class="accordion-header">
-<button class="accordion-button collapsed" type="button"
-data-bs-toggle="collapse"
-data-bs-target="#faqTwo">
-What happens if a service fails?
-</button>
-</h2>
-
-<div id="faqTwo" class="accordion-collapse collapse"
-data-bs-parent="#homeFaq">
-
-<div class="accordion-body">
-Failed wallet purchases are automatically refunded when the service provider cannot complete the request.
-</div>
-
-</div>
-</div>
-
-<div class="accordion-item">
-<h2 class="accordion-header">
-<button class="accordion-button collapsed" type="button"
-data-bs-toggle="collapse"
-data-bs-target="#faqThree">
-How quickly are services processed?
-</button>
-</h2>
-
-<div id="faqThree" class="accordion-collapse collapse"
-data-bs-parent="#homeFaq">
-
-<div class="accordion-body">
-Most supported services are processed immediately after successful payment verification.
-</div>
-
-</div>
-</div>
-
-<div class="accordion-item">
-<h2 class="accordion-header">
-<button class="accordion-button collapsed" type="button"
-data-bs-toggle="collapse"
-data-bs-target="#faqFour">
-Can I view my transaction history?
-</button>
-</h2>
-
-<div id="faqFour" class="accordion-collapse collapse"
-data-bs-parent="#homeFaq">
-
-<div class="accordion-body">
-Yes. Your wallet and transaction pages keep a record of supported payment and service activity.
-</div>
-
-</div>
-</div>
-
-</div>
-
-<div class="text-center mt-4">
-
-<a href="{% url 'faq_page' %}" class="faq-link">
-View all FAQs
-<i class="fas fa-arrow-right"></i>
-</a>
-
-</div>
-
-</div>
-
-</div>
-
-</section>
-
-
-<!-- =========================
-     FINAL CTA
-========================= -->
-<section class="section final-cta-section">
-
-<div class="container">
-
-<div class="final-cta">
-
-<div class="row align-items-center g-4">
-
-<div class="col-lg-8">
-
-<span class="cta-label">
-ONE PLATFORM
-</span>
-
-<h2>
-Simplify the way you handle everyday digital services.
-</h2>
-
-<p>
-Manage payments, wallet transactions and supported digital services
-from one secure account.
-</p>
-
-</div>
-
-<div class="col-lg-4 text-lg-end">
-
-{% if user.is_authenticated %}
-
-<a href="#services" class="cta-primary">
-Explore Services
-<i class="fas fa-arrow-right"></i>
-</a>
-
-{% else %}
-
-<a href="{% url 'register' %}" class="cta-primary">
-Create Free Account
-<i class="fas fa-arrow-right"></i>
-</a>
-
-{% endif %}
-
-</div>
-
-</div>
 
 </div>
 

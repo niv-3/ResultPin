@@ -15,6 +15,8 @@ class User(AbstractUser):
     Custom User model.
     Wallet balance is derived from ledger (never stored).
     """
+    google_subject = models.CharField(max_length=255, unique=True, null=True, blank=True, editable=False)
+
     @property
     def wallet_balance(self):
         credits = self.wallet_transactions.filter(
@@ -178,6 +180,7 @@ class ServiceProvider(models.Model):
     is_active = models.BooleanField(default=True)
     order = models.PositiveIntegerField(default=0)
     vendor = models.ForeignKey("Vendor", null=True, blank=True, on_delete=models.SET_NULL)  # added
+    vtpass_service_id = models.SlugField(max_length=50, blank=True)
 
     class Meta:
         ordering = ["order"]
@@ -194,6 +197,8 @@ class ServicePlan(models.Model):
     vendor_bundle_id   = models.IntegerField(null=True, blank=True)   # DATA
     vendor_provider_id = models.IntegerField(null=True, blank=True)   # AIRTIME
 
+
+    vtpass_variation_code = models.SlugField(max_length=100, blank=True)
 
     cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     market_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -237,6 +242,25 @@ class ServicePlan(models.Model):
 # ==================================================
 # BUSINESS TRANSACTIONS
 # ==================================================
+class SupplierQuote(models.Model):
+    plan = models.ForeignKey(ServicePlan, on_delete=models.CASCADE, related_name="supplier_quotes")
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
+    external_id = models.CharField(max_length=100)
+    label = models.CharField(max_length=150)
+    cost = models.DecimalField(max_digits=10, decimal_places=2)
+    available = models.BooleanField(default=False)
+    approved = models.BooleanField(default=False)
+    checked_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["plan", "vendor", "external_id"], name="unique_plan_supplier_quote"),
+        ]
+
+    def __str__(self):
+        return f"{self.plan} / {self.vendor} ({self.external_id})"
+
+
 class ExamTransaction(models.Model):
     reference = models.CharField(max_length=100, unique=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -244,6 +268,9 @@ class ExamTransaction(models.Model):
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    serial = models.CharField(max_length=100, blank=True)
+    pin = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return f"Exam {self.reference}"
