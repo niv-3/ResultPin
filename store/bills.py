@@ -251,6 +251,10 @@ def purchase(request, kind):
     }
     if verify:
         payload.update(serviceID=verify["serviceID"], billersCode=number)
+    if kind == "cable" and payload["serviceID"] == "startimes":
+        # StarTimes uses the bouquet price when amount is omitted.
+        del payload["amount"]
+        del payload["subscription_type"]
     settle_bill(bill, vtpass_post("pay", payload))
     return redirect("bill_receipt", kind=kind, reference=request_id)
 
