@@ -166,7 +166,7 @@
     #mobileMenu .offcanvas-header { padding: 10px 14px; }
     #mobileMenu .offcanvas-body { padding: 4px 8px 10px; }
     #mobileMenu .nav-link { padding: 8px 10px; }
-    #mobileMenu .section-label { margin-top: 10px; }
+    #mobileMenu .section-label { margin-top: 10px; text-transform: none; }
 
     .offcanvas-title {
       font-weight: 800;
@@ -426,7 +426,7 @@
         class="nav-link"
       >
         <i class="fas fa-bolt me-3"></i>
-        {{ service.name }}
+        {% if service.slug == 'internet-data' or service.slug == 'data' %}Data{% elif service.slug == 'cable-tv' or service.slug == 'cable' or service.slug == 'tv' or service.slug == 'dstv' %}Cable TV{% else %}{{ service.name|lower|capfirst }}{% endif %}
       </a>
     {% empty %}
       <span class="nav-link text-muted">
