@@ -806,6 +806,32 @@ Buy WAEC and JAMB PINs.
   let pageStyles = [];
   let pending;
   let homeScroll = 0;
+  const prepared = new Map();
+  const freshness = 30_000;
+
+  async function readService(url, signal) {
+    const response = await fetch(url, { signal, cache: "no-store" });
+    if (!response.ok) throw new Error("Service unavailable");
+    if (response.redirected) return { redirect: response.url };
+    return { page: new DOMParser().parseFromString(await response.text(), "text/html") };
+  }
+
+  function prepareServices() {
+    if (!mobile.matches || navigator.connection?.saveData) return;
+    for (const link of main.querySelectorAll("[data-mobile-service]")) {
+      const url = link.href;
+      if (Date.now() - prepared.get(url)?.started < freshness) continue;
+      const entry = { started: Date.now(), result: null };
+      entry.promise = readService(url).then(result => {
+        entry.result = result;
+        return result;
+      }).catch(() => null);
+      prepared.set(url, entry);
+    }
+  }
+
+  window.addEventListener("pageshow", prepareServices);
+  mobile.addEventListener("change", prepareServices);
 
   function show(content) {
     main.dispatchEvent(new Event("service:leave"));
@@ -833,23 +859,29 @@ Buy WAEC and JAMB PINs.
     status.setAttribute("role", "status");
     status.textContent = "Loading service…";
     screen.append(back, heading, status);
-    show([screen]);
-    window.scrollTo(0, 0);
-    back.focus({ preventScroll: true });
+
+    const entry = prepared.get(url);
+    const recent = entry && Date.now() - entry.started < freshness;
+    if (!recent || !entry.result) {
+      show([screen]);
+      window.scrollTo(0, 0);
+      back.focus({ preventScroll: true });
+    }
 
     try {
-      const response = await fetch(url, { signal: request.signal, cache: "no-store" });
-      if (!response.ok) throw new Error("Service unavailable");
-      if (response.redirected) {
-        location.replace(response.url);
+      const result = (recent && (entry.result || await entry.promise)) ||
+        await readService(url, request.signal);
+      if (request.signal.aborted) return;
+      if (result.redirect) {
+        location.replace(result.redirect);
         return;
       }
-      const page = new DOMParser().parseFromString(await response.text(), "text/html");
-      if (request.signal.aborted) return;
+      const page = result.page;
       const content = page.getElementById("page-content");
       const styles = page.getElementById("page-styles-start");
       if (!content || !styles) throw new Error("Service unavailable");
 
+      show([back, ...[...content.childNodes].map(node => node.cloneNode(true))]);
       for (let node = styles.nextElementSibling; node; node = node.nextElementSibling) {
         if (node.matches("style, link[rel=stylesheet]")) {
           const style = node.cloneNode(true);
@@ -857,8 +889,9 @@ Buy WAEC and JAMB PINs.
           pageStyles.push(style);
         }
       }
-      main.replaceChildren(back, ...content.childNodes);
       back.classList.add("ms-3", "mt-3");
+      window.scrollTo(0, 0);
+      back.focus({ preventScroll: true });
       document.title = page.title;
       const initializer = page.querySelector("script[data-service-init]");
       if (initializer) {
@@ -873,8 +906,12 @@ Buy WAEC and JAMB PINs.
       retry.type = "button";
       retry.className = "btn btn-outline-secondary";
       retry.textContent = "Try again";
-      retry.addEventListener("click", () => openService(url, label));
+      retry.addEventListener("click", () => {
+        prepared.delete(url);
+        openService(url, label);
+      });
       screen.append(retry);
+      show([screen]);
     }
   }
 
@@ -906,6 +943,7 @@ Buy WAEC and JAMB PINs.
       show(homeContent);
       document.title = homeTitle;
       window.scrollTo(0, homeScroll);
+      prepareServices();
     }
   });
 })();
