@@ -745,7 +745,7 @@ Available
 <div class="service-card-body">
 
 <h3>
-{% if service.slug == 'internet-data' or service.slug == 'data' %}Data{% else %}{{ service.name }}{% endif %}
+{% if service.slug == 'internet-data' or service.slug == 'data' %}Data{% elif service.slug == 'tv' or service.slug == 'cable' or service.slug == 'cable-tv' or service.slug == 'dstv' %}Cable TV{% else %}{{ service.name|lower|capfirst }}{% endif %}
 </h3>
 
 <p>
