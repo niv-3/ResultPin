@@ -361,6 +361,11 @@
 <section class="service-page">
 
 <div class="service-shell">
+{% if category.slug == "internet-data" or category.slug == "data" %}
+    {% include "store/_mobile_service_summary.html" with service_title="Data" %}
+{% else %}
+    {% include "store/_mobile_service_summary.html" with service_title=category.name|lower|capfirst %}
+{% endif %}
 
 <div class="service-header">
 

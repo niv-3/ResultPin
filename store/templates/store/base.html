@@ -319,6 +319,40 @@
     }
   </style>
 
+  <style>
+    .mobile-service-summary { display: none; }
+    @media (max-width: 767.98px) {
+      .service-page .service-shell { padding-top: 12px; }
+      .service-page .service-header, .service-checkout-page .desktop-service-intro { display: none !important; }
+      .container.service-checkout-page { padding-top: 12px !important; }
+      .mobile-service-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+        border: 1px solid #dce6eb;
+        border-radius: 14px;
+        background: white;
+        color: #102f41;
+      }
+      .mobile-service-summary h1 { font-size: 1.25rem; margin: 0; }
+      .mobile-service-wallet { display: flex; align-items: center; gap: 8px; }
+      .mobile-service-wallet small { display: block; font-size: .7rem; }
+      .mobile-service-wallet strong { display: block; white-space: nowrap; }
+      .mobile-service-wallet a {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: #102f41;
+        color: white;
+        text-decoration: none;
+      }
+    }
+  </style>
   <template id="page-styles-start"></template>
   {% block extra_css %}{% endblock %}
 </head>

@@ -5,14 +5,19 @@
 {% endblock %}
 {% block content %}
 <div class="container service-checkout-page py-4 py-md-5" style="max-width: 680px">
-  <a href="{% url 'home' %}#services" class="text-decoration-none">Back to services</a>
   {% if kind == "electricity" %}
-    <div class="service-checkout-hero rounded-4 p-4 my-3 text-white">
+    {% include "store/_mobile_service_summary.html" with service_title="Electricity" %}
+  {% else %}
+    {% include "store/_mobile_service_summary.html" with service_title="Cable TV" %}
+  {% endif %}
+  <a href="{% url 'home' %}#services" class="text-decoration-none desktop-service-intro">Back to services</a>
+  {% if kind == "electricity" %}
+    <div class="desktop-service-intro service-checkout-hero rounded-4 p-4 my-3 text-white">
       <h1 class="h2"><i class="fas fa-plug me-2" aria-hidden="true"></i>Pay your electricity bill</h1>
       <p class="mb-0">Pay a postpaid bill or buy a prepaid token with your Payvict wallet.</p>
     </div>
   {% else %}
-    <div class="service-checkout-hero rounded-4 p-4 my-3 text-white">
+    <div class="desktop-service-intro service-checkout-hero rounded-4 p-4 my-3 text-white">
       <h1 class="h2"><i class="fas fa-tv me-2" aria-hidden="true"></i>Cable TV subscription</h1>
       <p class="mb-0">Choose a TV package and pay with your Payvict wallet.</p>
     </div>
@@ -54,7 +59,7 @@
             <label for="bill-phone" class="form-label">Phone number</label>
             <input id="bill-phone" name="phone" class="form-control" type="tel" autocomplete="tel-national" pattern="0[0-9]{10}" maxlength="11" placeholder="08012345678" required>
           </div>
-          <div class="d-flex justify-content-between gap-2 mb-3">
+          <div class="desktop-service-intro d-flex justify-content-between gap-2 mb-3">
             <span>Wallet balance <strong>₦{{ request.user.wallet_balance|floatformat:2 }}</strong></span>
             <a href="{% url 'wallet_fund' %}">Fund wallet</a>
           </div>

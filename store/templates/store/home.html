@@ -847,25 +847,19 @@ Buy WAEC and JAMB PINs.
 
     const screen = document.createElement("section");
     screen.className = "container py-4";
-    const back = document.createElement("button");
-    back.type = "button";
-    back.className = "btn btn-outline-secondary mb-3";
-    back.textContent = "Back to services";
-    back.addEventListener("click", () => history.back());
     const heading = document.createElement("h1");
     heading.className = "h3";
     heading.textContent = label;
     const status = document.createElement("p");
     status.setAttribute("role", "status");
     status.textContent = "Loading service…";
-    screen.append(back, heading, status);
+    screen.append(heading, status);
 
     const entry = prepared.get(url);
     const recent = entry && Date.now() - entry.started < freshness;
     if (!recent || !entry.result) {
       show([screen]);
       window.scrollTo(0, 0);
-      back.focus({ preventScroll: true });
     }
 
     try {
@@ -881,7 +875,7 @@ Buy WAEC and JAMB PINs.
       const styles = page.getElementById("page-styles-start");
       if (!content || !styles) throw new Error("Service unavailable");
 
-      show([back, ...[...content.childNodes].map(node => node.cloneNode(true))]);
+      show([...content.childNodes].map(node => node.cloneNode(true)));
       for (let node = styles.nextElementSibling; node; node = node.nextElementSibling) {
         if (node.matches("style, link[rel=stylesheet]")) {
           const style = node.cloneNode(true);
@@ -889,9 +883,7 @@ Buy WAEC and JAMB PINs.
           pageStyles.push(style);
         }
       }
-      back.classList.add("ms-3", "mt-3");
       window.scrollTo(0, 0);
-      back.focus({ preventScroll: true });
       document.title = page.title;
       const initializer = page.querySelector("script[data-service-init]");
       if (initializer) {

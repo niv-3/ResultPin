@@ -6,12 +6,13 @@
 {% endblock %}
 {% block content %}
 <div class="container service-checkout-page py-4 py-md-5" style="max-width: 900px">
-  <a href="{% url 'home' %}#services" class="text-decoration-none">Back to services</a>
-  <div class="service-checkout-hero rounded-4 p-4 my-3 text-white">
+  {% include "store/_mobile_service_summary.html" with service_title="Education" %}
+  <a href="{% url 'home' %}#services" class="text-decoration-none desktop-service-intro">Back to services</a>
+  <div class="desktop-service-intro service-checkout-hero rounded-4 p-4 my-3 text-white">
     <h1 class="h2"><i class="fas fa-graduation-cap me-2" aria-hidden="true"></i>Education</h1>
     <p class="mb-0">Buy a WAEC result checker PIN or a JAMB UTME ePIN. Your PIN appears on your private receipt after payment.</p>
   </div>
-  <div class="d-flex justify-content-between gap-2 mb-3">
+  <div class="desktop-service-intro d-flex justify-content-between gap-2 mb-3">
     <span>Wallet balance <strong>₦{{ request.user.wallet_balance|floatformat:2 }}</strong></span>
     <a href="{% url 'wallet_fund' %}">Fund wallet</a>
   </div>

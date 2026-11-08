@@ -1,0 +1,14 @@
+<div class="mobile-service-summary">
+  <h1>{{ service_title }}</h1>
+  {% if user.is_authenticated %}
+    <div class="mobile-service-wallet">
+      <div>
+        <small>Wallet balance</small>
+        <strong>₦{{ user.wallet_balance|floatformat:2 }}</strong>
+      </div>
+      <a href="{% url 'wallet_fund' %}" aria-label="Fund wallet" title="Fund wallet">
+        <i class="fas fa-wallet" aria-hidden="true"></i>
+      </a>
+    </div>
+  {% endif %}
+</div>
