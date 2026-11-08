@@ -798,38 +798,116 @@ Buy WAEC and JAMB PINs.
 <script>
 (() => {
   const mobile = window.matchMedia("(max-width: 767.98px)");
-  let opening;
-  document.addEventListener("click", (event) => {
-    const link = event.target.closest("[data-mobile-service]");
-    if (!mobile.matches || !link || event.defaultPrevented || event.button !== 0 ||
-        event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-    opening?.remove();
-    opening = document.createElement("span");
-    opening.className = "d-block small mt-2";
-    opening.setAttribute("role", "status");
-    opening.textContent = "Opening…";
-    link.querySelector("article").append(opening);
-  });
-  window.addEventListener("pageshow", () => opening?.remove());
-  if (!HTMLScriptElement.supports?.("speculationrules")) return;
+  const main = document.getElementById("page-content");
+  const styleMarker = document.getElementById("page-styles-start");
+  const homeContent = [...main.childNodes];
+  const homeTitle = document.title;
+  const homePath = location.pathname;
+  let pageStyles = [];
+  let pending;
+  let homeScroll = 0;
 
-  // Prepare the destination when Chrome detects intent, including a touch down.
-  const rules = document.createElement("script");
-  rules.type = "speculationrules";
-  rules.textContent = JSON.stringify({
-    prerender: [{
-      where: { selector_matches: "[data-mobile-service]" },
-      eagerness: "moderate"
-    }]
-  });
-
-  function updateRules() {
-    if (mobile.matches) document.head.append(rules);
-    else rules.remove();
+  function show(content) {
+    main.dispatchEvent(new Event("service:leave"));
+    pageStyles.forEach(style => style.remove());
+    pageStyles = [];
+    main.replaceChildren(...content);
   }
 
-  updateRules();
-  mobile.addEventListener("change", updateRules);
+  async function openService(url, label) {
+    pending?.abort();
+    const request = new AbortController();
+    pending = request;
+
+    const screen = document.createElement("section");
+    screen.className = "container py-4";
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "btn btn-outline-secondary mb-3";
+    back.textContent = "Back to services";
+    back.addEventListener("click", () => history.back());
+    const heading = document.createElement("h1");
+    heading.className = "h3";
+    heading.textContent = label;
+    const status = document.createElement("p");
+    status.setAttribute("role", "status");
+    status.textContent = "Loading service…";
+    screen.append(back, heading, status);
+    show([screen]);
+    window.scrollTo(0, 0);
+    back.focus({ preventScroll: true });
+
+    try {
+      const response = await fetch(url, { signal: request.signal, cache: "no-store" });
+      if (!response.ok) throw new Error("Service unavailable");
+      if (response.redirected) {
+        location.replace(response.url);
+        return;
+      }
+      const page = new DOMParser().parseFromString(await response.text(), "text/html");
+      if (request.signal.aborted) return;
+      const content = page.getElementById("page-content");
+      const styles = page.getElementById("page-styles-start");
+      if (!content || !styles) throw new Error("Service unavailable");
+
+      for (let node = styles.nextElementSibling; node; node = node.nextElementSibling) {
+        if (node.matches("style, link[rel=stylesheet]")) {
+          const style = node.cloneNode(true);
+          document.head.append(style);
+          pageStyles.push(style);
+        }
+      }
+      main.replaceChildren(back, ...content.childNodes);
+      back.classList.add("ms-3", "mt-3");
+      document.title = page.title;
+      const initializer = page.querySelector("script[data-service-init]");
+      if (initializer) {
+        const script = document.createElement("script");
+        script.textContent = initializer.textContent;
+        main.append(script);
+      }
+    } catch {
+      if (request.signal.aborted) return;
+      status.textContent = "Could not load this service.";
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "btn btn-outline-secondary";
+      retry.textContent = "Try again";
+      retry.addEventListener("click", () => openService(url, label));
+      screen.append(retry);
+    }
+  }
+
+  main.addEventListener("click", event => {
+    const link = event.target.closest("a[href]");
+    if (!link || event.defaultPrevented || event.button !== 0 ||
+        event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+
+    if (history.state?.payvictService && link.origin === location.origin &&
+        link.pathname === homePath && link.hash === "#services") {
+      event.preventDefault();
+      history.back();
+      return;
+    }
+    if (!mobile.matches || !link.hasAttribute("data-mobile-service")) return;
+
+    event.preventDefault();
+    homeScroll = window.scrollY;
+    const label = link.querySelector("h3")?.textContent.trim() || "Service";
+    history.pushState({ payvictService: link.href, label }, "", link.href);
+    openService(link.href, label);
+  });
+
+  window.addEventListener("popstate", event => {
+    if (event.state?.payvictService) {
+      openService(event.state.payvictService, event.state.label);
+    } else if (location.pathname === homePath) {
+      pending?.abort();
+      show(homeContent);
+      document.title = homeTitle;
+      window.scrollTo(0, homeScroll);
+    }
+  });
 })();
 </script>
 {% endblock %}

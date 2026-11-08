@@ -544,11 +544,9 @@
 
 {% block extra_js %}
 
-<script>
-
-document.addEventListener(
-    "DOMContentLoaded",
-    function () {
+<script data-service-init>
+(() => {
+    function init() {
 
         let selectedProviderId = null;
         {% if category.slug == "internet-data" or category.slug == "data" or category.slug == "airtime" %}
@@ -573,6 +571,9 @@ document.addEventListener(
         }
 
         mobilePackages.addEventListener("change", positionPackages);
+        document.getElementById("page-content").addEventListener("service:leave", () => {
+            mobilePackages.removeEventListener("change", positionPackages);
+        }, { once: true });
         positionPackages();
         {% endif %}
 
@@ -658,6 +659,11 @@ document.addEventListener(
             initialProvider.click();
         }
     }
-);
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init, { once: true });
+    } else {
+        init();
+    }
+})();
 </script>
 {% endblock %}
