@@ -712,6 +712,7 @@ Fast, easy, and secure payments for everyday services.
 <a
 href="{% url 'service_dashboard' service.slug %}"
 class="text-decoration-none"
+data-mobile-service
 >
 
 <article class="service-card service-{{ service.slug }}">
@@ -791,4 +792,44 @@ Buy WAEC and JAMB PINs.
 
 </section>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+  const mobile = window.matchMedia("(max-width: 767.98px)");
+  let opening;
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-mobile-service]");
+    if (!mobile.matches || !link || event.defaultPrevented || event.button !== 0 ||
+        event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    opening?.remove();
+    opening = document.createElement("span");
+    opening.className = "d-block small mt-2";
+    opening.setAttribute("role", "status");
+    opening.textContent = "Opening…";
+    link.querySelector("article").append(opening);
+  });
+  window.addEventListener("pageshow", () => opening?.remove());
+  if (!HTMLScriptElement.supports?.("speculationrules")) return;
+
+  // Prepare the destination when Chrome detects intent, including a touch down.
+  const rules = document.createElement("script");
+  rules.type = "speculationrules";
+  rules.textContent = JSON.stringify({
+    prerender: [{
+      where: { selector_matches: "[data-mobile-service]" },
+      eagerness: "moderate"
+    }]
+  });
+
+  function updateRules() {
+    if (mobile.matches) document.head.append(rules);
+    else rules.remove();
+  }
+
+  updateRules();
+  mobile.addEventListener("change", updateRules);
+})();
+</script>
 {% endblock %}
