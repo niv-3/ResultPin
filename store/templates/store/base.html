@@ -425,7 +425,7 @@
         href="{% url 'service_dashboard' service.slug %}"
         class="nav-link"
       >
-        <i class="fas fa-bolt me-3"></i>
+        <i class="fas fa-fw me-3 {% if service.slug == 'airtime' %}fa-phone{% elif service.slug == 'data' or service.slug == 'internet-data' %}fa-wifi{% elif service.slug == 'tv' or service.slug == 'cable' or service.slug == 'cable-tv' or service.slug == 'dstv' %}fa-tv{% elif service.slug == 'electricity' %}fa-plug{% elif service.slug == 'education' %}fa-graduation-cap{% else %}fa-layer-group{% endif %}" aria-hidden="true"></i>
         {% if service.slug == 'internet-data' or service.slug == 'data' %}Data{% elif service.slug == 'cable-tv' or service.slug == 'cable' or service.slug == 'tv' or service.slug == 'dstv' %}Cable TV{% else %}{{ service.name|lower|capfirst }}{% endif %}
       </a>
     {% empty %}
