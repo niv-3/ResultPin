@@ -19,7 +19,7 @@ class IdleSessionTests(TestCase):
         session.save()
 
     def test_inactive_session_cannot_start_a_purchase(self):
-        self.set_last(self.now - 901)
+        self.set_last(self.now - 61)
         with patch("store.bills.vtpass_post") as supplier:
             response = self.client.post("/service/pay/cable/", HTTP_ACCEPT="application/json")
         self.assertEqual(response.status_code, 401)
@@ -28,7 +28,7 @@ class IdleSessionTests(TestCase):
         supplier.assert_not_called()
 
     def test_passive_auth_checks_and_prefetch_do_not_refresh_activity(self):
-        last = self.now - 600
+        last = self.now - 30
         self.set_last(last)
         self.client.get("/login/", HTTP_ACCEPT="application/json")
         self.assertEqual(self.client.session["payvict_last_activity"], last)
@@ -36,15 +36,15 @@ class IdleSessionTests(TestCase):
         self.assertEqual(self.client.session["payvict_last_activity"], last)
 
     def test_real_activity_refreshes_session_before_expiry(self):
-        self.set_last(self.now - 600)
+        self.set_last(self.now - 30)
         response = self.client.post("/session/activity/", HTTP_ACCEPT="application/json")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["authenticated"])
         self.assertGreaterEqual(self.client.session["payvict_last_activity"], self.now)
-        self.assertEqual(self.client.session.get_expiry_age(), 900)
+        self.assertEqual(self.client.session.get_expiry_age(), 60)
 
     def test_heartbeat_cannot_revive_expired_session(self):
-        self.set_last(self.now - 901)
+        self.set_last(self.now - 61)
         response = self.client.post("/session/activity/", HTTP_ACCEPT="application/json")
         self.assertEqual(response.status_code, 401)
 
@@ -57,7 +57,7 @@ class IdleSessionTests(TestCase):
         self.assertNotContains(response, "No services available")
 
     def test_provider_webhook_is_not_intercepted_by_browser_idle_expiry(self):
-        self.set_last(self.now - 901)
+        self.set_last(self.now - 61)
         response = self.client.post("/paystack_webhook/", data="{}", content_type="application/json")
         self.assertNotEqual(response.status_code, 302)
-        self.assertEqual(self.client.session["payvict_last_activity"], self.now - 901)
+        self.assertEqual(self.client.session["payvict_last_activity"], self.now - 61)

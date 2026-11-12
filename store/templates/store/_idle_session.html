@@ -8,6 +8,8 @@
 <script>
 (() => {
   const timeout = {{ idle_timeout_seconds }} * 1000;
+  const warningLead = Math.min(60000, timeout / 4);
+  const pingInterval = Math.min(30000, timeout / 12);
   const key = 'payvict-activity-{{ user.pk }}';
   const logoutKey = key + '-logout';
   const warning = document.getElementById('idle-warning');
@@ -30,7 +32,7 @@
     location.replace('{% url "login" %}?expired=1');
   }
   async function ping() {
-    if (ending || pinging || Date.now() - lastPing < 30000) return;
+    if (ending || pinging || Date.now() - lastPing < pingInterval) return;
     pinging = true;
     lastPing = Date.now();
     try {
@@ -56,11 +58,11 @@
     last = Math.max(last, read());
     const idle = Date.now() - last;
     if (idle >= timeout) { signOut(); return; }
-    if (idle >= timeout - 60000 && !document.hidden && !warning.open) warning.showModal();
-    else if (idle < timeout - 60000) closeWarning();
+    if (idle >= timeout - warningLead && !document.hidden && !warning.open) warning.showModal();
+    else if (idle < timeout - warningLead) closeWarning();
   }
   // Interaction, not background fetches or automatic slides, refreshes activity.
-  ['pointerdown','keydown','touchstart','scroll'].forEach(name => document.addEventListener(name, event => {
+  ['pointerdown','keydown','touchstart','wheel'].forEach(name => document.addEventListener(name, event => {
     if (warning.open && !event.target.closest?.('#idle-stay')) return;
     activity(event);
   }, {passive:true}));
