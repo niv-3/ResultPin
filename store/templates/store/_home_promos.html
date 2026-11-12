@@ -1,7 +1,7 @@
 <section class="home-promos" aria-label="Explore Payvict services" aria-roledescription="carousel">
   <div class="promo-window">
     {% for service in services %}
-    <a class="promo-slide" href="{% url 'service_dashboard' service.slug %}" {% if not forloop.first %}hidden{% endif %}>
+    <a class="promo-slide" data-mobile-service href="{% url 'service_dashboard' service.slug %}" {% if not forloop.first %}hidden{% endif %}>
       <div class="promo-copy">
         <span class="promo-eyebrow">Everyday made easy · Payvict</span>
         {% if service.slug == 'internet-data' or service.slug == 'data' %}
