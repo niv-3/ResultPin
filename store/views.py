@@ -545,6 +545,12 @@ def initiate_service_payment(request, plan_id, category_slug=None):
             is_active=True,
         )
 
+        if not plan.provider.is_active or not plan.provider.category.is_active:
+            return JsonResponse({
+                "status": False,
+                "message": "This service is currently paused."
+            }, status=503)
+
         service_type = get_service_type_from_plan(plan)
 
         if service_type not in ("airtime", "data"):

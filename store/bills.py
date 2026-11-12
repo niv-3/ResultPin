@@ -70,7 +70,7 @@ def available_options(kind):
     if kind == "electricity":
         electricity = providers.filter(category__slug="electricity")
         if not settings.VTPASS_TEST_MODE:
-            electricity = electricity.exclude(vtpass_service_id__in=("aba-electric", "kano-electric"))
+            electricity = electricity.exclude(vtpass_service_id="kano-electric")
         return electricity
     return ServicePlan.objects.filter(
         is_active=True, provider__in=providers.filter(category__slug__in=TV_CATEGORY_SLUGS),
@@ -86,7 +86,9 @@ def dashboard(request, kind):
     elif kind == "education":
         options = options.order_by("vendor_product_id", "pk") if vtpass_enabled() else []
     else:
-        options = [{"id": provider.pk, "label": provider.name} for provider in options]
+        options = [{"id": provider.pk, "label": provider.name + (
+            " (postpaid only)" if not settings.VTPASS_TEST_MODE and provider.vtpass_service_id == "aba-electric" else ""
+        )} for provider in options]
     reference = datetime.now(ZoneInfo("Africa/Lagos")).strftime("%Y%m%d%H%M") + uuid4().hex[:12]
     checkout = signing.dumps([request.user.pk, kind, reference], salt="bill-checkout")
     template = "store/education_checkout.html" if kind == "education" else "store/bill_checkout.html"
@@ -201,6 +203,9 @@ def purchase(request, kind):
         extra = {"subscription_type": "change"}
     else:
         variation = request.POST.get("meter_type")
+        if not settings.VTPASS_TEST_MODE and option.vtpass_service_id == "aba-electric" and variation == "prepaid":
+            messages.error(request, "Aba prepaid token delivery is awaiting confirmation. Only postpaid payments are available for Aba.")
+            return redirect(page)
         try:
             amount = Decimal(request.POST.get("amount", ""))
         except InvalidOperation:
