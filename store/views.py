@@ -652,6 +652,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                         provider_id=plan.vendor_provider_id,
                         phone=phone,
                         amount=airtime_face_value(plan, amount),
+                        reference=service_txn.reference,
                     )
 
                     if hasattr(api_response, "json"):
@@ -740,6 +741,12 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                         "is temporarily unavailable."
                     ),
                 }
+
+            if isinstance(api_response, dict) and api_response.get("status") == "pending":
+                return JsonResponse({
+                    "status": True, "message": "Your airtime purchase is being confirmed. Please check wallet history before trying again.",
+                    "reference": reference, "redirect_url": reverse("wallet"),
+                })
 
             provider_success = (
                 isinstance(api_response, dict)
@@ -985,6 +992,7 @@ def complete_card_service_order(order, payment):
             delivery = purchase_airtime(
                 provider=plan.provider, provider_id=order.provider_id or plan.vendor_provider_id,
                 phone=order.phone, amount=airtime_face_value(plan, order.amount_paid),
+                reference=order.reference,
             )
         else:
             response = requests.post(
@@ -1442,7 +1450,27 @@ def airtime_face_value(plan, charged_amount):
     return charged_amount
 
 
-def purchase_airtime(provider, provider_id, phone, amount):
+def purchase_airtime(provider, provider_id, phone, amount, reference=None):
+    if settings.VTPASS_AIRTIME_ENABLED:
+        from .bills import vtpass_post
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        services = {"mtn": "mtn", "airtel": "airtel", "glo": "glo", "9mobile": "etisalat", "t2": "etisalat"}
+        service = services.get(provider.name.strip().casefold())
+        if not service:
+            return {"status": "failed", "message": "This airtime network is currently unavailable."}
+        suffix = hashlib.sha256((reference or uuid.uuid4().hex).encode()).hexdigest()[:20]
+        request_id = datetime.now(ZoneInfo("Africa/Lagos")).strftime("%Y%m%d%H%M") + suffix
+        result = vtpass_post("pay", {
+            "request_id": request_id, "serviceID": service, "amount": float(amount), "phone": phone,
+        })
+        content = result.get("content")
+        txn = content.get("transactions", {}) if isinstance(content, dict) else {}
+        if result.get("code") == "000" and txn.get("status") == "delivered":
+            return {"status": "success"}
+        if result.get("code") in ("010", "011", "012", "013", "016", "017", "091") or txn.get("status") in ("failed", "reversed"):
+            return {"status": "failed", "message": "The airtime purchase was unsuccessful."}
+        return {"status": "pending"}
     print("=== HIT CHEAPDATA AIRTIME ENDPOINT ===")
     print("Provider:", provider.name)
     print("API URL:", provider.vendor.api_url)

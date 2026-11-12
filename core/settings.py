@@ -348,6 +348,7 @@ VTPASS_BILLS_ENABLED = os.getenv("VTPASS_BILLS_ENABLED", "False").lower() == "tr
 VTPASS_TEST_MODE = os.getenv("VTPASS_TEST_MODE", "True").lower() == "true"
 VTPASS_API_KEY = os.getenv("VTPASS_API_KEY", "")
 VTPASS_PUBLIC_KEY = os.getenv("VTPASS_PUBLIC_KEY", "")
+VTPASS_AIRTIME_ENABLED = os.getenv("VTPASS_AIRTIME_ENABLED", "False").lower() == "true"
 VTPASS_SECRET_KEY = os.getenv("VTPASS_SECRET_KEY", "")
 
 WALLET_WITHDRAWALS_ENABLED = os.getenv("WALLET_WITHDRAWALS_ENABLED", "False").lower() == "true"
