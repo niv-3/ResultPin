@@ -7,6 +7,7 @@ Payvict | Digital Services Platform
 
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'store/css/home-promos.css' %}">
 
 {% if not user.is_authenticated %}
 <style>
@@ -728,6 +729,8 @@ Fast, easy, and secure payments for everyday services.
 
 </div>
 
+{% include "store/_home_promos.html" %}
+
 <div class="row g-4 services-grid">
 
 {% for service in services %}
@@ -820,6 +823,41 @@ Buy WAEC and JAMB PINs.
 {% endblock %}
 
 {% block extra_js %}
+<script>
+(() => {
+  const carousel = document.querySelector('.home-promos');
+  if (!carousel) return;
+  const slides = [...carousel.querySelectorAll('.promo-slide')];
+  const dots = [...carousel.querySelectorAll('[data-promo-index]')];
+  const pause = carousel.querySelector('.promo-pause');
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  let current = 0, paused = reducedMotion.matches, startX;
+  const show = index => {
+    current = (index + slides.length) % slides.length;
+    slides.forEach((slide, i) => { slide.hidden = i !== current; });
+    dots.forEach((dot, i) => dot.setAttribute('aria-pressed', String(i === current)));
+  };
+  const updatePause = () => {
+    pause.textContent = paused ? 'Play ▷' : 'Pause Ⅱ';
+    pause.setAttribute('aria-label', paused ? 'Play promotions' : 'Pause promotions');
+  };
+  dots.forEach((dot, i) => dot.addEventListener('click', () => show(i)));
+  pause.addEventListener('click', () => { paused = !paused; updatePause(); });
+  reducedMotion.addEventListener('change', () => { paused = reducedMotion.matches; updatePause(); });
+  carousel.addEventListener('pointerdown', event => { startX = event.clientX; });
+  carousel.addEventListener('pointerup', event => {
+    if (startX !== undefined && Math.abs(event.clientX - startX) > 45) {
+      show(current + (event.clientX < startX ? 1 : -1));
+    }
+    startX = undefined;
+  });
+  setInterval(() => {
+    if (!paused && !document.hidden && document.contains(carousel) &&
+        !carousel.matches(':hover') && !carousel.contains(document.activeElement)) show(current + 1);
+  }, 5000);
+  updatePause();
+})();
+</script>
 <script>
 (() => {
   const mobile = window.matchMedia("(max-width: 767.98px)");

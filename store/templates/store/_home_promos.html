@@ -1,0 +1,31 @@
+<section class="home-promos" aria-label="Explore Payvict services" aria-roledescription="carousel">
+  <div class="promo-window">
+    {% for service in services %}
+    <a class="promo-slide" href="{% url 'service_dashboard' service.slug %}" {% if not forloop.first %}hidden{% endif %}>
+      <div class="promo-copy">
+        <span class="promo-eyebrow">Everyday made easy · Payvict</span>
+        {% if service.slug == 'internet-data' or service.slug == 'data' %}
+        <h3>More data. More possibilities.</h3><p>Find your next MTN, Glo or Airtel bundle.</p><span class="promo-action">Explore data <span aria-hidden="true">↗</span></span>
+        {% elif service.slug == 'electricity' %}
+        <h3>Keep your day powered.</h3><p>Pay your electricity bill from your phone.</p><span class="promo-action">Pay electricity <span aria-hidden="true">↗</span></span>
+        {% elif service.slug == 'education' %}
+        <h3>Your results. Your next step.</h3><p>Get your WAEC result checker PIN.</p><span class="promo-action">Explore education <span aria-hidden="true">↗</span></span>
+        {% elif service.slug == 'cable-tv' or service.slug == 'tv' or service.slug == 'cable' or service.slug == 'dstv' %}
+        <h3>Keep the good shows going.</h3><p>DStv, GOtv and StarTimes in one place.</p><span class="promo-action">Renew cable TV <span aria-hidden="true">↗</span></span>
+        {% else %}
+        <h3>{{ service.name|lower|capfirst }}, made simple.</h3><p>Your everyday services, all in one place.</p><span class="promo-action">Explore <span aria-hidden="true">↗</span></span>
+        {% endif %}
+      </div>
+      <div class="promo-art" aria-hidden="true">
+        <span class="promo-spark">✦</span>
+        <span class="promo-sticker"><i class="fas {% if service.slug == 'internet-data' or service.slug == 'data' %}fa-wifi{% elif service.slug == 'electricity' %}fa-bolt{% elif service.slug == 'education' %}fa-graduation-cap{% else %}fa-tv{% endif %}"></i></span>
+        <span class="promo-stamp">{% if service.slug == 'internet-data' or service.slug == 'data' %}Stay connected{% elif service.slug == 'electricity' %}Power on{% elif service.slug == 'education' %}Next chapter{% else %}Show time{% endif %}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  <div class="promo-controls">
+    <div class="promo-dots" aria-label="Choose promotion">{% for service in services %}<button type="button" data-promo-index="{{ forloop.counter0 }}" aria-label="Show {{ service.name|lower|capfirst }} promotion" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"></button>{% endfor %}</div>
+    <button class="promo-pause" type="button" aria-label="Pause promotions">Pause <span aria-hidden="true">Ⅱ</span></button>
+  </div>
+</section>

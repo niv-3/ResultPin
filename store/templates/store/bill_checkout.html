@@ -48,9 +48,6 @@
           </div>
           {% if kind == "cable" %}
           <input type="hidden" name="expected_total" id="tv-total">
-          <div id="tv-breakdown" class="border rounded-3 p-3 mb-3" hidden aria-live="polite">
-            <div>Total to pay <strong id="tv-pay-total"></strong></div>
-          </div>
           {% endif %}
           {% if kind != "education" %}
           <div class="mb-3">
@@ -96,15 +93,10 @@
   const packages = document.getElementById("bill-option");
   if (!provider || !packages) return;
   const choices = [...packages.options].slice(1);
-  const breakdown = document.getElementById("tv-breakdown");
   const total = document.getElementById("tv-total");
-  const price = new Intl.NumberFormat("en-NG", {style: "currency", currency: "NGN"});
   const update = () => {
     const selected = packages.selectedOptions[0];
-    breakdown.hidden = !packages.value;
     total.value = selected?.dataset.total || "";
-    if (!packages.value) return;
-    document.getElementById("tv-pay-total").textContent = price.format(selected.dataset.total);
   };
   const filter = () => {
     const placeholder = new Option(provider.value ? "Choose a package" : "Choose a provider first", "");
