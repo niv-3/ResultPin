@@ -20,6 +20,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
+from django.middleware.csrf import get_token
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from datetime import timedelta
@@ -1236,30 +1238,48 @@ def resend_otp(request):
     return redirect("verify_otp")
 
 
+@never_cache
 @csrf_protect
 def custom_login(request):
     next_url = request.POST.get("next") or request.GET.get("next", "")
     if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
         next_url = ""
+    wants_json = request.headers.get("Accept") == "application/json"
+    destination = next_url or reverse("home")
+    if request.user.is_authenticated:
+        if wants_json:
+            return JsonResponse({"authenticated": True, "redirect": destination, "csrf_token": get_token(request)})
+        return redirect(destination)
+    if request.method == "GET" and wants_json:
+        return JsonResponse({"authenticated": False, "csrf_token": get_token(request)})
     if request.method == "POST":
         email = request.POST.get("username", "").strip().lower()
         password = request.POST.get("password")
 
         if not email or not password:
+            if wants_json:
+                return JsonResponse({"message": "Enter your email or phone number and password."}, status=400)
             messages.error(request, "Email or phone number and password required.")
             return redirect(request.get_full_path())
 
         user = authenticate(request, username=email, password=password)
         if user:
             login(request, user)
+            if wants_json:
+                return JsonResponse({"authenticated": True, "redirect": destination})
             return redirect(next_url or "home")
 
+        if wants_json:
+            return JsonResponse({"message": "Email, phone number or password is incorrect."}, status=400)
         messages.error(request, "Invalid credentials.")
         return redirect(request.get_full_path())
 
     return render(request, "store/login.html", {"google_enabled": google_enabled(), "next_url": next_url})
 
 
+@never_cache
+@require_POST
+@csrf_protect
 def custom_logout(request):
     logout(request)
     return redirect("login")

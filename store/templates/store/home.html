@@ -836,6 +836,10 @@ Buy WAEC and JAMB PINs.
   }
 
   window.addEventListener("pageshow", prepareServices);
+  window.addEventListener("payvict:session-restored", () => {
+    prepared.clear();
+    prepareServices();
+  });
   mobile.addEventListener("change", prepareServices);
 
   function show(content) {

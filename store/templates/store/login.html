@@ -8,6 +8,8 @@
     <title>Login | Payvict</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0b2c3d">
+    <link rel="manifest" href="{% url 'web_app_manifest' %}">
 
     <!-- Bootstrap -->
     <link
@@ -533,7 +535,8 @@
                 <p class="text-center text-muted my-3">or continue with email</p>
             {% endif %}
 
-            <form method="post">
+            <p id="signin-status" role="status" aria-live="polite" hidden></p>
+            <form method="post" id="signin-form">
                 <input type="hidden" name="next" value="{{ next_url }}">
 
                 {% csrf_token %}
@@ -692,6 +695,76 @@
 </div>
 
 
+<script>
+(() => {
+  const form = document.getElementById("signin-form");
+  const button = form.querySelector('[type="submit"]');
+  const status = document.getElementById("signin-status");
+  const mobile = window.matchMedia("(max-width: 767.98px)");
+  let busy = false;
+  async function authFetch(url, options) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      return await fetch(url, {...options, signal: controller.signal});
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  async function refreshSession() {
+    const response = await authFetch(location.href, {
+      headers: {Accept: "application/json"}, credentials: "same-origin", cache: "no-store"
+    });
+    if (!response.ok) throw new Error("Unable to connect. Please try again.");
+    const state = await response.json();
+    if (state.authenticated) {
+      location.replace(state.redirect);
+      return false;
+    }
+    form.elements.csrfmiddlewaretoken.value = state.csrf_token;
+    return true;
+  }
+  window.addEventListener("pageshow", event => {
+    busy = false;
+    button.disabled = false;
+    if (event.persisted) refreshSession().catch(() => {});
+  });
+  form.addEventListener("submit", async event => {
+    if (!mobile.matches) return;
+    event.preventDefault();
+    if (busy) return;
+    busy = true;
+    button.disabled = true;
+    form.setAttribute("aria-busy", "true");
+    status.hidden = false;
+    status.textContent = "Signing in…";
+    try {
+      // Fetch the current token immediately before login, including after Back or another tab's login.
+      if (!await refreshSession()) return;
+      const response = await authFetch(form.action || location.href, {
+        method: "POST", body: new FormData(form),
+        headers: {Accept: "application/json"}, credentials: "same-origin", cache: "no-store"
+      });
+      if (response.status === 403) {
+        await refreshSession();
+        throw new Error("Your sign-in page was refreshed. Please tap Sign in again.");
+      }
+      const result = await response.json().catch(() => {
+        throw new Error("Sign-in is temporarily unavailable. Please try again.");
+      });
+      if (!response.ok) throw new Error(result.message || "Unable to sign in. Please try again.");
+      location.replace(result.redirect);
+    } catch (error) {
+      status.textContent = error.name === "AbortError" ? "Connection is taking too long. Please try again." :
+        error instanceof TypeError ? "Connection lost. Please try again." : error.message;
+    } finally {
+      busy = false;
+      button.disabled = false;
+      form.removeAttribute("aria-busy");
+    }
+  });
+})();
+</script>
 </body>
 
 </html>

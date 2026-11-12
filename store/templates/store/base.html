@@ -459,10 +459,13 @@
         Wallet
       </a>
 
-      <a href="{% url 'logout' %}" class="nav-link">
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+      <button type="submit" class="nav-link border-0 bg-transparent w-100 text-start">
         <i class="fas fa-right-from-bracket me-3"></i>
         Logout
-      </a>
+      </button>
+      </form>
 
     {% else %}
 
@@ -521,9 +524,12 @@
           ₦{{ user.wallet_balance|floatformat:0 }}
         </a>
 
-        <a href="{% url 'logout' %}" class="nav-link">
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+        <button type="submit" class="nav-link border-0 bg-transparent">
           Logout
-        </a>
+        </button>
+        </form>
 
       {% else %}
 
@@ -642,6 +648,29 @@
 </script>
 
 {% block extra_js %}{% endblock %}
+
+{% if user.is_authenticated %}
+<script>
+window.addEventListener("pageshow", async event => {
+  if (!event.persisted) return;
+  try {
+    const response = await fetch("{% url 'login' %}", {
+      headers: {Accept: "application/json"}, cache: "no-store", credentials: "same-origin"
+    });
+    if (!response.ok) return;
+    const state = await response.json();
+    if (!state.authenticated) {
+      location.replace("{% url 'login' %}");
+      return;
+    }
+    document.querySelectorAll('[name="csrfmiddlewaretoken"]').forEach(input => {
+      input.value = state.csrf_token;
+    });
+    window.dispatchEvent(new Event("payvict:session-restored"));
+  } catch { /* Keep the current screen usable during a temporary connection loss. */ }
+});
+</script>
+{% endif %}
 
 </body>
 </html>
