@@ -19,7 +19,14 @@ class EmailOrPhoneBackend(ModelBackend):
         identifier = (username or "").strip()
         if not identifier or password is None:
             return None
-        if "@" in identifier:
+        admin_login = request is not None and getattr(
+            getattr(request, "resolver_match", None), "app_name", None
+        ) == "admin"
+        if admin_login:
+            matches = User.objects.filter(username=identifier, is_staff=True)
+            if not matches.exists() and "@" in identifier:
+                matches = User.objects.filter(email__iexact=identifier, is_staff=True)
+        elif "@" in identifier:
             matches = User.objects.filter(email__iexact=identifier)
         else:
             phone = normalize_phone(identifier)

@@ -9,7 +9,10 @@ from .supplier_pricing import estimated_data_margin
 
 
 class AdminEmailLoginForm(AdminAuthenticationForm):
-    username = forms.EmailField(label="Admin email", widget=forms.EmailInput(attrs={"autofocus": True}))
+    username = forms.CharField(
+        label="Admin username or email",
+        widget=forms.TextInput(attrs={"autofocus": True, "autocomplete": "username"}),
+    )
 
 
 admin.site.login_form = AdminEmailLoginForm

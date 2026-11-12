@@ -163,3 +163,25 @@ class MobileSessionFlowTests(TestCase):
 
     def test_desktop_home_remains_public(self):
         self.assertEqual(self.client.get("/", HTTP_USER_AGENT="Mozilla/5.0 (Windows NT 10.0)").status_code, 200)
+
+    def test_admin_username_without_email_can_sign_in_to_admin(self):
+        from store.models import User
+        admin = User.objects.create_superuser(username="localadmin", email="", password="Local-test-only-882!")
+        response = self.client.get("/admin/login/")
+        token = response.context["csrf_token"]
+        response = self.client.post("/admin/login/", {
+            "username": "localadmin", "password": "Local-test-only-882!",
+            "csrfmiddlewaretoken": token, "next": "/admin/",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(int(self.client.session["_auth_user_id"]), admin.pk)
+
+    def test_admin_username_is_not_customer_sign_in(self):
+        from store.models import User
+        User.objects.create_superuser(username="localadmin", email="", password="Local-test-only-882!")
+        response = self.client.post("/login/", {
+            "username": "localadmin", "password": "Local-test-only-882!",
+            "csrfmiddlewaretoken": self.token(),
+        }, HTTP_ACCEPT="application/json")
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn("_auth_user_id", self.client.session)
