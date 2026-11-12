@@ -1587,6 +1587,13 @@ def robots_txt(request):
     return HttpResponse("User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /wallet/\nDisallow: /bills/\nDisallow: /service/pay/\nSitemap: " + sitemap + "\n", content_type="text/plain")
 
 
+@login_required
+@require_POST
+@never_cache
+def session_activity(request):
+    return JsonResponse({"authenticated": True})
+
+
 def review_thank_you(request):
     return render(request, "store/review_thank_you.html")
 

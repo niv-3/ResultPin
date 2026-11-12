@@ -551,6 +551,7 @@
                 <p class="text-center text-muted my-3">or continue with email</p>
             {% endif %}
 
+            {% if request.GET.expired %}<p class="text-muted" role="status">You’ve been signed out. Please sign in again.</p>{% endif %}
             <p id="signin-status" role="status" aria-live="polite" hidden></p>
             <form method="post" id="signin-form">
                 <input type="hidden" name="next" value="{{ next_url }}">

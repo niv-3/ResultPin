@@ -115,6 +115,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "core.idle_sessions.IdleSessionMiddleware",
     "core.session_pages.SessionPageCacheMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -149,6 +150,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "store.context_processors.navigation",
             ],
         },
     },
@@ -338,12 +340,13 @@ SESSION_ENGINE = (
     "django.contrib.sessions.backends.db"
 )
 
-SESSION_SAVE_EVERY_REQUEST = True
+SESSION_SAVE_EVERY_REQUEST = False
 
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
-# 1 hour
-SESSION_COOKIE_AGE = 3600
+# Real user activity refreshes the session; passive background requests do not.
+SESSION_IDLE_TIMEOUT = 15 * 60
+SESSION_COOKIE_AGE = SESSION_IDLE_TIMEOUT
 # VTpass bill payments
 VTPASS_BILLS_ENABLED = os.getenv("VTPASS_BILLS_ENABLED", "False").lower() == "true"
 VTPASS_TEST_MODE = os.getenv("VTPASS_TEST_MODE", "True").lower() == "true"

@@ -9,6 +9,7 @@ urlpatterns = [
     # ======================
     path("", views.home, name="home"),
     path("wallet/", views.wallet, name="wallet"),
+    path("session/activity/", views.session_activity, name="session_activity"),
 
     # ======================
     # WALLET

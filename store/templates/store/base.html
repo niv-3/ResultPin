@@ -429,7 +429,7 @@
       Services
     </div>
 
-    {% for service in services %}
+    {% for service in navigation_services %}
       <a
         href="{% url 'service_dashboard' service.slug %}"
         class="nav-link"
@@ -657,6 +657,7 @@
 </script>
 
 {% block extra_js %}{% endblock %}
+{% if user.is_authenticated %}{% include "store/_idle_session.html" %}{% endif %}
 
 <script>
 window.addEventListener("pageshow", async event => {
