@@ -29,13 +29,31 @@
         <form method="post" action="{% if kind == 'cable' %}{% url 'initiate_cable_payment' %}{% elif kind == 'education' %}{% url 'initiate_education_payment' %}{% else %}{% url 'initiate_electricity_payment' %}{% endif %}">
           {% csrf_token %}
           <input type="hidden" name="checkout" value="{{ checkout }}">
+          {% if kind == "cable" %}
           <div class="mb-3">
-            <label for="bill-option" class="form-label">{% if kind == "cable" %}Provider and package{% elif kind == "education" %}Exam product{% else %}Electricity provider{% endif %}</label>
-            <select id="bill-option" name="selection" class="form-select" required>
-              <option value="">Choose an option</option>
-              {% for option in options %}<option value="{{ option.id }}">{{ option.label }}</option>{% endfor %}
+            <label for="tv-provider" class="form-label">TV provider</label>
+            <select id="tv-provider" class="form-select" required>
+              <option value="">Choose a provider</option>
+              {% regroup options by provider_id as tv_providers %}
+              {% for group in tv_providers %}<option value="{{ group.grouper }}">{{ group.list.0.provider }}</option>{% endfor %}
             </select>
           </div>
+          {% endif %}
+          <div class="mb-3">
+            <label for="bill-option" class="form-label">{% if kind == "cable" %}Package{% elif kind == "education" %}Exam product{% else %}Electricity provider{% endif %}</label>
+            <select id="bill-option" name="selection" class="form-select" required>
+              <option value="">Choose an option</option>
+              {% for option in options %}<option value="{{ option.id }}"{% if kind == "cable" %} data-provider="{{ option.provider_id }}" data-total="{{ option.total|stringformat:'.2f' }}" data-price="{{ option.package_amount|stringformat:'.2f' }}" data-fee="{{ option.fee|stringformat:'.2f' }}"{% endif %}>{{ option.label }}</option>{% endfor %}
+            </select>
+          </div>
+          {% if kind == "cable" %}
+          <input type="hidden" name="expected_total" id="tv-total">
+          <div id="tv-breakdown" class="border rounded-3 p-3 mb-3" hidden aria-live="polite">
+            <div>Package price <strong id="tv-price"></strong></div>
+            <div>Service fee <strong id="tv-fee"></strong></div>
+            <div class="mt-2">Total to pay <strong id="tv-pay-total"></strong></div>
+          </div>
+          {% endif %}
           {% if kind != "education" %}
           <div class="mb-3">
             <label for="bill-account" class="form-label">{% if kind == "cable" %}Smartcard or IUC number{% else %}Meter number{% endif %}</label>
@@ -71,4 +89,37 @@
     <div class="alert alert-info" role="status">This service is currently unavailable. Please check back later.</div>
   {% endif %}
 </div>
+{% endblock %}
+{% block extra_js %}
+{% if kind == "cable" %}
+<script data-service-init>
+(() => {
+  const provider = document.getElementById("tv-provider");
+  const packages = document.getElementById("bill-option");
+  if (!provider || !packages) return;
+  const choices = [...packages.options].slice(1);
+  const breakdown = document.getElementById("tv-breakdown");
+  const total = document.getElementById("tv-total");
+  const price = new Intl.NumberFormat("en-NG", {style: "currency", currency: "NGN"});
+  const update = () => {
+    const selected = packages.selectedOptions[0];
+    breakdown.hidden = !packages.value;
+    total.value = selected?.dataset.total || "";
+    if (!packages.value) return;
+    document.getElementById("tv-price").textContent = price.format(selected.dataset.price);
+    document.getElementById("tv-fee").textContent = price.format(selected.dataset.fee);
+    document.getElementById("tv-pay-total").textContent = price.format(selected.dataset.total);
+  };
+  const filter = () => {
+    const placeholder = new Option(provider.value ? "Choose a package" : "Choose a provider first", "");
+    packages.replaceChildren(placeholder, ...choices.filter(option => option.dataset.provider === provider.value));
+    packages.disabled = !provider.value;
+    update();
+  };
+  provider.addEventListener("change", filter);
+  packages.addEventListener("change", update);
+  filter();
+})();
+</script>
+{% endif %}
 {% endblock %}

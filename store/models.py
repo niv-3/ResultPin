@@ -384,6 +384,8 @@ class CableTransaction(models.Model):
     cardnumber = models.CharField(max_length=50)  # Exact match with API
     phone = models.CharField(max_length=20)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    package_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    service_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     reference = models.CharField(max_length=100, unique=True)
     status = models.CharField(max_length=20, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)

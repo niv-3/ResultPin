@@ -13,6 +13,7 @@ from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.cache import never_cache
 
 from .models import CableTransaction, ElectricityTransaction, ExamTransaction, Product, ServicePlan, ServiceProvider, User
 
@@ -79,10 +80,15 @@ def available_options(kind):
 
 
 @login_required
+@never_cache
 def dashboard(request, kind):
     options = available_options(kind) if vtpass_enabled() else []
     if kind == "cable":
-        options = [{"id": plan.pk, "label": f"{plan.provider.name} - {plan.name} (₦{plan.selling_price:,.2f})"} for plan in options]
+        options = [{"id": plan.pk, "provider": plan.provider.name, "provider_id": plan.provider_id,
+                    "total": plan.selling_price, "package_amount": plan.market_price or plan.selling_price,
+                    "fee": plan.selling_price - (plan.market_price or plan.selling_price),
+                    "label": f"{plan.name} — total ₦{plan.selling_price:,.2f}"}
+                   for plan in options.select_related("provider").order_by("provider__order", "provider__name", "selling_price", "pk")]
     elif kind == "education":
         options = options.order_by("vendor_product_id", "pk") if vtpass_enabled() else []
     else:
@@ -197,9 +203,18 @@ def purchase(request, kind):
         extra = {"serviceID": service_id, "quantity": 1}
     elif kind == "cable":
         amount = option.selling_price
+        package_amount = option.market_price or amount
+        try:
+            agreed_total = Decimal(request.POST.get("expected_total", ""))
+        except InvalidOperation:
+            agreed_total = None
+        if agreed_total != amount or package_amount <= 0 or amount < package_amount:
+            messages.error(request, "Review the current package price and service fee before paying.")
+            return redirect(page)
         variation = option.vtpass_variation_code
         verify = {"serviceID": option.provider.vtpass_service_id, "billersCode": number}
-        details = {"service_plan": option, "cardnumber": number}
+        details = {"service_plan": option, "cardnumber": number,
+                   "package_amount": package_amount, "service_fee": amount - package_amount}
         extra = {"subscription_type": "change"}
     else:
         variation = request.POST.get("meter_type")
@@ -217,7 +232,7 @@ def purchase(request, kind):
         verify = {"serviceID": option.vtpass_service_id, "billersCode": number, "type": variation}
         details = {"meter_number": number, "meter_type": variation, "disco_id": option.pk}
         extra = {}
-    if kind == "cable" and not variation_price_available(option.provider.vtpass_service_id, variation, amount):
+    if kind == "cable" and not variation_price_available(option.provider.vtpass_service_id, variation, package_amount):
         messages.error(request, "This TV package or price is currently unavailable. Please try again later.")
         return redirect(page)
     if kind == "education" and not variation_price_available(service_id, variation, amount):
@@ -261,6 +276,8 @@ def purchase(request, kind):
         "variation_code": variation,
         "request_id": request_id, "amount": float(amount), "phone": phone, **extra,
     }
+    if kind == "cable":
+        payload["amount"] = float(package_amount)
     if verify:
         payload.update(serviceID=verify["serviceID"], billersCode=number)
     if kind == "cable" and payload["serviceID"] == "startimes":

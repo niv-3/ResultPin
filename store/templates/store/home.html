@@ -835,10 +835,22 @@ Buy WAEC and JAMB PINs.
   const freshness = 30_000;
 
   async function readService(url, signal) {
-    const response = await fetch(url, { signal, cache: "no-store" });
-    if (!response.ok) throw new Error("Service unavailable");
-    if (response.redirected) return { redirect: response.url };
-    return { page: new DOMParser().parseFromString(await response.text(), "text/html") };
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    const timer = setTimeout(abort, 15_000);
+    signal?.addEventListener("abort", abort, {once: true});
+    if (signal?.aborted) abort();
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal, cache: "no-store", credentials: "same-origin"
+      });
+      if (!response.ok) throw new Error("Service unavailable");
+      if (response.redirected) return { redirect: response.url };
+      return { page: new DOMParser().parseFromString(await response.text(), "text/html") };
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+    }
   }
 
   function prepareServices() {
