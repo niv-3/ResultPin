@@ -6,12 +6,10 @@ class PreviewPaymentsMiddleware:
     paused_routes = {
         "add_bank_account",
         "get_data_plans",
-        "initiate_cable_payment",
-        "initiate_education_payment",
-        "initiate_electricity_payment",
         "wallet_withdraw",
     }
     buyer_routes = {"initiate_service_payment", "wallet_fund_init"}
+    bill_routes = {"initiate_cable_payment", "initiate_education_payment", "initiate_electricity_payment"}
     settlement_routes = {"paystack_webhook", "verify_service_payment", "verify_wallet_funding"}
 
     def __init__(self, get_response):
@@ -23,7 +21,11 @@ class PreviewPaymentsMiddleware:
     def process_view(self, request, view_func, view_args, view_kwargs):
         route = request.resolver_match.url_name
         payment_enabled = getattr(settings, "BETA_PAYMENTS_ENABLED", False)
-        if route in self.buyer_routes and payment_enabled:
+        if route in self.bill_routes and not getattr(settings, "VTPASS_BILLS_ENABLED", False):
+            return JsonResponse(
+                {"status": False, "message": "Bill payments are currently unavailable."}, status=503,
+            )
+        if route in self.buyer_routes | self.bill_routes and payment_enabled:
             if request.user.is_authenticated and request.user.email.casefold() in settings.BETA_BUYER_EMAILS:
                 return None
             return JsonResponse(

@@ -27,7 +27,13 @@ BETA_PAYMENTS_ENABLED = (
     and PAYSTACK_PUBLIC_KEY.startswith("pk_live_")
     and bool(os.getenv("CHEAPDATAHUB_API_KEY"))
 )
-VTPASS_BILLS_ENABLED = False
+VTPASS_BILLS_ENABLED = (
+    os.getenv("VTPASS_BILLS_ENABLED", "").lower() == "true"
+    and not VTPASS_TEST_MODE
+    and BETA_PAYMENTS_ENABLED
+    and bool(VTPASS_API_KEY)
+    and bool(VTPASS_SECRET_KEY)
+)
 
 EMAIL_TIMEOUT = 8
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")

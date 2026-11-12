@@ -44,17 +44,18 @@ def vtpass_post(endpoint, payload):
     return data if isinstance(data, dict) else {}
 
 
-def exam_price_available(service_id, variation, amount):
+def variation_price_available(service_id, variation, amount):
     base = "https://sandbox.vtpass.com/api" if settings.VTPASS_TEST_MODE else "https://vtpass.com/api"
     try:
         response = requests.get(
             f"{base}/service-variations", params={"serviceID": service_id}, timeout=10,
+            headers={"api-key": settings.VTPASS_API_KEY, "public-key": settings.VTPASS_PUBLIC_KEY},
         )
         response.raise_for_status()
         for option in response.json()["content"]["variations"]:
             if option["variation_code"] == variation:
                 price = Decimal(option["variation_amount"])
-                return amount == price if service_id == "jamb" else amount >= price
+                return amount >= price if service_id == "waec" else amount == price
     except (requests.RequestException, ValueError, KeyError, TypeError, InvalidOperation):
         return False
     return False
@@ -67,7 +68,10 @@ def available_options(kind):
         is_active=True, category__is_active=True,
     ).exclude(vtpass_service_id="")
     if kind == "electricity":
-        return providers.filter(category__slug="electricity")
+        electricity = providers.filter(category__slug="electricity")
+        if not settings.VTPASS_TEST_MODE:
+            electricity = electricity.exclude(vtpass_service_id__in=("aba-electric", "kano-electric"))
+        return electricity
     return ServicePlan.objects.filter(
         is_active=True, provider__in=providers.filter(category__slug__in=TV_CATEGORY_SLUGS),
         selling_price__gt=0,
@@ -208,7 +212,10 @@ def purchase(request, kind):
         verify = {"serviceID": option.vtpass_service_id, "billersCode": number, "type": variation}
         details = {"meter_number": number, "meter_type": variation, "disco_id": option.pk}
         extra = {}
-    if kind == "education" and not exam_price_available(service_id, variation, amount):
+    if kind == "cable" and not variation_price_available(option.provider.vtpass_service_id, variation, amount):
+        messages.error(request, "This TV package or price is currently unavailable. Please try again later.")
+        return redirect(page)
+    if kind == "education" and not variation_price_available(service_id, variation, amount):
         messages.error(request, "This exam product or price is currently unavailable.")
         return redirect(page)
     if verify:
