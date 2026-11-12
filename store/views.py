@@ -1473,7 +1473,7 @@ def purchase_airtime(provider, provider_id, phone, amount, reference=None):
         txn = content.get("transactions", {}) if isinstance(content, dict) else {}
         if result.get("code") == "000" and txn.get("status") == "delivered":
             return {"status": "success"}
-        if result.get("code") in ("010", "011", "012", "013", "016", "017", "091") or txn.get("status") in ("failed", "reversed"):
+        if result.get("code") in ("010", "011", "012", "013", "016", "017", "018", "023", "027", "091") or txn.get("status") in ("failed", "reversed"):
             return {"status": "failed", "message": "The airtime purchase was unsuccessful."}
         return {"status": "pending"}
     print("=== HIT CHEAPDATA AIRTIME ENDPOINT ===")
