@@ -43,15 +43,13 @@
             <label for="bill-option" class="form-label">{% if kind == "cable" %}Package{% elif kind == "education" %}Exam product{% else %}Electricity provider{% endif %}</label>
             <select id="bill-option" name="selection" class="form-select" required>
               <option value="">Choose an option</option>
-              {% for option in options %}<option value="{{ option.id }}"{% if kind == "cable" %} data-provider="{{ option.provider_id }}" data-total="{{ option.total|stringformat:'.2f' }}" data-price="{{ option.package_amount|stringformat:'.2f' }}" data-fee="{{ option.fee|stringformat:'.2f' }}"{% endif %}>{{ option.label }}</option>{% endfor %}
+              {% for option in options %}<option value="{{ option.id }}"{% if kind == "cable" %} data-provider="{{ option.provider_id }}" data-total="{{ option.total|stringformat:'.2f' }}"{% endif %}>{{ option.label }}</option>{% endfor %}
             </select>
           </div>
           {% if kind == "cable" %}
           <input type="hidden" name="expected_total" id="tv-total">
           <div id="tv-breakdown" class="border rounded-3 p-3 mb-3" hidden aria-live="polite">
-            <div>Package price <strong id="tv-price"></strong></div>
-            <div>Service fee <strong id="tv-fee"></strong></div>
-            <div class="mt-2">Total to pay <strong id="tv-pay-total"></strong></div>
+            <div>Total to pay <strong id="tv-pay-total"></strong></div>
           </div>
           {% endif %}
           {% if kind != "education" %}
@@ -106,8 +104,6 @@
     breakdown.hidden = !packages.value;
     total.value = selected?.dataset.total || "";
     if (!packages.value) return;
-    document.getElementById("tv-price").textContent = price.format(selected.dataset.price);
-    document.getElementById("tv-fee").textContent = price.format(selected.dataset.fee);
     document.getElementById("tv-pay-total").textContent = price.format(selected.dataset.total);
   };
   const filter = () => {

@@ -85,9 +85,10 @@ def dashboard(request, kind):
     options = available_options(kind) if vtpass_enabled() else []
     if kind == "cable":
         options = [{"id": plan.pk, "provider": plan.provider.name, "provider_id": plan.provider_id,
-                    "total": plan.selling_price, "package_amount": plan.market_price or plan.selling_price,
-                    "fee": plan.selling_price - (plan.market_price or plan.selling_price),
-                    "label": f"{plan.name} — total ₦{plan.selling_price:,.2f}"}
+                    "total": plan.selling_price,
+                    "label": "{} — ₦{:,.2f}".format(
+                        re.sub(r"\s*-\s*(?:N|₦)?[\d,]+(?:\.\d+)?\s*(?:Naira)?(?=\s*(?:-|$))", "", plan.name, flags=re.I).strip(),
+                        plan.selling_price)}
                    for plan in options.select_related("provider").order_by("provider__order", "provider__name", "selling_price", "pk")]
     elif kind == "education":
         options = options.order_by("vendor_product_id", "pk") if vtpass_enabled() else []
