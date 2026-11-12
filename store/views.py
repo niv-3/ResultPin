@@ -1310,6 +1310,8 @@ def listed_service_plans(slug):
             plans = plans.exclude(provider__vendor__api_url="").filter(
                 provider__vendor__isnull=False,
             )
+        else:
+            plans = plans.order_by("provider__order", "provider__name", "selling_price", "pk")
 
     return plans
 
