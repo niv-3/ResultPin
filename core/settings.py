@@ -174,6 +174,7 @@ DATABASES = {
 # =========================================================
 
 AUTH_USER_MODEL = "store.User"
+AUTHENTICATION_BACKENDS = ["store.authentication.EmailOrPhoneBackend"]
 
 
 AUTH_PASSWORD_VALIDATORS = [

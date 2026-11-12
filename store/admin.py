@@ -2,8 +2,17 @@
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.admin.forms import AdminAuthenticationForm
+from django import forms
 from .models import *
 from .supplier_pricing import estimated_data_margin
+
+
+class AdminEmailLoginForm(AdminAuthenticationForm):
+    username = forms.EmailField(label="Admin email", widget=forms.EmailInput(attrs={"autofocus": True}))
+
+
+admin.site.login_form = AdminEmailLoginForm
 
 
 @admin.register(User)
@@ -11,12 +20,14 @@ class UserAdmin(BaseUserAdmin):
     list_display = (
         "username",
         "email",
+        "phone",
         "wallet_balance",
         "is_staff",
         "is_active",
         "date_joined",
     )
-    search_fields = ("username", "email")
+    search_fields = ("username", "email", "phone")
+    fieldsets = BaseUserAdmin.fieldsets + (("Phone sign-in", {"fields": ("phone",)}),)
     ordering = ("-date_joined",)
     
 

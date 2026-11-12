@@ -106,5 +106,5 @@ def callback(request):
     if user is None or not user.is_active:
         messages.error(request, "This account cannot sign in with Google.")
         return redirect("login")
-    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    login(request, user, backend="store.authentication.EmailOrPhoneBackend")
     return redirect(attempt.get("next") or "home")

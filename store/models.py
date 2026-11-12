@@ -16,6 +16,17 @@ class User(AbstractUser):
     Wallet balance is derived from ledger (never stored).
     """
     google_subject = models.CharField(max_length=255, unique=True, null=True, blank=True, editable=False)
+    phone = models.CharField(max_length=11, unique=True, null=True, blank=True)
+
+    def clean(self):
+        super().clean()
+        from .authentication import normalize_phone
+        if self.phone:
+            self.phone = normalize_phone(self.phone)
+            if not self.phone:
+                raise ValidationError({"phone": "Enter a valid Nigerian phone number."})
+        else:
+            self.phone = None
 
     @property
     def wallet_balance(self):

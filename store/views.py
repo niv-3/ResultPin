@@ -13,7 +13,8 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
-from django.db import transaction
+from django.db import transaction, IntegrityError
+from .authentication import normalize_phone
 from django.http import Http404, JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -1093,6 +1094,14 @@ def register(request):
         email = request.POST.get("email", "").strip().lower()
         password = request.POST.get("password")
         password2 = request.POST.get("password2")
+        phone = normalize_phone(request.POST.get("phone", ""))
+
+        if not phone:
+            messages.error(request, "Enter a valid Nigerian phone number.")
+            return redirect("register")
+        if User.objects.filter(phone=phone).exists():
+            messages.error(request, "Phone number already registered. Please sign in.")
+            return redirect("register")
 
         if not email or "@" not in email or not password:
             messages.error(request, "Valid email and password required.")
@@ -1120,6 +1129,9 @@ def register(request):
 
         request.session["pending_user"] = {
             "email": email,
+            "phone": phone,
+            "first_name": request.POST.get("first_name", "").strip(),
+            "last_name": request.POST.get("last_name", "").strip(),
             "password": password,
             "otp": otp,
             "expires_at": int(time.time()) + 600,
@@ -1163,12 +1175,20 @@ def verify_otp(request):
         password = data["password"]
         request.session.pop("pending_user", None)
 
-        user, created = User.objects.get_or_create(
-            username=email,
-            defaults={"email": email, "is_active": True}
-        )
-        user.set_password(password)
-        user.save(update_fields=["password", "is_active"])
+        if User.objects.filter(email__iexact=email).exists():
+            messages.error(request, "Email already registered. Please sign in.")
+            return redirect("login")
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=email, email=email, password=password,
+                    phone=data.get("phone"),
+                    first_name=data.get("first_name", ""),
+                    last_name=data.get("last_name", ""),
+                )
+        except IntegrityError:
+            messages.error(request, "Email or phone number already registered. Please sign in.")
+            return redirect("login")
 
         login(request, user)
         return redirect("home")
@@ -1218,7 +1238,7 @@ def custom_login(request):
         password = request.POST.get("password")
 
         if not email or not password:
-            messages.error(request, "Email and password required.")
+            messages.error(request, "Email or phone number and password required.")
             return redirect(request.get_full_path())
 
         user = authenticate(request, username=email, password=password)
