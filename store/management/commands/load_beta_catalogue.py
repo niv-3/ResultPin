@@ -10,6 +10,7 @@ class Command(BaseCommand):
     help = "Initialize the beta catalogue from a private Render secret file."
 
     def handle(self, *args, **options):
+        call_command("check_vtpass_connection")
         fixture = Path("/etc/secrets/kobotap-beta-catalogue.json")
         if not fixture.is_file():
             return
