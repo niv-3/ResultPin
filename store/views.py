@@ -1461,6 +1461,11 @@ def purchase_airtime(provider, provider_id, phone, amount, reference=None):
             return {"status": "failed", "message": "This airtime network is currently unavailable."}
         suffix = hashlib.sha256((reference or uuid.uuid4().hex).encode()).hexdigest()[:20]
         request_id = datetime.now(ZoneInfo("Africa/Lagos")).strftime("%Y%m%d%H%M") + suffix
+        if reference:
+            order = AirtimeTransaction.objects.filter(reference=reference).first()
+            if order:
+                request_id = order.supplier_reference or request_id
+                AirtimeTransaction.objects.filter(pk=order.pk).update(supplier_reference=request_id)
         result = vtpass_post("pay", {
             "request_id": request_id, "serviceID": service, "amount": float(amount), "phone": phone,
         })

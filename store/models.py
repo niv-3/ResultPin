@@ -288,6 +288,7 @@ class ExamTransaction(models.Model):
 
 
 class AirtimeTransaction(models.Model):
+    supplier_reference = models.CharField(max_length=100, blank=True)
     """
     Handles both Airtime (provider_id + amount) and Data Bundles (bundle_id)
     """
