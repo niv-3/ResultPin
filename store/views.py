@@ -103,7 +103,12 @@ RESELLER_HEADERS = {
 # ==============================
 # VIEWS
 # ==============================
+@never_cache
 def home(request):
+    if not request.user.is_authenticated and re.search(
+        r"Android|iPhone|iPad|iPod|Mobile", request.headers.get("User-Agent", ""), re.I
+    ):
+        return redirect("login")
     categories = ServiceCategory.objects.filter(is_active=True).exclude(slug="insurance").order_by("order", "pk")
     tv_category = categories.filter(slug="cable-tv").first() or categories.filter(slug__in=TV_CATEGORY_SLUGS).first()
     services = [

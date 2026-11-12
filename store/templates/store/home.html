@@ -8,6 +8,26 @@ Payvict | Digital Services Platform
 
 {% block extra_css %}
 
+{% if not user.is_authenticated %}
+<style>
+@media (max-width: 767.98px), (display-mode: standalone) {
+  body { visibility: hidden; }
+}
+</style>
+<script>
+(() => {
+  function requireMobileSignIn() {
+    if (matchMedia("(max-width: 767.98px)").matches ||
+        matchMedia("(display-mode: standalone)").matches) {
+      location.replace("{% url 'login' %}");
+    }
+  }
+  requireMobileSignIn();
+  window.addEventListener("pageshow", requireMobileSignIn);
+})();
+</script>
+{% endif %}
+
 <style>
 
 :root{

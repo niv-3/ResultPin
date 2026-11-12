@@ -35,6 +35,12 @@ class MobileAuthTests(SimpleTestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, "/")
 
+    def test_signed_out_phone_home_redirects_to_login(self):
+        response = self.client.get("/", HTTP_USER_AGENT="Mozilla/5.0 (Linux; Android 10) Mobile")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "/login/")
+        self.assertIn("no-store", response["Cache-Control"])
+
     def test_authenticated_json_refreshes_token(self):
         response = custom_login(self.request(authenticated=True))
         self.assertTrue(json.loads(response.content)["authenticated"])
@@ -150,3 +156,10 @@ class MobileSessionFlowTests(TestCase):
         self.assertIn("no-store", response["Cache-Control"])
         self.assertContains(response, 'method="post" action="/logout/"')
         self.assertNotContains(response, 'href="/logout/"')
+
+    def test_signed_in_phone_can_open_home(self):
+        self.sign_in()
+        self.assertEqual(self.client.get("/", HTTP_USER_AGENT="Android Mobile").status_code, 200)
+
+    def test_desktop_home_remains_public(self):
+        self.assertEqual(self.client.get("/", HTTP_USER_AGENT="Mozilla/5.0 (Windows NT 10.0)").status_code, 200)

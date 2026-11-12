@@ -448,6 +448,11 @@
 
         }
 
+        .mobile-login-brand { display: none; }
+        @media (max-width: 767.98px), (display-mode: standalone) {
+            .back-home, .desktop-login-brand { display: none; }
+            .mobile-login-brand { display: block; }
+        }
     </style>
 
 </head>
@@ -463,9 +468,12 @@
 
     <div class="login-brand">
 
-        <a href="{% url 'home' %}">
+        <a href="{% url 'home' %}" class="desktop-login-brand">
             {% include 'store/brand_logo.html' %}
         </a>
+        <div class="mobile-login-brand">
+            {% include 'store/brand_logo.html' %}
+        </div>
 
     </div>
 
