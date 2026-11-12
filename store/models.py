@@ -331,6 +331,15 @@ class BlogPost(models.Model):
     def __str__(self):
         return self.title
 
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse("blog_detail", kwargs={"slug": self.slug})
+
+    @property
+    def read_time(self):
+        from django.utils.html import strip_tags
+        return f"{max(1, (len(strip_tags(self.content).split()) + 199) // 200)} min read"
+
 
 class HeroBanner(models.Model):
     PAGE_CHOICES = (("home", "Home"), ("airtime", "Airtime"), ("data", "Data"), ("exams", "Exams"))

@@ -1553,12 +1553,38 @@ def airtime_buy(request, plan_id):
 
 def blog_list(request):
     posts = BlogPost.objects.filter(published=True).order_by("-created_at")
-    return render(request, "blog/blog_list.html", {"posts": posts})
+    return render(request, "blog/blog_list.html", {"posts": posts,
+        "canonical_url": request.build_absolute_uri(reverse("blog_list")),
+        "seo_description": "Practical Nigerian guides to choosing data bundles, paying electricity and cable TV bills, and checking WAEC results."})
 
 
 def blog_detail(request, slug):
     post = get_object_or_404(BlogPost, slug=slug, published=True)
-    return render(request, "blog/blog_detail.html", {"post": post})
+    from django.utils.html import strip_tags
+    from django.utils.text import Truncator
+    from django.utils.safestring import mark_safe
+    canonical = request.build_absolute_uri(post.get_absolute_url())
+    description = Truncator(strip_tags(post.content)).chars(155)
+    schema = {"@context": "https://schema.org", "@type": "BlogPosting", "headline": post.title,
+              "description": description, "datePublished": post.created_at.isoformat(),
+              "author": {"@type": "Organization", "name": "Payvict editorial team"},
+              "publisher": {"@type": "Organization", "name": "Payvict"},
+              "mainEntityOfPage": {"@type": "WebPage", "@id": canonical}}
+    return render(request, "blog/blog_detail.html", {"post": post, "canonical_url": canonical,
+        "seo_description": description, "article_schema": mark_safe(json.dumps(schema).replace("<", "\\u003c")),
+        "related_posts": BlogPost.objects.filter(published=True).exclude(pk=post.pk).order_by("-created_at")[:3]})
+
+
+def sitemap_xml(request):
+    urls = [request.build_absolute_uri(reverse(name)) for name in ("home", "blog_list", "faq_page")]
+    urls.extend(request.build_absolute_uri(post.get_absolute_url()) for post in BlogPost.objects.filter(published=True))
+    return render(request, "blog/sitemap.xml", {"urls": urls}, content_type="application/xml")
+
+
+def robots_txt(request):
+    from django.http import HttpResponse
+    sitemap = request.build_absolute_uri(reverse("sitemap_xml"))
+    return HttpResponse("User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /wallet/\nDisallow: /bills/\nDisallow: /service/pay/\nSitemap: " + sitemap + "\n", content_type="text/plain")
 
 
 def review_thank_you(request):

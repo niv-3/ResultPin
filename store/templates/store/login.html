@@ -327,6 +327,14 @@
             box-shadow:
                 0 10px 25px rgba(255,109,0,.20);
         }
+        .btn-login:active, .btn-login.is-signing {
+            transform:translateY(2px);background:var(--accent-dark);
+            box-shadow:inset 0 3px 6px rgba(0,0,0,.22);opacity:1;
+        }
+        .btn-login.is-signing {cursor:wait;}
+        .signin-spinner {display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;vertical-align:-2px;margin-right:8px;animation:signin-spin .7s linear infinite;}
+        @keyframes signin-spin {to{transform:rotate(360deg)}}
+        @media(prefers-reduced-motion:reduce){.signin-spinner{animation:none}}
 
 
         /* =========================
@@ -708,6 +716,7 @@
   const form = document.getElementById("signin-form");
   const button = form.querySelector('[type="submit"]');
   const status = document.getElementById("signin-status");
+  const buttonContent = button.innerHTML;
   const mobile = window.matchMedia("(max-width: 767.98px)");
   let busy = false;
   async function authFetch(url, options) {
@@ -735,20 +744,27 @@
   window.addEventListener("pageshow", event => {
     busy = false;
     button.disabled = false;
+    button.innerHTML = buttonContent;
+    button.classList.remove("is-signing");
+    form.removeAttribute("aria-busy");
+    status.hidden = true;
     if (event.persisted) refreshSession().catch(() => {});
   });
   form.addEventListener("submit", async event => {
-    if (!mobile.matches) return;
-    event.preventDefault();
-    if (busy) return;
+    if (busy) { event.preventDefault(); return; }
     busy = true;
     button.disabled = true;
+    button.classList.add("is-signing");
+    button.innerHTML = '<span class="signin-spinner" aria-hidden="true"></span>Signing in…';
     form.setAttribute("aria-busy", "true");
     status.hidden = false;
     status.textContent = "Signing in…";
+    if (!mobile.matches) return;
+    event.preventDefault();
+    let navigating = false;
     try {
       // Fetch the current token immediately before login, including after Back or another tab's login.
-      if (!await refreshSession()) return;
+      if (!await refreshSession()) { navigating = true; return; }
       const response = await authFetch(form.action || location.href, {
         method: "POST", body: new FormData(form),
         headers: {Accept: "application/json"}, credentials: "same-origin", cache: "no-store"
@@ -761,14 +777,19 @@
         throw new Error("Sign-in is temporarily unavailable. Please try again.");
       });
       if (!response.ok) throw new Error(result.message || "Unable to sign in. Please try again.");
+      navigating = true;
       location.replace(result.redirect);
     } catch (error) {
       status.textContent = error.name === "AbortError" ? "Connection is taking too long. Please try again." :
         error instanceof TypeError ? "Connection lost. Please try again." : error.message;
     } finally {
-      busy = false;
-      button.disabled = false;
-      form.removeAttribute("aria-busy");
+      if (!navigating) {
+        busy = false;
+        button.disabled = false;
+        button.innerHTML = buttonContent;
+        button.classList.remove("is-signing");
+        form.removeAttribute("aria-busy");
+      }
     }
   });
 })();
