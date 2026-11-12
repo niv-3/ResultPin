@@ -198,6 +198,9 @@
 }
 
 .plan-card{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
     border:1px solid var(--border);
     background:#fff;
     border-radius:16px;
@@ -224,6 +227,7 @@
 }
 
 .plan-price{
+    margin-top:auto;
     font-size:1.25rem;
     font-weight:850;
     color:var(--primary);
@@ -287,7 +291,7 @@
     }
 
     .plan-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
+        grid-template-columns:repeat(3,minmax(0,1fr));
     }
 
 
@@ -310,10 +314,19 @@
         margin-top:24px;
     }
 
-    .provider-grid,
-    .plan-grid{
+    .provider-grid{
         grid-template-columns:1fr 1fr;
     }
+    .plan-grid{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:7px;
+    }
+    .plan-card{padding:10px 7px;border-radius:12px;}
+    .plan-card h4{font-size:.74rem;line-height:1.3;overflow-wrap:anywhere;}
+    .plan-validity{font-size:.65rem;line-height:1.35;margin-bottom:8px;}
+    .plan-price{font-size:1rem;margin-bottom:7px;white-space:nowrap;}
+    .plan-meta{gap:4px;}
+    .plan-badge{font-size:.56rem;padding:3px 5px;max-width:100%;white-space:normal;}
 
     .flow-card{
         padding:20px;
@@ -608,7 +621,7 @@
                         cardProviderId === selectedProviderId
                     ) {
 
-                        card.style.display = "block";
+                        card.style.display = "flex";
                         visiblePlans += 1;
 
                     } else {
