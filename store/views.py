@@ -7,10 +7,13 @@ from decimal import Decimal, InvalidOperation
 import re
 import time
 import random
+import secrets
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login, logout, authenticate
+from django.contrib.auth.hashers import make_password
+from django.core.validators import validate_email
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
 from django.db import transaction, IntegrityError
@@ -1106,6 +1109,7 @@ def send_otp(email: str, otp: str):
     )
 
 
+@never_cache
 @csrf_protect
 def register(request):
     if request.user.is_authenticated:
@@ -1124,7 +1128,11 @@ def register(request):
             messages.error(request, "Phone number already registered. Please sign in.")
             return redirect("register")
 
-        if not email or "@" not in email or not password:
+        try:
+            validate_email(email)
+        except ValidationError:
+            email = ""
+        if not email or not password:
             messages.error(request, "Valid email and password required.")
             return redirect("register")
 
@@ -1140,7 +1148,7 @@ def register(request):
             messages.error(request, "Email already registered.")
             return redirect("register")
 
-        otp = str(random.randint(100000, 999999))
+        otp = str(secrets.randbelow(900000) + 100000)
 
         try:
             send_otp(email, otp)
@@ -1153,7 +1161,7 @@ def register(request):
             "phone": phone,
             "first_name": request.POST.get("first_name", "").strip(),
             "last_name": request.POST.get("last_name", "").strip(),
-            "password": password,
+            "password_hash": make_password(password),
             "otp": otp,
             "expires_at": int(time.time()) + 600,
             "attempts": 0,
@@ -1161,19 +1169,28 @@ def register(request):
         }
         request.session.modified = True
 
+        # Reset any short expiry inherited from an earlier authenticated session.
+        request.session.set_expiry(3600)
         messages.success(request, "Verification code sent!")
         return redirect("verify_otp")
 
     return render(request, "store/register.html", {"password_symbol_pattern": SIGNUP_PASSWORD_SYMBOL_PATTERN, "google_enabled": google_enabled()})
 
 
+@never_cache
 @csrf_protect
 def verify_otp(request):
+    if request.user.is_authenticated:
+        return redirect("home")
     data = request.session.get("pending_user")
-    if not data or time.time() > data["expires_at"]:
+    if not data:
         request.session.pop("pending_user", None)
         messages.error(request, "Session expired. Please register again.")
         return redirect("register")
+
+    if request.method == "POST" and time.time() >= data["expires_at"]:
+        messages.error(request, "This code has expired. Request a new code below; your details are saved.")
+        return redirect("verify_otp")
 
     if request.method == "POST":
         otp_input = request.POST.get("otp", "").strip()
@@ -1193,7 +1210,7 @@ def verify_otp(request):
 
         # Success
         email = data["email"]
-        password = data["password"]
+        password_hash = data.get("password_hash") or make_password(data["password"])
         request.session.pop("pending_user", None)
 
         if User.objects.filter(email__iexact=email).exists():
@@ -1202,11 +1219,13 @@ def verify_otp(request):
         try:
             with transaction.atomic():
                 user = User.objects.create_user(
-                    username=email, email=email, password=password,
+                    username=email, email=email, password=None,
                     phone=data.get("phone"),
                     first_name=data.get("first_name", ""),
                     last_name=data.get("last_name", ""),
                 )
+                user.password = password_hash
+                user.save(update_fields=["password"])
         except IntegrityError:
             messages.error(request, "Email or phone number already registered. Please sign in.")
             return redirect("login")
@@ -1214,9 +1233,11 @@ def verify_otp(request):
         login(request, user)
         return redirect("home")
 
-    return render(request, "store/verify_otp.html")
+    return render(request, "store/verify_otp.html", {"otp_expires_at": data["expires_at"], "otp_server_now": int(time.time())})
 
 
+@never_cache
+@require_POST
 @csrf_protect
 def resend_otp(request):
     data = request.session.get("pending_user")
@@ -1229,7 +1250,7 @@ def resend_otp(request):
         messages.error(request, "Max resends reached.")
         return redirect("register")
 
-    new_otp = str(random.randint(100000, 999999))
+    new_otp = str(secrets.randbelow(900000) + 100000)
     try:
         send_otp(data["email"], new_otp)
     except OSError:
@@ -1245,6 +1266,7 @@ def resend_otp(request):
     request.session["pending_user"] = data
     request.session.modified = True
 
+    request.session.set_expiry(3600)
     messages.success(request, "New code sent!")
     return redirect("verify_otp")
 

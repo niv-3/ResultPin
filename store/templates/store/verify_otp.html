@@ -381,12 +381,10 @@
 
                 <span id="resend-link-wrapper">
 
-                    <a
-                        href="{% url 'resend_otp' %}"
-                        id="resend-link"
-                    >
-                        Resend OTP
-                    </a>
+                    <form method="post" action="{% url 'resend_otp' %}" style="display:inline">
+                        {% csrf_token %}
+                        <button type="submit" id="resend-link" style="border:0;background:none;color:inherit;font:inherit">Resend OTP</button>
+                    </form>
 
                 </span>
 
@@ -421,63 +419,37 @@
 
 <script>
 
-let remainingSeconds = 600;
-
-const countdown =
-    document.getElementById("countdown");
-
-const resendLink =
-    document.getElementById("resend-link");
-
-
-function updateCountdown(){
-
-    const minutes =
-        Math.floor(
-            remainingSeconds / 60
-        );
-
-    const seconds =
-        remainingSeconds % 60;
-
-
-    countdown.textContent =
-        `Code expires in ${minutes}:${seconds
-            .toString()
-            .padStart(2,"0")}`;
-
-
-    if(remainingSeconds <= 0){
-
-        countdown.textContent =
-            "Verification code may have expired.";
-
-        if(resendLink){
-            resendLink.style.color =
-                "#ff6d00";
-        }
-
-        clearInterval(timer);
-
-        return;
-    }
-
-
-    remainingSeconds -= 1;
-
+const countdown = document.getElementById("countdown");
+const deadline = Date.now() + Math.max(0, {{ otp_expires_at }} - {{ otp_server_now }}) * 1000;
+function updateCountdown() {
+    const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    countdown.textContent = remaining > 0
+        ? `Code expires in ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`
+        : "Code expired. Tap Resend OTP to get a new code. Your details are saved.";
 }
-
-
 updateCountdown();
-
-const timer =
-    setInterval(
-        updateCountdown,
-        1000
-    );
-
+setInterval(updateCountdown, 1000);
+document.addEventListener("visibilitychange", updateCountdown);
+window.addEventListener("pageshow", updateCountdown);
 </script>
 
+<script>
+document.querySelectorAll('form[method="post"]').forEach(form => {
+    form.addEventListener('submit', event => {
+        if (form.dataset.submitting) { event.preventDefault(); return; }
+        form.dataset.submitting = '1';
+        const button = form.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = 'Please wait…'; }
+    });
+});
+window.addEventListener('pageshow', () => {
+    document.querySelectorAll('form[data-submitting]').forEach(form => {
+        delete form.dataset.submitting;
+        const button = form.querySelector('button[type="submit"]');
+        if (button) { button.disabled = false; button.textContent = form.action.includes('resend-otp') ? 'Resend OTP' : "Verify code"; }
+    });
+});
+</script>
 </body>
 
 </html>

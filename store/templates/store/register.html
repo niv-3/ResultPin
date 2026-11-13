@@ -533,6 +533,23 @@ password.addEventListener("input", updatePasswordRules);
 updatePasswordRules();
 </script>
 
+<script>
+document.querySelectorAll('form[method="post"]').forEach(form => {
+    form.addEventListener('submit', event => {
+        if (form.dataset.submitting) { event.preventDefault(); return; }
+        form.dataset.submitting = '1';
+        const button = form.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = 'Please wait…'; }
+    });
+});
+window.addEventListener('pageshow', () => {
+    document.querySelectorAll('form[data-submitting]').forEach(form => {
+        delete form.dataset.submitting;
+        const button = form.querySelector('button[type="submit"]');
+        if (button) { button.disabled = false; button.textContent = form.action.includes('resend-otp') ? 'Resend OTP' : "Create account"; }
+    });
+});
+</script>
 </body>
 
 </html>
