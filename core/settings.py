@@ -345,7 +345,7 @@ SESSION_SAVE_EVERY_REQUEST = False
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 # Real user activity refreshes the session; passive background requests do not.
-SESSION_IDLE_TIMEOUT = 60
+SESSION_IDLE_TIMEOUT = 15 * 60
 # Anonymous verification/OAuth sessions need time to complete sign-in.
 # Authenticated sessions receive the shorter idle expiry in the middleware.
 SESSION_COOKIE_AGE = 3600
