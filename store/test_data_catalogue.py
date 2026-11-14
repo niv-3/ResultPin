@@ -18,6 +18,8 @@ class ExpandedDataCatalogueTests(TestCase):
         Vendor.objects.create(name="CheapData", is_active=True)
         migration = importlib.import_module("store.migrations.0025_expand_available_data_catalogue")
         migration.expand_data(apps, SimpleNamespace(connection=SimpleNamespace(alias="default")))
+        importlib.import_module('store.migrations.0027_correct_mtn_competitive_prices').correct_prices(
+            apps, SimpleNamespace(connection=SimpleNamespace(alias='default')))
         self.plans = ServicePlan.objects.filter(provider__category__slug="internet-data", is_active=True).select_related("provider")
         self.user = User.objects.create_user(username="data-check", email="data-check@example.com")
         self.user.credit_wallet(2000000)
