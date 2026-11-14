@@ -1,0 +1,11 @@
+#payvict-install[hidden] { display: none !important; }
+#payvict-install { position: fixed; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1040; }
+#payvict-install-button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 15px; border: 1px solid #d9e3e8; border-radius: 24px; background: #fff; color: #0b2c3d; font: 600 14px system-ui, sans-serif; box-shadow: 0 3px 14px #0b2c3d18; cursor: pointer; }
+#payvict-install-button:active { transform: scale(.97); }
+#payvict-install-button:focus-visible, #payvict-install-help button:focus-visible { outline: 3px solid #ff6d00; outline-offset: 3px; }
+#payvict-install-help { width: min(90vw, 380px); box-sizing: border-box; padding: 24px; border: 0; border-radius: 18px; color: #0b2c3d; background: white; font: 16px/1.6 system-ui, sans-serif; box-shadow: 0 12px 50px #0003; }
+#payvict-install-help::backdrop { background: #0b2c3d88; }
+#payvict-install-help h2 { margin: 0 0 12px; font-size: 22px; }
+#payvict-install-help .install-hint { font-size: 14px; color: #596774; }
+#payvict-install-help button { min-height: 44px; padding: 9px 22px; border: 0; border-radius: 10px; background: #0b2c3d; color: white; font: 600 15px system-ui, sans-serif; cursor: pointer; }
+@media (display-mode: standalone), (display-mode: fullscreen) { #payvict-install { display: none !important; } }

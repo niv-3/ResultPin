@@ -10,6 +10,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0b2c3d">
     <link rel="manifest" href="{% url 'web_app_manifest' %}">
+    <link rel="stylesheet" href="{% static 'store/css/install-app.css' %}">
+    <script src="{% static 'store/js/install-app.js' %}" defer></script>
 
     <!-- Bootstrap -->
     <link
@@ -796,6 +798,7 @@
 })();
 </script>
 {% include 'store/_password_visibility.html' %}
+{% include 'store/_install_app.html' %}
 </body>
 
 </html>

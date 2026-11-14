@@ -10,6 +10,11 @@ def health(request):
     return HttpResponse("ok", content_type="text/plain")
 
 urlpatterns = [
+    path(
+        'service-worker.js',
+        TemplateView.as_view(template_name='store/service-worker.js', content_type='application/javascript'),
+        name='service_worker',
+    ),
     path("health/", health),
     path(
         "manifest.webmanifest",
