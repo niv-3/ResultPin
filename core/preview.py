@@ -26,16 +26,16 @@ class PreviewPaymentsMiddleware:
                 {"status": False, "message": "Bill payments are currently unavailable."}, status=503,
             )
         if route in self.buyer_routes | self.bill_routes and payment_enabled:
-            if request.user.is_authenticated and request.user.email.casefold() in settings.BETA_BUYER_EMAILS:
+            if request.user.is_authenticated:
                 return None
             return JsonResponse(
-                {"status": False, "message": "Payments are available to invited Payvict testers."},
-                status=403,
+                {"status": False, "message": "Please sign in to make a payment."},
+                status=401,
             )
         if route in self.paused_routes or (
-            not payment_enabled and route in self.buyer_routes | self.settlement_routes
+            not payment_enabled and route in self.buyer_routes | self.bill_routes | self.settlement_routes
         ):
             return JsonResponse(
-                {"status": False, "message": "Payments are paused on the Payvict preview."},
+                {"status": False, "message": "Payments are currently paused."},
                 status=503,
             )
