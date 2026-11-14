@@ -64,3 +64,41 @@ class SignupOtpTests(TestCase):
 
     def test_missing_session_redirects_safely(self):
         self.assertEqual(self.client.get("/verify-otp/").url,"/register/")
+
+    def test_validation_error_preserves_contact_fields_but_not_password(self):
+        payload = {"email": "signup@example.com", "phone": "08012345678",
+                   "first_name": "Test", "last_name": "Buyer",
+                   "password": "Strong-pass731!", "password2": "different"}
+        with patch("store.views.send_otp") as send:
+            with self.assertLogs("payvict.auth", level="WARNING") as logs:
+                response = self.client.post("/register/", payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Passwords do not match.")
+        self.assertContains(response, 'value="signup@example.com"')
+        self.assertContains(response, 'value="08012345678"')
+        self.assertContains(response, 'value="Buyer"')
+        self.assertNotContains(response, "Strong-pass731!")
+        self.assertNotIn("pending_user", self.client.session)
+        self.assertNotIn("signup@example.com", str(logs.output))
+        send.assert_not_called()
+
+    def test_delivery_failure_preserves_form_without_creating_account(self):
+        with patch("store.views.send_otp", side_effect=OSError("provider unavailable")):
+            response = self.client.post("/register/", {"email": "signup@example.com",
+                "phone": "08012345678", "first_name": "Test",
+                "password": "Strong-pass731!", "password2": "Strong-pass731!"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'value="signup@example.com"')
+        self.assertContains(response, "We couldn&#x27;t send your code")
+        self.assertFalse(get_user_model().objects.filter(email="signup@example.com").exists())
+
+    def test_signup_verification_then_phone_and_email_login(self):
+        self.signup()
+        code = self.client.session["pending_user"]["otp"]
+        self.assertEqual(self.client.post("/verify-otp/", {"otp": code}).status_code, 302)
+        for identifier in ("08012345678", "+2348012345678", "signup@example.com"):
+            self.client.logout()
+            response = self.client.post("/login/", {"username": identifier,
+                "password": "Strong-pass731!"}, HTTP_ACCEPT="application/json")
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.json()["authenticated"])

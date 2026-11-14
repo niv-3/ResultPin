@@ -8,6 +8,7 @@ import re
 import time
 import random
 import secrets
+import logging
 
 from django.conf import settings
 from django.contrib import messages
@@ -32,6 +33,8 @@ from datetime import timedelta
 from django.db.models import Sum
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
+
+auth_logger = logging.getLogger("payvict.auth")
 
 User = get_user_model()
 
@@ -1123,6 +1126,18 @@ def register(request):
     if request.user.is_authenticated:
         return redirect("wallet")
 
+    def invalid_signup(reason, message):
+        # Record the decision, never submitted identifiers, passwords or codes.
+        auth_logger.warning("Signup rejected: %s", reason)
+        messages.error(request, message)
+        return render_signup()
+
+    def render_signup():
+        return render(request, "store/register.html", {
+            "password_symbol_pattern": SIGNUP_PASSWORD_SYMBOL_PATTERN,
+            "google_enabled": google_enabled(), "sms_otp_enabled": sms_otp_enabled(),
+        })
+
     if request.method == "POST":
         email = request.POST.get("email", "").strip().lower()
         password = request.POST.get("password")
@@ -1130,42 +1145,35 @@ def register(request):
         phone = normalize_phone(request.POST.get("phone", ""))
 
         if not phone:
-            messages.error(request, "Enter a valid Nigerian phone number.")
-            return redirect("register")
+            return invalid_signup("invalid_phone", "Enter a valid Nigerian phone number.")
         if User.objects.filter(phone=phone).exists():
-            messages.error(request, "Phone number already registered. Please sign in.")
-            return redirect("register")
+            return invalid_signup("phone_registered", "Phone number already registered. Please sign in.")
 
         try:
             validate_email(email)
         except ValidationError:
             email = ""
         if not email or not password:
-            messages.error(request, "Valid email and password required.")
-            return redirect("register")
+            return invalid_signup("invalid_email_or_password", "Valid email and password required.")
 
         if password != password2:
-            messages.error(request, "Passwords do not match.")
-            return redirect("register")
+            return invalid_signup("password_mismatch", "Passwords do not match.")
 
         if not password_is_strong(password):
-            messages.error(request, "Password must be 8+ chars with uppercase, lowercase, number, and symbol.")
-            return redirect("register")
+            return invalid_signup("weak_password", "Password must be 8+ chars with uppercase, lowercase, number, and symbol.")
 
         if User.objects.filter(email=email).exists():
-            messages.error(request, "Email already registered.")
-            return redirect("register")
+            return invalid_signup("email_registered", "Email already registered.")
 
         otp = str(secrets.randbelow(900000) + 100000)
 
         channel = request.POST.get('otp_channel', 'sms' if sms_otp_enabled() else 'email')
         if channel not in ('sms', 'email'):
-            return redirect('register')
+            return invalid_signup('invalid_channel', 'Choose an available verification method.')
         try:
             send_signup_code({'email': email, 'phone': phone}, otp, channel)
         except OSError:
-            messages.error(request, "We couldn't send your code. Please try again or choose email verification.")
-            return redirect("register")
+            return invalid_signup("delivery_failed", "We couldn't send your code. Please try again or choose email verification.")
 
         request.session["pending_user"] = {
             "email": email,
@@ -1184,10 +1192,11 @@ def register(request):
 
         # Reset any short expiry inherited from an earlier authenticated session.
         request.session.set_expiry(3600)
+        auth_logger.info("Signup verification code sent: %s", channel)
         messages.success(request, "Verification code sent!")
         return redirect("verify_otp")
 
-    return render(request, "store/register.html", {"password_symbol_pattern": SIGNUP_PASSWORD_SYMBOL_PATTERN, "google_enabled": google_enabled(), "sms_otp_enabled": sms_otp_enabled()})
+    return render_signup()
 
 
 @never_cache
@@ -1243,6 +1252,7 @@ def verify_otp(request):
             messages.error(request, "Email or phone number already registered. Please sign in.")
             return redirect("login")
 
+        auth_logger.info("Signup verified successfully")
         login(request, user)
         return redirect("home")
 
@@ -1326,6 +1336,7 @@ def custom_login(request):
                 return JsonResponse({"authenticated": True, "redirect": destination})
             return redirect(next_url or "home")
 
+        auth_logger.warning("Login rejected: credentials_not_accepted")
         if wants_json:
             return JsonResponse({"message": "Email, phone number or password is incorrect."}, status=400)
         messages.error(request, "Invalid credentials.")

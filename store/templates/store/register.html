@@ -316,7 +316,7 @@
             {% if messages %}
                 {% for message in messages %}
                     {% if message.tags == "error" %}
-                        <div class="alert alert-danger mb-4 text-center fw-semibold">
+                        <div class="alert alert-danger mb-4 text-center fw-semibold" role="alert" tabindex="-1">
                             {{ message }}
                         </div>
                     {% endif %}
@@ -330,7 +330,7 @@
                 <p class="text-center text-muted my-3">or continue with email</p>
             {% endif %}
 
-            <form method="post" novalidate>
+            <form method="post">
 
                 {% csrf_token %}
 
@@ -478,7 +478,7 @@
                     <label><input type="radio" name="otp_channel" value="email"> Email instead</label>
                     {% else %}
                     <input type="hidden" name="otp_channel" value="email">
-                    <p class="small text-muted">Email. Phone verification is not available yet.</p>
+                    <p class="small text-muted">We send the code to your email. After verification, sign in with your phone number or email and password.</p>
                     {% endif %}
                 </fieldset>
 
@@ -541,13 +541,33 @@ function updatePasswordRules() {
     }
 }
 
-password.addEventListener("input", updatePasswordRules);
+password.addEventListener("input", () => {
+    password.setCustomValidity('');
+    document.querySelector('[name="password2"]').setCustomValidity('');
+    updatePasswordRules();
+});
+document.querySelector('[name="password2"]').addEventListener('input', event => event.target.setCustomValidity(''));
+const signupError = document.querySelector('[role="alert"]');
+if (signupError) signupError.focus();
 updatePasswordRules();
 </script>
 
 <script>
 document.querySelectorAll('form[method="post"]').forEach(form => {
     form.addEventListener('submit', event => {
+        if (!Object.values(passwordChecks).every(check => check(password.value))) {
+            event.preventDefault();
+            password.setCustomValidity('Use at least 8 characters with an uppercase letter, lowercase letter, number and symbol.');
+            password.reportValidity();
+            return;
+        }
+        const confirmation = form.elements.password2;
+        if (confirmation.value !== password.value) {
+            event.preventDefault();
+            confirmation.setCustomValidity('Passwords do not match.');
+            confirmation.reportValidity();
+            return;
+        }
         if (form.dataset.submitting) { event.preventDefault(); return; }
         form.dataset.submitting = '1';
         const button = form.querySelector('button[type="submit"]');

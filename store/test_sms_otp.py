@@ -90,6 +90,6 @@ class PhoneSignupTests(TestCase):
         with patch('store.views.send_sms_otp', side_effect=OSError('Unavailable')):
             response = self.client.post('/register/', {'email': 'signup@example.com', 'phone': '08012345678',
                 'password': 'Strong-pass731!', 'password2': 'Strong-pass731!', 'otp_channel': 'sms'})
-        self.assertEqual(response.url, '/register/')
+        self.assertEqual(response.status_code, 200)
         self.assertNotIn('pending_user', self.client.session)
         self.assertFalse(get_user_model().objects.filter(phone='08012345678').exists())
