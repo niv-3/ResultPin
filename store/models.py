@@ -10,6 +10,12 @@ from django.contrib.auth.models import AbstractUser
 ## ==================================================
 # CUSTOM USER
 # ==================================================
+class SmsOtpLimit(models.Model):
+    key = models.CharField(max_length=64, primary_key=True)
+    window_started_at = models.DateTimeField()
+    attempts = models.PositiveIntegerField(default=0)
+
+
 class User(AbstractUser):
     """
     Custom User model.

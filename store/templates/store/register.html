@@ -388,6 +388,7 @@
                         placeholder="Phone number"
                         value="{{ request.POST.phone }}"
                         autocomplete="tel"
+                        required
                     >
 
                 </div>
@@ -469,6 +470,17 @@
 
                 </div>
 
+
+                <fieldset class="mb-3">
+                    <legend class="field-label" style="font-size:inherit">Send verification code by</legend>
+                    {% if sms_otp_enabled %}
+                    <label class="me-3"><input type="radio" name="otp_channel" value="sms" checked> SMS to my phone</label>
+                    <label><input type="radio" name="otp_channel" value="email"> Email instead</label>
+                    {% else %}
+                    <input type="hidden" name="otp_channel" value="email">
+                    <p class="small text-muted">Email. Phone verification is not available yet.</p>
+                    {% endif %}
+                </fieldset>
 
                 <button
                     type="submit"

@@ -18,6 +18,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
 from django.db import transaction, IntegrityError
 from .authentication import normalize_phone
+from .sms_otp import send_sms_otp, sms_otp_enabled
 from django.http import Http404, JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -1109,6 +1110,13 @@ def send_otp(email: str, otp: str):
     )
 
 
+def send_signup_code(data, otp, channel):
+    if channel == 'sms':
+        send_sms_otp(data['phone'], otp)
+    else:
+        send_otp(data['email'], otp)
+
+
 @never_cache
 @csrf_protect
 def register(request):
@@ -1150,10 +1158,13 @@ def register(request):
 
         otp = str(secrets.randbelow(900000) + 100000)
 
+        channel = request.POST.get('otp_channel', 'sms' if sms_otp_enabled() else 'email')
+        if channel not in ('sms', 'email'):
+            return redirect('register')
         try:
-            send_otp(email, otp)
+            send_signup_code({'email': email, 'phone': phone}, otp, channel)
         except OSError:
-            messages.error(request, "We couldn't send your verification email. Please try again later.")
+            messages.error(request, "We couldn't send your code. Please try again or choose email verification.")
             return redirect("register")
 
         request.session["pending_user"] = {
@@ -1166,6 +1177,8 @@ def register(request):
             "expires_at": int(time.time()) + 600,
             "attempts": 0,
             "resend_count": 0,
+            "otp_channel": channel,
+            "last_sent_at": int(time.time()),
         }
         request.session.modified = True
 
@@ -1174,7 +1187,7 @@ def register(request):
         messages.success(request, "Verification code sent!")
         return redirect("verify_otp")
 
-    return render(request, "store/register.html", {"password_symbol_pattern": SIGNUP_PASSWORD_SYMBOL_PATTERN, "google_enabled": google_enabled()})
+    return render(request, "store/register.html", {"password_symbol_pattern": SIGNUP_PASSWORD_SYMBOL_PATTERN, "google_enabled": google_enabled(), "sms_otp_enabled": sms_otp_enabled()})
 
 
 @never_cache
@@ -1233,7 +1246,9 @@ def verify_otp(request):
         login(request, user)
         return redirect("home")
 
-    return render(request, "store/verify_otp.html", {"otp_expires_at": data["expires_at"], "otp_server_now": int(time.time())})
+    channel = data.get('otp_channel', 'email')
+    destination = ('ending ' + data['phone'][-4:]) if channel == 'sms' else data['email']
+    return render(request, "store/verify_otp.html", {"otp_expires_at": data["expires_at"], "otp_server_now": int(time.time()), 'otp_channel': channel, 'otp_destination': destination})
 
 
 @never_cache
@@ -1250,11 +1265,18 @@ def resend_otp(request):
         messages.error(request, "Max resends reached.")
         return redirect("register")
 
+    channel = request.POST.get('otp_channel', data.get('otp_channel', 'email'))
+    if channel not in ('sms', 'email'):
+        return redirect('verify_otp')
+    if time.time() < data.get('last_sent_at', 0) + 60 and time.time() < data['expires_at']:
+        messages.error(request, 'Please wait one minute before requesting another code.')
+        return redirect('verify_otp')
+
     new_otp = str(secrets.randbelow(900000) + 100000)
     try:
-        send_otp(data["email"], new_otp)
+        send_signup_code(data, new_otp, channel)
     except OSError:
-        messages.error(request, "We couldn't send your verification email. Please try again later.")
+        messages.error(request, "We couldn't send your code. Please try again or choose email below.")
         return redirect("verify_otp")
 
     data.update({
@@ -1262,6 +1284,8 @@ def resend_otp(request):
         "expires_at": int(time.time()) + 600,
         "resend_count": data["resend_count"] + 1,
         "attempts": 0,
+        "otp_channel": channel,
+        "last_sent_at": int(time.time()),
     })
     request.session["pending_user"] = data
     request.session.modified = True

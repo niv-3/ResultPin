@@ -289,12 +289,15 @@
             </div>
 
             <h1>
-                Verify your email
+                {% if otp_channel == 'sms' %}Verify your phone{% else %}Verify your email{% endif %}
             </h1>
 
             <p>
-                We sent a 6-digit verification code to your email.
-                Check your spam folder if you don’t see it.
+                {% if otp_channel == 'sms' %}
+                We sent a 6-digit code by SMS to your phone {{ otp_destination }}.
+                {% else %}
+                We sent a 6-digit code to {{ otp_destination }}. Check your spam folder if you don’t see it.
+                {% endif %}
             </p>
 
         </div>
@@ -380,6 +383,13 @@
             <div class="verify-links">
 
                 <span id="resend-link-wrapper">
+                    {% if otp_channel == 'sms' %}
+                    <form method="post" action="{% url 'resend_otp' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="otp_channel" value="email">
+                        <button type="submit" style="border:0;background:none;color:inherit;font:inherit">Can't receive SMS? Send by email instead</button>
+                    </form>
+                    {% endif %}
 
                     <form method="post" action="{% url 'resend_otp' %}" style="display:inline">
                         {% csrf_token %}
@@ -435,6 +445,8 @@ window.addEventListener("pageshow", updateCountdown);
 
 <script>
 document.querySelectorAll('form[method="post"]').forEach(form => {
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.dataset.label = submitButton.textContent;
     form.addEventListener('submit', event => {
         if (form.dataset.submitting) { event.preventDefault(); return; }
         form.dataset.submitting = '1';
@@ -446,7 +458,7 @@ window.addEventListener('pageshow', () => {
     document.querySelectorAll('form[data-submitting]').forEach(form => {
         delete form.dataset.submitting;
         const button = form.querySelector('button[type="submit"]');
-        if (button) { button.disabled = false; button.textContent = form.action.includes('resend-otp') ? 'Resend OTP' : "Verify code"; }
+        if (button) { button.disabled = false; button.textContent = button.dataset.label || 'Verify code'; }
     });
 });
 </script>

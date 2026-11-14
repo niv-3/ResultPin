@@ -364,3 +364,10 @@ DATA_QUOTE_GUARD_ENABLED = os.getenv("DATA_QUOTE_GUARD_ENABLED", "False").lower(
 GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
 GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
 GOOGLE_OAUTH_REDIRECT_URI = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "")
+
+# Enable only after the SMS account, transactional route and sender are approved.
+SMS_OTP_ENABLED = os.getenv('SMS_OTP_ENABLED', 'false').lower() == 'true'
+TERMII_API_KEY = os.getenv('TERMII_API_KEY', '')
+TERMII_SENDER_ID = os.getenv('TERMII_SENDER_ID', '')
+TERMII_BASE_URL = os.getenv('TERMII_BASE_URL', '')
+SMS_OTP_HOURLY_LIMIT = int(os.getenv('SMS_OTP_HOURLY_LIMIT', '20'))
