@@ -102,3 +102,18 @@ class SignupOtpTests(TestCase):
                 "password": "Strong-pass731!"}, HTTP_ACCEPT="application/json")
             self.assertEqual(response.status_code, 200)
             self.assertTrue(response.json()["authenticated"])
+
+    def test_password_error_names_only_the_missing_requirement(self):
+        with patch("store.views.send_otp") as send:
+            response = self.client.post("/register/", {"email": "signup@example.com",
+                "phone": "08012345678", "password": "lowercase731!", "password2": "lowercase731!"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Your password still needs: a capital letter, such as A, B or C.")
+        send.assert_not_called()
+
+    def test_missing_password_requirements_are_precise(self):
+        from store.views import password_missing_requirements
+        self.assertEqual(password_missing_requirements("CAPITAL731!"), ["a small letter, such as a, b or c"])
+        self.assertEqual(password_missing_requirements("Capitalword!"), ["a number, such as 1, 2 or 3"])
+        self.assertEqual(password_missing_requirements("Capital731"), ["a symbol, such as !, @ or #"])
+        self.assertEqual(password_missing_requirements("Aa1!"), ["at least 8 characters"])
