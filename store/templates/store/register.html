@@ -441,16 +441,14 @@
                         </li>
 
                         <li id="rule-number">
-                            • A number, such as 1, 2 or 3
+                            • Contains a number
                         </li>
 
-                        <li id="rule-uppercase">• A capital letter, such as A, B or C</li>
-                        <li id="rule-lowercase">• A small letter, such as a, b or c</li>
-                        <li id="rule-symbol">• A symbol, such as !, @ or #</li>
+                        <li id="rule-uppercase">• Contains an uppercase letter</li>
+                        <li id="rule-lowercase">• Contains a lowercase letter</li>
+                        <li id="rule-symbol">• Contains a symbol such as !, @, #, or $</li>
 
                     </ul>
-                    <p class="small text-muted mt-2">Capital A and small a are different. Use both kinds of letters in your password.</p>
-                    <p id="password-missing" class="small mt-2" role="status" aria-live="polite" hidden></p>
 
                 </div>
 
@@ -537,24 +535,9 @@ const passwordChecks = {
     symbol: value => symbolPattern.test(value)
 };
 
-const passwordDescriptions = {
-    length: "at least 8 characters",
-    uppercase: "a capital letter, such as A, B or C",
-    lowercase: "a small letter, such as a, b or c",
-    number: "a number, such as 1, 2 or 3",
-    symbol: "a symbol, such as !, @ or #"
-};
-function missingPasswordRequirements() {
-    return Object.entries(passwordDescriptions)
-        .filter(([rule]) => !passwordChecks[rule](password.value))
-        .map(([, description]) => description);
-}
 function updatePasswordRules() {
     for (const [rule, check] of Object.entries(passwordChecks)) {
-        const item = document.getElementById("rule-" + rule);
-        const passed = check(password.value);
-        item.classList.toggle("valid", passed);
-        item.textContent = (passed ? "✓ " : "• ") + passwordDescriptions[rule][0].toUpperCase() + passwordDescriptions[rule].slice(1);
+        document.getElementById("rule-" + rule).classList.toggle("valid", check(password.value));
     }
 }
 
@@ -562,11 +545,6 @@ password.addEventListener("input", () => {
     password.setCustomValidity('');
     document.querySelector('[name="password2"]').setCustomValidity('');
     updatePasswordRules();
-    const guidance = document.getElementById('password-missing');
-    if (!guidance.hidden) {
-        const missing = missingPasswordRequirements();
-        guidance.textContent = missing.length ? 'Your password still needs: ' + missing.join('; ') + '.' : 'Your password meets all requirements.';
-    }
 });
 document.querySelector('[name="password2"]').addEventListener('input', event => event.target.setCustomValidity(''));
 const signupError = document.querySelector('[role="alert"]');
@@ -577,21 +555,16 @@ updatePasswordRules();
 <script>
 document.querySelectorAll('form[method="post"]').forEach(form => {
     form.addEventListener('submit', event => {
-        const missing = missingPasswordRequirements();
-        if (missing.length) {
+        if (!Object.values(passwordChecks).every(check => check(password.value))) {
             event.preventDefault();
-            const message = 'Your password still needs: ' + missing.join('; ') + '.';
-            const guidance = document.getElementById('password-missing');
-            guidance.hidden = false;
-            guidance.textContent = message;
-            password.setCustomValidity(message);
+            password.setCustomValidity('Use at least 8 characters with an uppercase letter, lowercase letter, number and symbol.');
             password.reportValidity();
             return;
         }
         const confirmation = form.elements.password2;
         if (confirmation.value !== password.value) {
             event.preventDefault();
-            confirmation.setCustomValidity('The two passwords are different. Type the same password in both boxes, using the same capital and small letters.');
+            confirmation.setCustomValidity('Passwords do not match.');
             confirmation.reportValidity();
             return;
         }

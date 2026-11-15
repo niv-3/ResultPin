@@ -1093,19 +1093,14 @@ def payment_success(request):
 SIGNUP_PASSWORD_SYMBOL_PATTERN = r"[!@#$%^&*()_+=\-{}[\]:;\"'<>,.?/]"
 
 
-def password_missing_requirements(password: str):
-    checks = (
-        (len(password) >= 8, "at least 8 characters"),
-        (re.search(r"[A-Z]", password), "a capital letter, such as A, B or C"),
-        (re.search(r"[a-z]", password), "a small letter, such as a, b or c"),
-        (re.search(r"[0-9]", password), "a number, such as 1, 2 or 3"),
-        (re.search(SIGNUP_PASSWORD_SYMBOL_PATTERN, password), "a symbol, such as !, @ or #"),
-    )
-    return [description for passed, description in checks if not passed]
-
-
 def password_is_strong(password: str) -> bool:
-    return not password_missing_requirements(password)
+    return (
+        len(password) >= 8
+        and re.search(r"[A-Z]", password)
+        and re.search(r"[a-z]", password)
+        and re.search(r"[0-9]", password)
+        and re.search(SIGNUP_PASSWORD_SYMBOL_PATTERN, password)
+    )
 
 
 def send_otp(email: str, otp: str):
@@ -1162,10 +1157,10 @@ def register(request):
             return invalid_signup("invalid_email_or_password", "Valid email and password required.")
 
         if password != password2:
-            return invalid_signup("password_mismatch", "Passwords do not match. Type the same password in both boxes, using the same capital and small letters.")
+            return invalid_signup("password_mismatch", "Passwords do not match.")
 
         if not password_is_strong(password):
-            return invalid_signup("weak_password", "Your password still needs: " + "; ".join(password_missing_requirements(password)) + ".")
+            return invalid_signup("weak_password", "Password must be 8+ chars with uppercase, lowercase, number, and symbol.")
 
         if User.objects.filter(email=email).exists():
             return invalid_signup("email_registered", "Email already registered.")
