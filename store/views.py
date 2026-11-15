@@ -57,6 +57,7 @@ from .bills import BILL_MODELS, TV_CATEGORY_SLUGS
 from .google_auth import google_enabled
 from .paystack import initialize_paystack, verify_paystack
 from .supplier_pricing import data_quote_allows_checkout
+from .data_routing import select_data_quote, order_supplier_snapshot, vend_data
 
 # views.py
 def get_service_type_from_plan(plan):
@@ -593,6 +594,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
         # ---------------------------------------------------------
         # VALIDATE PROVIDER CONFIG
         # ---------------------------------------------------------
+        supplier_snapshot = {}
         if service_type == "airtime":
             if not plan.vendor_provider_id:
                 return JsonResponse({
@@ -604,13 +606,18 @@ def initiate_service_payment(request, plan_id, category_slug=None):
             bundle_id = None
 
         else:
-            if not plan.vendor_bundle_id:
+            if settings.DYNAMIC_DATA_ROUTING:
+                selected_quote = select_data_quote(plan, payment_method)
+                if selected_quote is None:
+                    return JsonResponse({"status": False, "message": "This data bundle is temporarily unavailable."})
+                supplier_snapshot = order_supplier_snapshot(plan, selected_quote)
+            if not settings.DYNAMIC_DATA_ROUTING and not plan.vendor_bundle_id:
                 return JsonResponse({
                     "status": False,
                     "message": "This data bundle is not configured correctly."
                 })
 
-            if settings.DATA_QUOTE_GUARD_ENABLED and not data_quote_allows_checkout(plan, payment_method):
+            if not settings.DYNAMIC_DATA_ROUTING and settings.DATA_QUOTE_GUARD_ENABLED and not data_quote_allows_checkout(plan, payment_method):
                 return JsonResponse({
                     "status": False,
                     "message": "This data bundle is temporarily unavailable.",
@@ -638,7 +645,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
             )
 
             with transaction.atomic():
-
+                user = User.objects.select_for_update().get(pk=user.pk)
                 service_txn = AirtimeTransaction.objects.create(
                     user=user,
                     service_plan=plan,
@@ -649,6 +656,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                     status="pending",
                     provider_id=provider_id,
                     bundle_id=bundle_id,
+                    **supplier_snapshot,
                 )
 
                 user.debit_wallet(
@@ -678,6 +686,8 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                     if hasattr(api_response, "json"):
                         api_response = api_response.json()
 
+                elif service_txn.supplier_adapter:
+                    api_response = vend_data(service_txn)
                 else:
                     api_url = (
                         f"{RESELLER_BASE_URL.rstrip('/')}"
@@ -704,7 +714,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                             api_response = response.json()
                         except ValueError:
                             api_response = {
-                                "status": "false",
+                                "status": "pending",
                                 "message": (
                                     "Data service is temporarily unavailable."
                                 ),
@@ -718,7 +728,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                             )
 
                         api_response = {
-                            "status": "false",
+                            "status": "pending",
                             "message": (
                                 "Data service is temporarily unavailable."
                             ),
@@ -726,7 +736,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
 
             except requests.Timeout:
                 api_response = {
-                    "status": "false",
+                    "status": "pending" if service_type == "data" else "false",
                     "message": (
                         f"{service_type.capitalize()} provider timed out."
                     ),
@@ -740,7 +750,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                     )
 
                 api_response = {
-                    "status": "false",
+                    "status": "pending" if service_type == "data" else "false",
                     "message": (
                         f"{service_type.capitalize()} service "
                         "is temporarily unavailable."
@@ -755,7 +765,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                     )
 
                 api_response = {
-                    "status": "false",
+                    "status": "pending" if service_type == "data" else "false",
                     "message": (
                         f"{service_type.capitalize()} service "
                         "is temporarily unavailable."
@@ -764,7 +774,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
 
             if isinstance(api_response, dict) and api_response.get("status") == "pending":
                 return JsonResponse({
-                    "status": True, "message": "Your airtime purchase is being confirmed. Please check wallet history before trying again.",
+                    "status": True, "message": "Your purchase is being confirmed. Please check wallet history before trying again.",
                     "reference": reference, "redirect_url": reverse("wallet"),
                 })
 
@@ -786,7 +796,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                     update_fields=["status"]
                 )
 
-                reward = plan.reward_amount
+                reward = service_txn.cashback_snapshot if service_txn.cashback_snapshot is not None else plan.reward_amount
 
                 if reward > Decimal("0.00"):
                     user.credit_wallet(
@@ -885,6 +895,7 @@ def initiate_service_payment(request, plan_id, category_slug=None):
             status="pending",
             provider_id=provider_id,
             bundle_id=bundle_id,
+            **supplier_snapshot,
         )
 
         request.session[f"pending_service_{reference}"] = {
@@ -1014,6 +1025,8 @@ def complete_card_service_order(order, payment):
                 phone=order.phone, amount=airtime_face_value(plan, order.amount_paid),
                 reference=order.reference,
             )
+        elif order.supplier_adapter:
+            delivery = vend_data(order)
         else:
             response = requests.post(
                 f"{RESELLER_BASE_URL.rstrip('/')}/api/v1/resellers/data/purchase/",
@@ -1031,7 +1044,7 @@ def complete_card_service_order(order, payment):
     if status in ("true", "success"):
         with transaction.atomic():
             AirtimeTransaction.objects.filter(pk=order.pk).update(status="success")
-            reward = plan.reward_amount
+            reward = order.cashback_snapshot if order.cashback_snapshot is not None else plan.reward_amount
             if reward and not settings.PAYSTACK_SECRET_KEY.startswith("sk_test_"):
                 order.user.credit_wallet(
                     reward, source="cashback_reward", reference=f"REWARD-{order.reference}",
@@ -1362,7 +1375,11 @@ def listed_service_plans(slug):
     ).select_related("provider")
     if slug in ("airtime", "data", "internet-data"):
         vendor_id_field = "vendor_provider_id" if slug == "airtime" else "vendor_bundle_id"
-        plans = plans.filter(selling_price__gt=0, **{f"{vendor_id_field}__gt": 0})
+        plans = plans.filter(selling_price__gt=0)
+        if slug != "airtime" and settings.DYNAMIC_DATA_ROUTING:
+            plans = plans.filter(supplier_quotes__approved=True, supplier_quotes__available=True).distinct()
+        else:
+            plans = plans.filter(**{f"{vendor_id_field}__gt": 0})
         if slug == "airtime":
             plans = plans.exclude(provider__vendor__api_url="").filter(
                 provider__vendor__isnull=False,

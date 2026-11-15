@@ -20,7 +20,8 @@ BETA_PAYMENTS_ENABLED = (
     os.getenv("BETA_PAYMENTS_ENABLED") == "true"
     and PAYSTACK_SECRET_KEY.startswith("sk_live_")
     and PAYSTACK_PUBLIC_KEY.startswith("pk_live_")
-    and bool(os.getenv("CHEAPDATAHUB_API_KEY"))
+    and (bool(os.getenv("CHEAPDATAHUB_API_KEY")) or
+         (DYNAMIC_DATA_ROUTING and bool(NELLOBYTE_USER_ID and NELLOBYTE_API_KEY)))
 )
 VTPASS_BILLS_ENABLED = (
     os.getenv("VTPASS_BILLS_ENABLED", "").lower() == "true"

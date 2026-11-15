@@ -101,6 +101,28 @@ class Vendor(models.Model):
         return self.name
 
 
+class DataSupplier(models.Model):
+    ADAPTERS = (("cheapdata", "CheapDataHub"), ("nellobyte", "ClubKonnect / Nellobyte"),
+                ("bilalsada", "Bilalsadasub (not yet verified)"))
+    vendor = models.OneToOneField(Vendor, on_delete=models.CASCADE, related_name="data_supplier")
+    adapter = models.CharField(max_length=20, choices=ADAPTERS, unique=True)
+    enabled = models.BooleanField(default=False)
+    funded = models.BooleanField(default=False, help_text="Confirm usable supplier funds before enabling routing.")
+    funding_fee_rate = models.DecimalField(max_digits=6, decimal_places=5, default=Decimal("0.03"),
+        help_text="Fraction of purchase cost reserved for funding fees; 0.03 means 3%.")
+    purchase_fee = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
+    paused_until = models.DateTimeField(null=True, blank=True)
+
+    def clean(self):
+        if not Decimal("0") <= self.funding_fee_rate <= Decimal("1") or self.purchase_fee < 0:
+            raise ValidationError("Supplier fees must be non-negative and the funding rate at most 1.")
+        if self.adapter == "bilalsada" and self.enabled:
+            raise ValidationError("Bilalsadasub must stay disabled until its account API and purchase responses are verified.")
+
+    def __str__(self):
+        return str(self.vendor)
+
+
 # ==================================================
 # PRODUCT
 # ==================================================
@@ -260,6 +282,7 @@ class ServicePlan(models.Model):
 # BUSINESS TRANSACTIONS
 # ==================================================
 class SupplierQuote(models.Model):
+    network_code = models.CharField(max_length=20, blank=True, help_text="Supplier network ID. Required for Nellobyte; verify exact bundle type and validity before approval.")
     plan = models.ForeignKey(ServicePlan, on_delete=models.CASCADE, related_name="supplier_quotes")
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
     external_id = models.CharField(max_length=100)
@@ -294,6 +317,14 @@ class ExamTransaction(models.Model):
 
 
 class AirtimeTransaction(models.Model):
+    supplier_vendor = models.ForeignKey(Vendor, null=True, blank=True, on_delete=models.PROTECT)
+    supplier_adapter = models.CharField(max_length=20, blank=True)
+    supplier_external_id = models.CharField(max_length=100, blank=True)
+    supplier_network_code = models.CharField(max_length=20, blank=True)
+    supplier_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    supplier_total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    cashback_snapshot = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
     supplier_reference = models.CharField(max_length=100, blank=True)
     """
     Handles both Airtime (provider_id + amount) and Data Bundles (bundle_id)

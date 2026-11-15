@@ -11,7 +11,7 @@ WALLET_FUNDING_FEE_RATE = Decimal("0.055")
 SUPPLIER_FUNDING_FEE_RATE = Decimal("0.03")
 
 
-def estimated_data_margin(plan, cost, payment_method="wallet"):
+def estimated_data_margin(plan, cost, payment_method="wallet", supplier_total=None):
     price = plan.selling_price
     if price is None:
         return None
@@ -21,7 +21,7 @@ def estimated_data_margin(plan, cost, payment_method="wallet"):
         fee = min(Decimal("2000"), price * Decimal("0.015") + (100 if price >= 2500 else 0))
     else:
         fee = price * WALLET_FUNDING_FEE_RATE
-    supplier_funding = (cost * SUPPLIER_FUNDING_FEE_RATE).quantize(Decimal(".01"), rounding=ROUND_HALF_UP)
+    supplier_funding = (supplier_total - cost) if supplier_total is not None else (cost * SUPPLIER_FUNDING_FEE_RATE).quantize(Decimal(".01"), rounding=ROUND_HALF_UP)
     return spread - cashback - fee.quantize(Decimal(".01"), rounding=ROUND_HALF_UP) - supplier_funding
 
 

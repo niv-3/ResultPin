@@ -371,3 +371,8 @@ TERMII_API_KEY = os.getenv('TERMII_API_KEY', '')
 TERMII_SENDER_ID = os.getenv('TERMII_SENDER_ID', '')
 TERMII_BASE_URL = os.getenv('TERMII_BASE_URL', '')
 SMS_OTP_HOURLY_LIMIT = int(os.getenv('SMS_OTP_HOURLY_LIMIT', '20'))
+
+# Stage multi-supplier data routing until account prices and credentials are verified.
+DYNAMIC_DATA_ROUTING = os.getenv("DYNAMIC_DATA_ROUTING", "False").lower() == "true"
+NELLOBYTE_USER_ID = os.getenv("NELLOBYTE_USER_ID", "")
+NELLOBYTE_API_KEY = os.getenv("NELLOBYTE_API_KEY", "")
