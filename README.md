@@ -4,7 +4,9 @@
 
 ### [Visit the live app → payvict-app.onrender.com](https://payvict-app.onrender.com/)
 
-Payvict is a Django application for buying mobile data, paying electricity bills, renewing cable TV subscriptions and purchasing education PINs. Customers can register, fund a wallet through Paystack, choose a service and track their payments.
+Payvict brings everyday digital purchases into one responsive application. Customers can browse mobile data bundles, pay utility bills, renew cable TV subscriptions and purchase education PINs, with wallet funding and payment history in one place.
+
+Built with Django, the project demonstrates payment integrations, wallet accounting, third-party service APIs and a mobile-friendly checkout experience.
 
 This repository retains its original name, **ResultPin**. Payvict is the current product name; all current development lives here.
 
@@ -33,18 +35,7 @@ Public screens captured from the hosted app on 19 November 2026. Catalogue price
 
 Explicitly failed purchases use the refund flow. Uncertain provider responses remain pending for reconciliation to avoid treating a potentially delivered service as a failure.
 
-## Current service status
-
-| Area | Status |
-| --- | --- |
-| Mobile data | CheapDataHub is the current configured supplier. |
-| Electricity, cable TV and education | VTpass integration is implemented; live availability depends on account configuration, funding and the biller. |
-| Airtime | Implemented but currently paused while supplier costs and margins are reviewed. |
-| Phone verification by SMS | Prepared but not enabled; registration codes currently go to email. |
-| Multiple data suppliers | Routing backend is implemented and disabled by default pending supplier verification. |
-| Voice purchases | Documented proposal for future development. |
-
-The installed app uses the same web application and backend. It is a progressive web app, not a published native Play Store or App Store application.
+Payvict can be installed as a progressive web app, giving customers convenient access from their home screen on supported devices.
 
 ## Technology
 
