@@ -20,7 +20,6 @@
     <input id="recipient-phone" name="phone" type="tel" class="form-control" autocomplete="tel-national"
            inputmode="tel" maxlength="18" placeholder="08012345678" aria-describedby="phone-network" required>
     <p id="phone-network" class="small mt-2 mb-3" role="status" aria-live="polite">Enter the recipient’s number to check its network prefix.</p>
-    <label id="network-override-label" class="small mb-3" hidden><input id="network-override" type="checkbox"> This number was ported to {{ plan.provider.name }}.</label>
     <fieldset class="mb-3">
       <legend class="fs-6 fw-semibold">Payment method</legend>
       <label class="d-block mb-2"><input type="radio" name="payment_method" value="wallet" {% if request.user.wallet_balance >= plan.selling_price %}checked{% else %}disabled{% endif %}> Wallet · ₦{{ request.user.wallet_balance|floatformat:2 }}</label>
@@ -37,8 +36,6 @@
 const purchaseForm = document.getElementById("service-purchase");
 const recipientPhone = document.getElementById("recipient-phone");
 const networkHint = document.getElementById("phone-network");
-const networkOverride = document.getElementById("network-override");
-const networkOverrideLabel = document.getElementById("network-override-label");
 const selectedNetwork = "{{ plan.provider.name|escapejs }}".toUpperCase();
 // NCC mobile allocations, December 2023. Prefixes do not verify ported lines.
 const networkPrefixes = {
@@ -55,16 +52,15 @@ function checkPhoneNetwork() {
     const detected = valid ? Object.keys(networkPrefixes).find(key => networkPrefixes[key].includes(number.slice(0, 4))) : null;
     const chosen = /9MOBILE|T2/.test(selectedNetwork) ? "9MOBILE" : selectedNetwork;
     const mismatch = detected && detected !== chosen;
-    networkOverrideLabel.hidden = !mismatch;
     networkHint.textContent = !valid ? "Enter a valid 11-digit Nigerian number or +234 number." :
         !detected ? "Network prefix not recognised. Confirm the recipient uses " + selectedNetwork + "." :
-        mismatch ? "This prefix belongs to " + detected + ", but you selected " + selectedNetwork + ". Choose the correct provider unless the number was ported." :
-        detected + " prefix · Ported numbers may use a different network.";
-    recipientPhone.setCustomValidity(!valid ? "Enter a valid Nigerian phone number." : mismatch && !networkOverride.checked ? "Choose the correct provider or confirm this number was ported." : "");
+        mismatch ? "This is a " + detected + " number. Please choose " + detected + " instead of " + selectedNetwork + "." :
+        detected + " number";
+    networkHint.classList.toggle("text-danger", Boolean(mismatch));
+    recipientPhone.setCustomValidity(!valid ? "Enter a valid Nigerian phone number." : mismatch ? "Please choose " + detected + " for this number." : "");
     return number;
 }
-recipientPhone.addEventListener("input", () => { networkOverride.checked = false; checkPhoneNetwork(); });
-networkOverride.addEventListener("change", checkPhoneNetwork);
+recipientPhone.addEventListener("input", checkPhoneNetwork);
 purchaseForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const normalisedPhone = checkPhoneNetwork();
