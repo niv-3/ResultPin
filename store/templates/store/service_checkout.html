@@ -17,8 +17,10 @@
     {% csrf_token %}
     <input type="hidden" name="expected_price" value="{{ plan.selling_price|floatformat:'2u' }}">
     <label for="recipient-phone" class="form-label fw-semibold">Recipient phone number</label>
-    <input id="recipient-phone" name="phone" type="tel" class="form-control mb-3" autocomplete="tel-national"
-           inputmode="tel" pattern="0[0-9]{10}" maxlength="11" placeholder="08012345678" required>
+    <input id="recipient-phone" name="phone" type="tel" class="form-control" autocomplete="tel-national"
+           inputmode="tel" maxlength="18" placeholder="08012345678" aria-describedby="phone-network" required>
+    <p id="phone-network" class="small mt-2 mb-3" role="status" aria-live="polite">Enter the recipient’s number to check its network prefix.</p>
+    <label id="network-override-label" class="small mb-3" hidden><input id="network-override" type="checkbox"> This number was ported to {{ plan.provider.name }}.</label>
     <fieldset class="mb-3">
       <legend class="fs-6 fw-semibold">Payment method</legend>
       <label class="d-block mb-2"><input type="radio" name="payment_method" value="wallet" {% if request.user.wallet_balance >= plan.selling_price %}checked{% else %}disabled{% endif %}> Wallet · ₦{{ request.user.wallet_balance|floatformat:2 }}</label>
@@ -33,8 +35,40 @@
 {% block extra_js %}
 <script>
 const purchaseForm = document.getElementById("service-purchase");
+const recipientPhone = document.getElementById("recipient-phone");
+const networkHint = document.getElementById("phone-network");
+const networkOverride = document.getElementById("network-override");
+const networkOverrideLabel = document.getElementById("network-override-label");
+const selectedNetwork = "{{ plan.provider.name|escapejs }}".toUpperCase();
+// NCC mobile allocations, December 2023. Prefixes do not verify ported lines.
+const networkPrefixes = {
+    MTN: ["0703", "0704", "0706", "0707", "0803", "0806", "0810", "0813", "0814", "0816", "0903", "0906", "0913", "0916"],
+    AIRTEL: ["0701", "0708", "0802", "0808", "0812", "0901", "0902", "0904", "0907", "0911", "0912"],
+    GLO: ["0705", "0805", "0807", "0811", "0815", "0905", "0915"],
+    "9MOBILE": ["0809", "0817", "0818", "0908", "0909"],
+};
+function checkPhoneNetwork() {
+    let number = recipientPhone.value.replace(/[\s()-]/g, "");
+    if (number.startsWith("+234")) number = "0" + number.slice(4);
+    else if (number.startsWith("234")) number = "0" + number.slice(3);
+    const valid = /^0[789][01][0-9]{8}$/.test(number);
+    const detected = valid ? Object.keys(networkPrefixes).find(key => networkPrefixes[key].includes(number.slice(0, 4))) : null;
+    const chosen = /9MOBILE|T2/.test(selectedNetwork) ? "9MOBILE" : selectedNetwork;
+    const mismatch = detected && detected !== chosen;
+    networkOverrideLabel.hidden = !mismatch;
+    networkHint.textContent = !valid ? "Enter a valid 11-digit Nigerian number or +234 number." :
+        !detected ? "Network prefix not recognised. Confirm the recipient uses " + selectedNetwork + "." :
+        mismatch ? "This prefix belongs to " + detected + ", but you selected " + selectedNetwork + ". Choose the correct provider unless the number was ported." :
+        detected + " prefix · Ported numbers may use a different network.";
+    recipientPhone.setCustomValidity(!valid ? "Enter a valid Nigerian phone number." : mismatch && !networkOverride.checked ? "Choose the correct provider or confirm this number was ported." : "");
+    return number;
+}
+recipientPhone.addEventListener("input", () => { networkOverride.checked = false; checkPhoneNetwork(); });
+networkOverride.addEventListener("change", checkPhoneNetwork);
 purchaseForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const normalisedPhone = checkPhoneNetwork();
+    if (!purchaseForm.reportValidity()) return;
     const button = purchaseForm.querySelector("button");
     if (button.disabled) return;
     const message = document.getElementById("purchase-error");
@@ -47,7 +81,7 @@ purchaseForm.addEventListener("submit", async (event) => {
             method: "POST",
             headers: {"Content-Type": "application/json", "X-CSRFToken": fields.get("csrfmiddlewaretoken")},
             body: JSON.stringify({
-                phone: fields.get("phone"),
+                phone: normalisedPhone,
                 payment_method: fields.get("payment_method"),
                 expected_price: fields.get("expected_price"),
             }),
