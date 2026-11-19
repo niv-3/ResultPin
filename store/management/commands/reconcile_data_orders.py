@@ -8,14 +8,17 @@ from django.utils import timezone
 
 from store.data_routing import credentials_ready
 from store.models import AirtimeTransaction, WalletTransaction
+from store.data_reconciliation import reconcile_cheapdata
 
 
 class Command(BaseCommand):
     help = "Query uncertain Nellobyte orders; settle confirmed successes once. Never repeats a purchase."
 
     def handle(self, *args, **options):
+        cheapdata_settled = reconcile_cheapdata()
+        self.stdout.write(f"Confirmed {cheapdata_settled} CheapDataHub orders.")
         if not credentials_ready("nellobyte"):
-            raise CommandError("Nellobyte credentials are not configured.")
+            return
         orders = AirtimeTransaction.objects.filter(
             supplier_adapter="nellobyte", created_at__lte=timezone.now() - timedelta(minutes=2),
         ).filter(status="processing") | AirtimeTransaction.objects.filter(

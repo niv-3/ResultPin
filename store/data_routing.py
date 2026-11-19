@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .models import DataSupplier
+from .data_reconciliation import DATA_TIMEOUT, data_response
 from .supplier_pricing import MINIMUM_DATA_MARGIN, estimated_data_margin
 
 
@@ -93,7 +94,7 @@ def vend_data(order):
                 headers={"Authorization": f"Bearer {settings.CHEAPDATAHUB_API_KEY}",
                          "Content-Type": "application/json", "Accept": "application/json"},
                 json={"bundle_id": int(order.supplier_external_id), "phone_number": order.phone},
-                timeout=30, allow_redirects=False,
+                timeout=DATA_TIMEOUT, allow_redirects=False,
             )
         elif adapter == "nellobyte":
             response = requests.get(
@@ -102,10 +103,12 @@ def vend_data(order):
                         "MobileNetwork": order.supplier_network_code,
                         "DataPlan": order.supplier_external_id, "MobileNumber": order.phone,
                         "RequestID": order.reference},
-                timeout=30, allow_redirects=False,
+                timeout=DATA_TIMEOUT, allow_redirects=False,
             )
         else:
             return {"status": "failed"}
+        if adapter == "cheapdata":
+            return data_response(order, response)
         if response.status_code >= 300:
             return pending_delivery(order)
         payload = response.json()

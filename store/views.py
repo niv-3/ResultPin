@@ -33,6 +33,8 @@ from datetime import timedelta
 from django.db.models import Sum
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
+from .data_reconciliation import DATA_TIMEOUT, data_response, reconcile_cheapdata
 
 auth_logger = logging.getLogger("payvict.auth")
 
@@ -198,6 +200,9 @@ def wallet(request):
         if entry.status != "success":
             entry.payment_status = entry.status
     debits = {txn.reference: txn for txn in history if txn.transaction_type == "debit"}
+    data_orders = AirtimeTransaction.objects.filter(user=user, reference__in=debits)
+    for order in data_orders:
+        debits[order.reference].payment_status = order.status
     for kind, model in BILL_MODELS.items():
         bills = model.objects.filter(user=user, reference__in=debits)
         for bill in bills:
@@ -238,8 +243,17 @@ def wallet(request):
         "referral_earnings": referral_earnings,
         "wallet_transactions": wallet_transactions,
         "withdrawals_enabled": settings.WALLET_WITHDRAWALS_ENABLED,
+        "pending_data": AirtimeTransaction.objects.filter(user=user, payment_method="wallet", status="pending").exists(),
     }
     return render(request, "store/wallet.html", context)
+
+
+@login_required
+@require_POST
+def reconcile_wallet_data(request):
+    if not cache.add(f"data-reconcile-{request.user.pk}", True, 30):
+        return JsonResponse({"updated": False})
+    return JsonResponse({"updated": bool(reconcile_cheapdata(request.user.pk))})
 
 
 @login_required
@@ -646,6 +660,12 @@ def initiate_service_payment(request, plan_id, category_slug=None):
 
             with transaction.atomic():
                 user = User.objects.select_for_update().get(pk=user.pk)
+                if service_type == "data" and AirtimeTransaction.objects.filter(
+                    user=user, phone=phone, service_plan=plan, payment_method="wallet", status="pending",
+                ).exists():
+                    return JsonResponse({"status": False, "message": "This purchase is still being confirmed. Check wallet history before trying again."})
+                if service_type == "data" and not supplier_snapshot:
+                    supplier_snapshot = {"supplier_cost": plan.cost_price, "cashback_snapshot": plan.reward_amount}
                 service_txn = AirtimeTransaction.objects.create(
                     user=user,
                     service_plan=plan,
@@ -701,38 +721,11 @@ def initiate_service_payment(request, plan_id, category_slug=None):
                             "bundle_id": int(plan.vendor_bundle_id),
                             "phone_number": phone,
                         },
-                        timeout=30,
+                        timeout=DATA_TIMEOUT,
+                        allow_redirects=False,
                     )
 
-                    content_type = response.headers.get(
-                        "Content-Type",
-                        ""
-                    ).lower()
-
-                    if "application/json" in content_type:
-                        try:
-                            api_response = response.json()
-                        except ValueError:
-                            api_response = {
-                                "status": "pending",
-                                "message": (
-                                    "Data service is temporarily unavailable."
-                                ),
-                            }
-                    else:
-                        if settings.DEBUG:
-                            print(
-                                "Data provider returned non-JSON response:",
-                                response.status_code,
-                                response.text[:300],
-                            )
-
-                        api_response = {
-                            "status": "pending",
-                            "message": (
-                                "Data service is temporarily unavailable."
-                            ),
-                        }
+                    api_response = data_response(service_txn, response)
 
             except requests.Timeout:
                 api_response = {
@@ -1032,10 +1025,10 @@ def complete_card_service_order(order, payment):
                 f"{RESELLER_BASE_URL.rstrip('/')}/api/v1/resellers/data/purchase/",
                 headers=RESELLER_HEADERS,
                 json={"bundle_id": order.bundle_id or plan.vendor_bundle_id, "phone_number": order.phone},
-                timeout=30,
+                timeout=DATA_TIMEOUT, allow_redirects=False,
             )
             response.raise_for_status()
-            delivery = response.json()
+            delivery = data_response(order, response)
     except (requests.RequestException, ValueError, AttributeError):
         # Delivery may have happened before the provider timed out. Leave it for reconciliation.
         return True

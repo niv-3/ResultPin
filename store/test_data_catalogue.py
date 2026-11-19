@@ -42,7 +42,7 @@ class ExpandedDataCatalogueTests(TestCase):
         self.assertFalse(ServiceCategory.objects.filter(slug="airtime", is_active=True).exists())
 
     def test_every_bundle_simulates_wallet_checkout_and_correct_supplier_id(self):
-        response = Mock(headers={"Content-Type": "application/json"})
+        response = Mock(status_code=200, headers={"Content-Type": "application/json"})
         response.json.return_value = {"status": "success"}
         for plan in self.plans:
             with self.subTest(plan=plan.code), patch("store.views.requests.post", return_value=response) as supplier:
@@ -55,7 +55,7 @@ class ExpandedDataCatalogueTests(TestCase):
 
     def test_failed_data_purchase_returns_full_wallet_debit(self):
         plan = self.plans.first()
-        response = Mock(headers={"Content-Type": "application/json"})
+        response = Mock(status_code=200, headers={"Content-Type": "application/json"})
         response.json.return_value = {"status": "false", "message": "Unavailable"}
         before = self.user.wallet_balance
         with patch("store.views.requests.post", return_value=response):

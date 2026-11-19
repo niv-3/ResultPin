@@ -1107,6 +1107,33 @@ MOBILE
 
 {% block extra_js %}
 
+{% if pending_data %}
+<div role="status" class="container py-2">A data purchase is being confirmed. Please do not repeat it. Confirmed refunds will return to your wallet.</div>
+<form id="data-reconcile-form" hidden>{% csrf_token %}</form>
+<script>
+(() => {
+    let attempts = 0;
+    async function reconcile() {
+        if (document.hidden || attempts++ >= 6) return;
+        try {
+            const form = document.getElementById('data-reconcile-form');
+            const response = await fetch('{% url "reconcile_wallet_data" %}', {
+                method: 'POST', credentials: 'same-origin',
+                headers: {'X-CSRFToken': form.querySelector('input').value,
+                          'Accept': 'application/json', 'X-Payvict-Prefetch': '1'}
+            });
+            if (response.ok && (await response.json()).updated) {
+                window.location.reload();
+                return;
+            }
+        } catch (_) { /* Keep the pending entry visible; never repeat a purchase. */ }
+        setTimeout(reconcile, 30000);
+    }
+    reconcile();
+})();
+</script>
+{% endif %}
+
 <script>
 
 const copyButton =
