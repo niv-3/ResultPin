@@ -37,6 +37,7 @@ from django.core.cache import cache
 from .data_reconciliation import DATA_TIMEOUT, data_response, reconcile_cheapdata
 
 auth_logger = logging.getLogger("payvict.auth")
+delivery_logger = logging.getLogger("payvict.delivery")
 
 User = get_user_model()
 
@@ -1027,10 +1028,10 @@ def complete_card_service_order(order, payment):
                 json={"bundle_id": order.bundle_id or plan.vendor_bundle_id, "phone_number": order.phone},
                 timeout=DATA_TIMEOUT, allow_redirects=False,
             )
-            response.raise_for_status()
             delivery = data_response(order, response)
-    except (requests.RequestException, ValueError, AttributeError):
+    except (requests.RequestException, ValueError, AttributeError) as exc:
         # Delivery may have happened before the provider timed out. Leave it for reconciliation.
+        delivery_logger.warning("Card delivery uncertain reference=%s error=%s", order.reference, type(exc).__name__)
         return True
 
     status = str(delivery.get("status", "")).lower() if isinstance(delivery, dict) else ""
@@ -1044,6 +1045,10 @@ def complete_card_service_order(order, payment):
                     description=f"Cashback reward for {service_type} purchase",
                 )
     elif status in ("false", "failed"):
+        # Claim refund handling before calling Paystack. Never automatically repeat
+        # an uncertain refund request: Paystack may already have accepted it.
+        if not AirtimeTransaction.objects.filter(pk=order.pk, status="processing").update(status="refund_review"):
+            return True
         try:
             response = requests.post(
                 "https://api.paystack.co/refund",
@@ -1054,8 +1059,9 @@ def complete_card_service_order(order, payment):
             response.raise_for_status()
             if response.json().get("status") is True:
                 AirtimeTransaction.objects.filter(pk=order.pk).update(status="refund_pending")
+                delivery_logger.warning("Card refund requested reference=%s", order.reference)
         except (requests.RequestException, ValueError, AttributeError):
-            pass
+            delivery_logger.warning("Card refund requires review reference=%s", order.reference)
     return True
 
 

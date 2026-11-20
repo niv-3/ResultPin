@@ -17,17 +17,21 @@
             {% endif %}
         {% elif txn.status == "refund_pending" %}
             <h1 class="h4 fw-bold mb-2">Refund requested</h1>
-            <p class="text-muted">The provider reported a failed delivery. A card refund has been requested.</p>
+            <p class="text-muted">The provider reported a failed delivery. A refund to your original payment method has been requested.</p>
+        {% elif txn.status == "refund_review" %}
+            <h1 class="h4 fw-bold mb-2">Refund being checked</h1>
+            <p class="text-muted">Delivery failed. Contact support with the reference below to confirm your refund. Please do not pay again.</p>
         {% elif txn.status == "failed" %}
             <h1 class="h4 fw-bold mb-2">Purchase unsuccessful</h1>
             <p class="text-muted">If you were charged, contact support with your payment reference.</p>
         {% elif txn %}
             <h1 class="h4 fw-bold mb-2">Purchase pending</h1>
-            <p class="text-muted">Check Wallet History for the latest status before trying again.</p>
+            <p class="text-muted">Delivery has not been confirmed. Please do not pay again. Contact support with the reference below if this remains pending.</p>
         {% else %}
             <h1 class="h4 fw-bold mb-2">Payment details unavailable</h1>
         {% endif %}
 
+        {% if txn %}<p class="small text-break">Reference: {{ reference }}</p>{% endif %}
         <a href="{% url 'home' %}" class="btn btn-success fw-semibold px-4">
             Back to Home
         </a>
